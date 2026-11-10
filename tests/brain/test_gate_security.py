@@ -194,3 +194,22 @@ def test_reserved_words_around_safe_commands_allow(cfg):
 def test_invisible_characters_in_label_ask(label, cfg):
     d = classify_screen("click", "Mail", cfg, role="button", label=label)
     assert d.verdict == "ask" and d.pattern == ""
+
+
+# ── third automated security pass ──
+def test_quoted_cd_still_poisons_substitutions(cfg):
+    assert classify_shell("c''d ~/Documents && cat $(rm a.txt)", DEV, cfg).verdict == "ask"
+
+
+@pytest.mark.parametrize("cmd", ["npm rum build", "npm explore x -- sh", "npm run-script x", "git difftool",
+                                 "brew sh", "uv tool run x", "pip3 wheel x"])
+def test_only_listed_subcommands_are_rememberable(cmd, cfg):
+    d = classify_shell(cmd, DEV, cfg)
+    assert d.verdict == "ask" and d.pattern == ""
+
+
+@pytest.mark.parametrize("cmd,pattern", [("git push", "shell:git push"), ("brew install tmux", "shell:brew install"),
+                                         ("uv add x", "shell:uv add"), ("pip install x", "shell:pip install"),
+                                         ("uv pip install x", "shell:uv pip install")])
+def test_listed_subcommands_keep_their_pattern(cmd, pattern, cfg):
+    assert classify_shell(cmd, DEV, cfg).pattern == pattern

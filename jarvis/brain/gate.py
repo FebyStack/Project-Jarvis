@@ -147,13 +147,18 @@ _RUNNERS = {"sh", "bash", "zsh", "dash", "fish", "ksh", "csh", "tcsh", "env", "x
             "setopt", "ulimit", "umask"}
 _OPTION = re.compile(r"-[A-Za-z]+|--[a-z][a-z-]*(=.*)?")
 _NAV = {"cd", "pushd", "popd"}
-_NAV_WORD = re.compile(r"(?<![\w./-])(cd|pushd|popd)(?![\w-])")
 _RESERVED = {"!", "if", "then", "else", "elif", "do", "while", "until", "case", "select", "{", "}", "coproc",
              "fi", "done", "esac"}
-# Subcommands that run scripts or packages: never remembered, like _RUNNERS.
-_SUB_RUNNERS = {("uv", "run"), ("uv", "tool"), ("npm", "exec"), ("npm", "x"), ("npm", "run"), ("npm", "run-script"),
-                ("npm", "start"), ("npm", "test"), ("npm", "t"), ("npm", "restart"), ("npm", "stop"),
-                ("brew", "bundle")}
+# Only these subcommands can be remembered with "yes, always"; any other (run, exec, explore, aliases…) asks every time.
+_REMEMBERABLE = {
+    "git": {"push", "pull", "fetch", "commit", "add", "checkout", "switch", "merge", "rebase", "stash", "tag", "restore",
+            "reset", "rm", "mv", "init", "clone", "cherry-pick", "revert"},
+    "brew": {"install", "uninstall", "reinstall", "upgrade", "update", "cleanup", "tap", "untap"},
+    "npm": {"install", "i", "ci", "uninstall", "update"},
+    "pip": {"install", "uninstall", "download"},
+    "pip3": {"install", "uninstall", "download"},
+    "uv": {"add", "remove", "sync", "lock", "venv", "pip install", "pip uninstall", "pip list"},
+}
 _SYSTEM_BINS = {"/bin", "/usr/bin", "/usr/sbin", "/sbin", "/opt/homebrew/bin", "/usr/local/bin"}
 _SUDO = re.compile(r"(?<![\w-])sudo(?![\w-])")
 _SUBST = re.compile(r"[$<>]\(([^()]*)\)|`([^`]*)`")
@@ -223,8 +228,8 @@ def _classify_part(tokens: list[str], cwd: Path | None, cfg: GateConfig) -> Deci
         # Options before the subcommand, or options that run programs, change what the pattern means: never remember.
         if sub.startswith("-") or any(a.startswith(_EXEC_OPTIONS) for a in args[1:]):
             return Decision("ask", f"{cmd} with options that change what it runs")
-        if (cmd, sub) in _SUB_RUNNERS:
-            return Decision("ask", f"{cmd} {sub} runs scripts or packages")
+        if sub not in _REMEMBERABLE[cmd]:
+            return Decision("ask", f"{cmd} {sub} may run scripts or packages".replace("  ", " "))
         return _ask_unless_trusted(Decision("ask", why, f"shell:{cmd} {sub}".rstrip()), cfg)
     return _ask_unless_trusted(Decision("ask", f"unrecognised command: {cmd}", f"shell:{cmd}"), cfg)
 
@@ -233,13 +238,12 @@ def classify_shell(command: str, cwd: Path | None, cfg: GateConfig) -> Decision:
     command = command.replace("\\\n", "")  # backslash-newline joins lines, as in the shell
     if _SUDO.search(command):
         return Decision("never", "needs sudo; Febriel runs it himself")
-    # After cd/pushd/popd anywhere (even inside a substitution) the folder is unknown: relative paths cannot be judged.
-    cwd = None if cwd is None or _NAV_WORD.search(command) else Path(os.path.expanduser(str(cwd)))
+    cwd = None if cwd is None else Path(os.path.expanduser(str(cwd)))
 
     decisions: list[Decision] = []
     while m := _SUBST.search(command):  # innermost $(...), <(...), >(...), `...` first
         inner = m.group(1) if m.group(1) is not None else m.group(2)
-        decisions.append(classify_shell(inner, cwd, cfg))
+        decisions.append(classify_shell(inner, None, cfg))  # a cd elsewhere may run first: folder unknown
         command = f"{command[:m.start()]} {_SUB_PLACEHOLDER} {command[m.end():]}"
 
     try:
