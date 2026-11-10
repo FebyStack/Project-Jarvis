@@ -2,7 +2,7 @@
 
 Personal, local-only voice agent for Febriel's Mac (M4, macOS 26.4). Siri-style, gold ASCII terminal UI, Claude Code as the brain, remote from iPhone. English only. Subscription auth only — never API keys.
 
-Status (2026-11-10): design approved, Plan 1 written and awaiting Febriel's review. Nothing built or installed; not yet a git repo.
+Status (2026-11-10): Plan 1 Part A done and committed on `main` (vault writer, ask-first gate, voice state machine; 143 tests), after a fresh review and a security fix pass. **Task 6 (Spike 1) blocked:** the standalone `claude` CLI is not logged in (expired keychain credential); Febriel runs `claude` → `/login` in Terminal, then Task 6 resumes at Step 1. Tasks 7–12 need Febriel at the keyboard. Findings so far: `docs/spikes/findings.md`. Executor ledger (git-ignored): `.superpowers/sdd/2026-11-10-jarvis-plan-1-foundation-and-spikes/progress.md`.
 
 Run/test (once Plan 1 Task 1 is done): `uv run pytest -q`.
 
@@ -34,7 +34,8 @@ Run/test (once Plan 1 Task 1 is done): `uv run pytest -q`.
 ## Environment
 - Claude Code 2.1.312. Present: node, python3, ffmpeg, brew. Missing: tmux, tailscale, sox, whisper, agent-desktop.
 - Docker not needed so far.
-- Project dir is empty and not a git repo.
+- Git repo on `main` since Plan 1 Task 1; no remote. `uv` 0.12.5 was already installed.
+- The desktop app's child environment sets `CLAUDE_CODE_SIMPLE=1` (what `--bare` sets) and an `ANTHROPIC_BASE_URL` proxy; `jarvisd` must start `claude` with a scrubbed environment.
 
 ## Decisions
 - **Memory vault (confirmed 2026-11-10):** separate vault at `/Users/febrielotud/Obsidian/Jarvis` (`raw/`, `wiki/`, `outputs/`, `Home.md`), not a folder inside Astro. Layout follows the Instagram reference, confirmed by Febriel. Finished blueprints still go to Astro's `Claude Code/` per the global rule unless Febriel says otherwise.
