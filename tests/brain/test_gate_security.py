@@ -163,3 +163,34 @@ def test_write_tool_into_git_folder_asks(cfg):
     from jarvis.brain.gate import classify_path_write
     d = classify_path_write(DEV / "repo" / ".git" / "config", cfg)
     assert d.verdict == "ask" and d.pattern == ""
+
+
+# ── second automated security pass ──
+def test_cd_poisons_relative_paths_inside_substitutions(cfg):
+    assert classify_shell("cd ~/Documents && cat $(rm a.txt)", DEV, cfg).verdict == "ask"
+
+
+@pytest.mark.parametrize("cmd", ["uv run x.py", "npm exec evil", "npm run build", "npm x evil", "uv tool run evil",
+                                 "pip3 download x"])
+def test_subcommand_runners_never_rememberable(cmd, cfg):
+    d = classify_shell(cmd, DEV, cfg)
+    assert d.verdict == "ask" and (d.pattern == "" or cmd.startswith("pip3"))
+
+
+@pytest.mark.parametrize("cmd", ["if true; then rm ~/Documents/a; fi", "! rm ~/Documents/a", "{ rm ~/Documents/a; }",
+                                 "while true; do rm ~/Documents/a; done"])
+def test_reserved_words_do_not_hide_commands(cmd, cfg):
+    for word in ("if", "then", "!", "{", "while", "do"):
+        cfg.trusted.add(f"shell:{word}")
+    assert classify_shell(cmd, DEV, cfg).verdict == "ask"
+
+
+def test_reserved_words_around_safe_commands_allow(cfg):
+    assert classify_shell("if true; then ls; fi", DEV, cfg).verdict == "ask"  # `true` is not on the read-only list
+    assert classify_shell("{ ls; }", DEV, cfg).verdict == "allow"
+
+
+@pytest.mark.parametrize("label", ["Se­nd", "Del​ete", "Send‍"])
+def test_invisible_characters_in_label_ask(label, cfg):
+    d = classify_screen("click", "Mail", cfg, role="button", label=label)
+    assert d.verdict == "ask" and d.pattern == ""

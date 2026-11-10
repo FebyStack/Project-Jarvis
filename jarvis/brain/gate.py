@@ -147,6 +147,13 @@ _RUNNERS = {"sh", "bash", "zsh", "dash", "fish", "ksh", "csh", "tcsh", "env", "x
             "setopt", "ulimit", "umask"}
 _OPTION = re.compile(r"-[A-Za-z]+|--[a-z][a-z-]*(=.*)?")
 _NAV = {"cd", "pushd", "popd"}
+_NAV_WORD = re.compile(r"(?<![\w./-])(cd|pushd|popd)(?![\w-])")
+_RESERVED = {"!", "if", "then", "else", "elif", "do", "while", "until", "case", "select", "{", "}", "coproc",
+             "fi", "done", "esac"}
+# Subcommands that run scripts or packages: never remembered, like _RUNNERS.
+_SUB_RUNNERS = {("uv", "run"), ("uv", "tool"), ("npm", "exec"), ("npm", "x"), ("npm", "run"), ("npm", "run-script"),
+                ("npm", "start"), ("npm", "test"), ("npm", "t"), ("npm", "restart"), ("npm", "stop"),
+                ("brew", "bundle")}
 _SYSTEM_BINS = {"/bin", "/usr/bin", "/usr/sbin", "/sbin", "/opt/homebrew/bin", "/usr/local/bin"}
 _SUDO = re.compile(r"(?<![\w-])sudo(?![\w-])")
 _SUBST = re.compile(r"[$<>]\(([^()]*)\)|`([^`]*)`")
@@ -177,6 +184,10 @@ def _git_read_only(args: list[str]) -> bool:
 
 
 def _classify_part(tokens: list[str], cwd: Path | None, cfg: GateConfig) -> Decision:
+    while tokens and tokens[0] in _RESERVED:  # `then rm …`, `! rm …`: judge the command, not the keyword
+        tokens = tokens[1:]
+    if not tokens:
+        return Decision("allow", "shell keyword only")
     word, args = tokens[0], tokens[1:]
     cmd = os.path.basename(word)
     if cmd in _NEVER_CMDS or "sudo" in (os.path.basename(t) for t in tokens):
@@ -212,15 +223,18 @@ def _classify_part(tokens: list[str], cwd: Path | None, cfg: GateConfig) -> Deci
         # Options before the subcommand, or options that run programs, change what the pattern means: never remember.
         if sub.startswith("-") or any(a.startswith(_EXEC_OPTIONS) for a in args[1:]):
             return Decision("ask", f"{cmd} with options that change what it runs")
+        if (cmd, sub) in _SUB_RUNNERS:
+            return Decision("ask", f"{cmd} {sub} runs scripts or packages")
         return _ask_unless_trusted(Decision("ask", why, f"shell:{cmd} {sub}".rstrip()), cfg)
     return _ask_unless_trusted(Decision("ask", f"unrecognised command: {cmd}", f"shell:{cmd}"), cfg)
 
 
-def classify_shell(command: str, cwd: Path, cfg: GateConfig) -> Decision:
+def classify_shell(command: str, cwd: Path | None, cfg: GateConfig) -> Decision:
     command = command.replace("\\\n", "")  # backslash-newline joins lines, as in the shell
     if _SUDO.search(command):
         return Decision("never", "needs sudo; Febriel runs it himself")
-    cwd = Path(os.path.expanduser(str(cwd)))
+    # After cd/pushd/popd anywhere (even inside a substitution) the folder is unknown: relative paths cannot be judged.
+    cwd = None if cwd is None or _NAV_WORD.search(command) else Path(os.path.expanduser(str(cwd)))
 
     decisions: list[Decision] = []
     while m := _SUBST.search(command):  # innermost $(...), <(...), >(...), `...` first
@@ -293,8 +307,8 @@ def classify_screen(action: Literal["click", "type", "press", "scroll", "open", 
                     role: str = "", label: str = "", key: str = "", text: str = "") -> Decision:
     if action == "click":
         label = unicodedata.normalize("NFKC", label)
-        if any(not c.isascii() and unicodedata.category(c).startswith("L") for c in label):
-            return Decision("ask", f"click {label!r} in {app}: label has letters the gate cannot read")
+        if not label.isascii():  # look-alike letters, soft hyphens, zero-width marks: cannot be read reliably
+            return Decision("ask", f"click {label!r} in {app}: label has characters the gate cannot read")
         word = next((_ASK_FORMS[w] for w in re.findall(r"[a-z]+", label.lower()) if w in _ASK_FORMS), None)
         if word is None:
             return Decision("allow", f"click {label!r} in {app}")
