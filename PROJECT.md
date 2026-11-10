@@ -2,7 +2,7 @@
 
 Personal, local-only voice agent for Febriel's Mac (M4, macOS 26.4). Siri-style, gold ASCII terminal UI, Claude Code as the brain, remote from iPhone. English only. Subscription auth only — never API keys.
 
-Status (2026-11-10): Plan 1 Part A done and committed on `main` (vault writer, ask-first gate, voice state machine; 143 tests), after a fresh review and a security fix pass. **Task 6 (Spike 1) blocked:** the standalone `claude` CLI is not logged in (expired keychain credential); Febriel runs `claude` → `/login` in Terminal, then Task 6 resumes at Step 1. Tasks 7–12 need Febriel at the keyboard. Findings so far: `docs/spikes/findings.md`. Executor ledger (git-ignored): `.superpowers/sdd/2026-11-10-jarvis-plan-1-foundation-and-spikes/progress.md`.
+Status (2026-11-10): Plan 1 Part A done and committed on `main` (vault writer, ask-first gate, voice state machine; 158 tests), after a fresh review and a security fix pass. **Task 6 (Spike 1) blocked:** the standalone `claude` CLI is not logged in (expired keychain credential); Febriel runs `claude` → `/login` in Terminal, then Task 6 resumes at Step 1. Tasks 7–12 need Febriel at the keyboard. Findings so far: `docs/spikes/findings.md`. Executor ledger (git-ignored): `.superpowers/sdd/2026-11-10-jarvis-plan-1-foundation-and-spikes/progress.md`.
 
 Run/test (once Plan 1 Task 1 is done): `uv run pytest -q`.
 
