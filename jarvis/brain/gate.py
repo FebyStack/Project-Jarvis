@@ -195,3 +195,31 @@ def classify_shell(command: str, cwd: Path, cfg: GateConfig) -> Decision:
     if redirects:
         decisions.append(_judge_targets(">", redirects, cwd, cfg))
     return _strictest(decisions)
+
+
+# ── on screen and connector tools ────────────────────────────────────────────
+
+ASK_WORDS: tuple[str, ...] = ("send", "submit", "post", "publish", "pay", "buy", "delete", "remove", "confirm", "sign")
+_RETURN_KEYS = {"return", "enter"}
+
+
+def classify_screen(action: Literal["click", "type", "press", "scroll", "open", "drag"], app: str, cfg: GateConfig,
+                    role: str = "", label: str = "", key: str = "") -> Decision:
+    if action == "click":
+        word = next((w for w in re.findall(r"[a-z]+", label.lower()) if w in ASK_WORDS), None)
+        if word is None:
+            return Decision("allow", f"click {label!r} in {app}")
+        return _ask_unless_trusted(Decision("ask", f"click {label!r} in {app}", f"screen:{app}:{word}"), cfg)
+    if action == "press" and key.lower() in _RETURN_KEYS:
+        return _ask_unless_trusted(Decision("ask", f"press Return in {app}", f"screen:{app}:key:return"), cfg)
+    if action == "drag":  # a drop can move or delete files and the gate cannot see the destination
+        return _ask_unless_trusted(Decision("ask", f"drag in {app}", f"screen:{app}:drag"), cfg)
+    if action in ("type", "scroll", "open", "press"):
+        return Decision("allow", f"{action} in {app}")
+    return Decision("ask", f"unknown on-screen action {action!r}")
+
+
+def classify_tool(name: str, cfg: GateConfig) -> Decision:
+    if name in cfg.read_tools:
+        return Decision("allow", f"{name} only reads")
+    return _ask_unless_trusted(Decision("ask", f"{name} may write or send", f"tool:{name}"), cfg)
