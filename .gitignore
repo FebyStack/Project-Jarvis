@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+spikes/**/tmp/
+*.wav
+.DS_Store
+.superpowers/
