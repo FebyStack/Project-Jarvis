@@ -55,3 +55,13 @@ def test_task_note_sections(tmp_path):
 
 def test_read_index_missing_is_empty(tmp_path):
     assert Vault(tmp_path).read_index() == ""
+
+
+def test_long_title_is_capped(tmp_path):
+    p = Vault(tmp_path).write_task_note(record(title="word " * 80))
+    assert p.exists() and len(p.name) <= 80
+
+
+def test_exchange_logs_notes_read(tmp_path):
+    p = Vault(tmp_path).log_exchange(Exchange(AT, "mac", "q", "a", ["wiki/preferences.md"]))
+    assert p.read_text().splitlines()[-1] == "- 20:14 · mac · q → a · read [[preferences]]"

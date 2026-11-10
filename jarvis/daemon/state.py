@@ -29,6 +29,7 @@ _TRANSITIONS = {
     (State.IDLE, Event.WAKE): State.LISTENING,
     (State.LISTENING, Event.SPEECH_END): State.THINKING,
     (State.THINKING, Event.REPLY_START): State.SPEAKING,
+    (State.THINKING, Event.REPLY_END): State.IDLE,  # the reply ended without speech (empty or failed)
     (State.SPEAKING, Event.REPLY_END): State.FOLLOW_UP,
     (State.FOLLOW_UP, Event.SPEECH_START): State.LISTENING,
 }
@@ -58,4 +59,6 @@ class StateMachine:
             self.state = _TRANSITIONS.get((self.state, event), self.state)
             if self.state is State.FOLLOW_UP and event is Event.REPLY_END:
                 self._follow_up_since = self.clock()
+                if self.muted:  # no follow-up window while the mic is off
+                    self.state = State.IDLE
         return self.state

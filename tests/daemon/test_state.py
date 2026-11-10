@@ -59,3 +59,15 @@ def test_mute_while_listening_returns_to_idle(sm):
 
 def test_unexpected_events_do_not_move_state(sm):
     assert sm.on(Event.REPLY_END) == State.IDLE and sm.on(Event.SPEECH_END) == State.IDLE
+
+
+def test_muted_reply_end_goes_idle_not_follow_up(sm):
+    reach(sm, State.THINKING); sm.on(Event.MUTE)
+    sm.on(Event.REPLY_START)
+    assert sm.on(Event.REPLY_END) == State.IDLE
+    assert sm.on(Event.SPEECH_START) == State.IDLE
+
+
+def test_reply_end_without_speaking_leaves_thinking(sm):
+    reach(sm, State.THINKING)
+    assert sm.on(Event.REPLY_END) == State.IDLE

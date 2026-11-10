@@ -11,14 +11,14 @@ class TrustedList:
     def _patterns(self) -> set[str]:
         if not self.path.exists():
             return set()
-        lines = (l.strip() for l in self.path.read_text(encoding="utf-8").splitlines())
-        return {l for l in lines if l and not l.startswith("#")}
+        lines = (l.strip() for l in self.path.read_text(encoding="utf-8").split("\n"))
+        return {l for l in lines if l and not l.startswith("#") and l.isprintable()}
 
     def contains(self, pattern: str) -> bool:
         return pattern in self._patterns()
 
     def add(self, pattern: str) -> None:
-        if not pattern or self.contains(pattern):
+        if not pattern or not pattern.isprintable() or self.contains(pattern):  # no line breaks or control chars
             return
         self.path.parent.mkdir(parents=True, exist_ok=True)
         text = self.path.read_text(encoding="utf-8") if self.path.exists() else ""

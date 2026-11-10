@@ -33,7 +33,7 @@ class TaskRecord:
 
 
 def slugify(title: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-") or "task"
+    return re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:56].rstrip("-") or "task"  # filenames stay short
 
 
 def _one_line(text: str) -> str:
@@ -57,8 +57,10 @@ class Vault:
         return path
 
     def log_exchange(self, ex: Exchange) -> Path:
-        return self._append_day(
-            ex.at, f"- {ex.at:%H:%M} · {ex.channel} · {_one_line(ex.asked)} → {_one_line(ex.answered)}")
+        line = f"- {ex.at:%H:%M} · {ex.channel} · {_one_line(ex.asked)} → {_one_line(ex.answered)}"
+        if ex.notes_read:
+            line += " · read " + ", ".join(_link(n) for n in ex.notes_read)
+        return self._append_day(ex.at, line)
 
     def write_task_note(self, rec: TaskRecord) -> Path:
         self.raw.mkdir(parents=True, exist_ok=True)

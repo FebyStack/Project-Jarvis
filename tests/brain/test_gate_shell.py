@@ -68,7 +68,7 @@ def test_shell_hardening(cmd, verdict, cfg):
     ("rm ~/Documents/tax.pdf", f"shell:rm:{(HOME / 'Documents').resolve()}"),
     ("git push origin main", "shell:git push"),
     ("brew install tmux", "shell:brew install"),
-    ("npm -g install x", "shell:npm install"),
+    ("npm -g install x", ""),  # options before the subcommand: never remembered
     ("frobnicate --all", "shell:frobnicate"),
     ("ls && rm ~/Documents/a.txt", f"shell:rm:{(HOME / 'Documents').resolve()}"),
 ])
