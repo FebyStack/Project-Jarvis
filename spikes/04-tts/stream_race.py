@@ -1,6 +1,7 @@
 """Spike 4 Step 3: stream a paragraph sentence by sentence through one engine, bm_daniel.
 
 Usage: python stream_race.py mlx|onnx [passes]
+The onnx half needs `kokoro-onnx` reinstalled and the v1.0 model files re-downloaded into data/ (both removed after Step 3).
 Sentences are synthesized back to back from t=0 (they arrive faster than synthesis).
 Playback is simulated from audio lengths: each sentence starts when it is ready and the
 previous one has finished; a gap is how long playback stalls waiting for the next one.
