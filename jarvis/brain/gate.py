@@ -280,7 +280,8 @@ def classify_shell(command: str, cwd: Path | None, cfg: GateConfig) -> Decision:
 
     parts = [p for p in parts if p]
     # After cd/pushd/popd the working folder is unknown, so relative paths cannot be judged.
-    where = None if any(os.path.basename(p[0]) in _NAV for p in parts) else cwd
+    words = (next((t for t in p if t not in _RESERVED), "") for p in parts)  # `{ cd x; }`: skip the keyword
+    where = None if any(os.path.basename(w) in _NAV for w in words) else cwd
     decisions += [_classify_part(p, where, cfg) for p in parts]
     if redirects:
         decisions.append(_judge_targets(">", redirects, where, cfg))

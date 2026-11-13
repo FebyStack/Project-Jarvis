@@ -213,3 +213,8 @@ def test_only_listed_subcommands_are_rememberable(cmd, cfg):
                                          ("uv pip install x", "shell:uv pip install")])
 def test_listed_subcommands_keep_their_pattern(cmd, pattern, cfg):
     assert classify_shell(cmd, DEV, cfg).pattern == pattern
+
+
+def test_cd_after_a_keyword_still_poisons_relative_paths(cfg):
+    assert classify_shell("{ cd ~/Documents; } && rm a.txt", DEV, cfg).verdict == "ask"
+    assert classify_shell("if true; then cd ~/Documents; fi; rm a.txt", DEV, cfg).verdict == "ask"
