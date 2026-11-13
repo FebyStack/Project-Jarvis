@@ -369,8 +369,8 @@ Settles §10 risk 1 and decides Plan 2's bridge. Most important spike; do it fir
 
 ### Task 9: Spike 4 — spoken replies 👤
 
-- [ ] **Step 1 (amended 2026-11-13):** Name the installs (`mlx-audio`, `kokoro-onnx`, Kokoro model files for each), then install.
-- [ ] **Step 2:** List Kokoro's British male presets; synthesize the same three sentences in each and in `say -v Daniel`. 👤 Febriel picks one by ear.
+- [ ] **Step 1 (amended 2026-11-13; `mlx-audio` + `misaki[en]` done 2026-11-13, `kokoro-onnx` open):** Name the installs (`mlx-audio`, `kokoro-onnx`, Kokoro model files for each), then install.
+- [x] **Step 2:** List Kokoro's British male presets; synthesize the same three sentences in each and in `say -v Daniel`. 👤 Febriel picks one by ear. **Picked: `bm_daniel` (2026-11-13).**
 - [ ] **Step 3 (amended 2026-11-13):** Stream a paragraph sentence by sentence in the chosen voice, once through `mlx-audio` and once through `kokoro-onnx`. **Bar:** first audio within 0.5 s of the first sentence arriving; no audible gap over 0.3 s between sentences. Record both; the one faster to first audio that meets the bar wins, and on a tie the one with fewer dependencies.
 - [ ] **Step 4:** Add Spike 1's first-token time and Spike 3's transcription time. **Bar (§11):** about 2.5 s from end of speech to first spoken word. Write findings, including the chosen voice. Commit.
 

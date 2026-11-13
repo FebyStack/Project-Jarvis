@@ -63,6 +63,12 @@ Run 2026-11-13. openWakeWord 0.6.0 (`hey_jarvis_v0.1`, ONNX), onnxruntime 1.32.0
 - Diagnostic, pretrained `hey_jarvis` on his recorded takes: clear takes (peak ≥ 5× background) 7/17 over 0.5 (scores up to 1.00); faint takes 0/12. So the pretrained model catches about half his clear takes and none of the far ones.
 - What it means: about 30 usable positives and 12 synthetic voices are far too little data; openWakeWord's own recipe uses thousands of synthetic speakers (Piper) and 2,000 h of negatives. Distance on the laptop mic also matters: at 2–3 m or turned away his speech is barely above the room.
 
+## Spike 4 — spoken replies (Task 9), Steps 1–2
+
+- Installed into the `spike` group: `mlx-audio` 0.6.5 and `misaki[en]` 0.9.4 (Kokoro's text-to-phoneme step; mlx-audio no longer pulls it in). `misaki[en]` drags in `torch` and `spacy`, and the first run downloads `en_core_web_sm` (12 MB) outside the lockfile. Model: `mlx-community/Kokoro-82M-bf16`, `lang_code="b"`. `.venv` is now 1.3 GB. `kokoro-onnx` not installed yet (needed for Step 3's race).
+- Same three lines in the four Kokoro British male presets (`bm_george`, `bm_lewis`, `bm_daniel`, `bm_fable`) and `say -v Daniel`, script `spikes/04-tts/voices.py`, audio in its `tmp/`.
+- **Febriel picked `bm_daniel` by ear (2026-11-13).** Spec §TTS's "exact voice preset is unverified" is now settled.
+
 ## Gate: open review findings
 
 - **Fixed 2026-11-13 (was an allow-verdict bypass):** a `cd` behind a shell keyword was missed by the folder check, so `{ cd ~/Documents; } && rm a.txt` returned `allow`. Leading keywords are now skipped before the `cd` test. Regression test: `test_cd_after_a_keyword_still_poisons_relative_paths`. No findings open.

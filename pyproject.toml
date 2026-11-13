@@ -7,6 +7,8 @@ dependencies = []
 [dependency-groups]
 dev = ["pytest"]
 spike = [
+    "misaki[en]>=0.9.4",
+    "mlx-audio>=0.6.5",
     "onnxruntime>=1.32.0",
     "openwakeword>=0.6",
     "sounddevice>=0.5.6",
