@@ -1,6 +1,8 @@
 # Jarvis — design
 
-Date: 2026-11-10 · Owner: Febriel · Status: approved by Febriel 2026-11-10, as written · Not yet in git (the project folder is not a repository).
+Date: 2026-11-10 · Owner: Febriel · Status: approved by Febriel 2026-11-10, as written.
+
+Amended 2026-11-13: hold-to-talk (§6.1, Febriel's request); second reference folded in at Febriel's request (§1, §2, §3, §6, §6.1–6.3, §7, §9, §14). The second-reference amendments were written by Claude and approved by Febriel on 2026-11-13.
 
 Anything marked **(Claude's call)** was proposed by Claude and accepted with the approval, including "Hey Jarvis" for v1 and the strict gate.
 
@@ -12,13 +14,15 @@ Why: one voice layer over everything on the machine, with no tabs and no typing,
 
 Reference: the ibraviz.ai "Build your own JARVIS" carousel (instagram.com/p/DfFPLqaoO03). Jarvis keeps its loop (speak → route → execute → remember), its one-skill-per-job idea, its three-folder vault, and its HUD. Jarvis adds what that build lacks: a wake word, iPhone remote, keep-awake, on-screen control, model-tier routing, reverse engineering, and spawning sessions.
 
+Second reference (added 2026-11-13): the Chase AI "Claude Agentic OS" carousel (instagram.com/p/DfKquhHHK3B). From it Jarvis takes: a no-model tier for fixed phrases, tap-to-talk with Escape to cancel, its two speech libraries as candidates to measure, a map file at the vault root, skills chosen from Febriel's own repeat work, a usage meter, and opening a running session in a terminal. Not taken: the Jev router model and the Codex / GPT brain switch (both need another provider), the web dashboard (Febriel asked for terminal only), and scheduled skills (routines stay out).
+
 ## 2. Goals
 
 1. **Wake word voice on the Mac.** Say the wake word, speak, hear a spoken answer. Speech recognition and speech output both run on the Mac; no audio leaves it and none is stored.
 2. **iPhone remote over a private route.** Talk to Jarvis from the phone from anywhere; the session runs on the Mac.
 3. **The Mac stays reachable** whenever the lid is open, including when it would normally idle-sleep.
 4. **Full machine reach:** files, terminal, and on-screen control (click, type, drag).
-5. **Model routing.** Sonnet handles small and convenient tasks itself. Anything bigger goes to Opus 5.5, which judges it and picks a worker on Haiku, Sonnet, Opus, or Fable.
+5. **Model routing.** A handful of fixed phrases are answered by code with no model. Sonnet handles small and convenient tasks itself. Anything bigger goes to Opus 5.5, which judges it and picks a worker on Haiku, Sonnet, Opus, or Fable.
 6. **It asks.** Risky actions need a yes. Unclear or large requests get questioned before work starts.
 7. **Mandatory memory.** Every session reads the vault before acting and writes to it after. This is enforced by code, not left to the model's discretion.
 8. **Spawns Claude Code sessions** for long jobs and reports back.
@@ -31,7 +35,9 @@ Reference: the ibraviz.ai "Build your own JARVIS" carousel (instagram.com/p/DfFP
 - Working with the lid closed, or waking the Mac from real sleep. A sleeping Mac cannot be woken from the internet; the design avoids sleep instead.
 - A custom iOS app. The phone side is an iOS Shortcut.
 - Languages other than English. Multiple users. Offline use. Smart-home control.
-- Interrupting Jarvis mid-sentence, voice-print lock, proactive alerts, screen awareness. Listed in §14 as later.
+- Interrupting Jarvis mid-sentence by voice, voice-print lock, proactive alerts, screen awareness. Listed in §14 as later.
+- A second brain (Codex / GPT) or a third-party router model such as Jev. Each needs another provider's account or pay-per-use credit, which the subscription-only rule excludes.
+- A web dashboard. The terminal HUD is the only face on the Mac.
 
 ## 4. Anti-goals
 
@@ -56,8 +62,8 @@ These make Jarvis a failure even if it works:
 
 ```
  Mac microphone ─ wake word ─ speech-to-text ─┐
-                                              ├─► jarvisd ─► Claude Code (front door, Sonnet)
- iPhone Shortcut ─ private network ─ HTTP ────┘      │              │
+                                              ├─► jarvisd ─┬─ fixed phrase: answered by code, no model
+ iPhone Shortcut ─ private network ─ HTTP ────┘      │     └─► Claude Code (front door, Sonnet)
                                                      │              ├─ small task: does it itself
         gold HUD ◄── events ─────────────────────────┤              └─ bigger: Opus 5.5 triage
         spoken reply ◄── text-to-speech ─────────────┤                       └─ worker agent
@@ -73,12 +79,14 @@ States: `IDLE → LISTENING → THINKING → SPEAKING → (follow-up window) →
 - **Wake word:** openWakeWord running locally. It ships a ready-made "hey jarvis" model. Its pretrained models are licensed for non-commercial use, which fits a personal tool.
 - **Open point — "Jarvis" vs "Hey Jarvis".** Febriel asked for "Jarvis". Only "Hey Jarvis" exists ready-made. Bare "Jarvis" needs a custom-trained model and, being one short word, will false-trigger more. **(Claude's call)** ship v1 on "Hey Jarvis" and train bare "Jarvis" as a follow-up. Febriel to confirm.
 - **End of speech:** detected by silence (voice activity detection), about 0.8 s.
-- **Speech-to-text:** Parakeet on Apple's MLX runtime (`parakeet-mlx`). Benchmarks on an M4 put it at roughly half a second for a short utterance and it returns blanks on silence rather than inventing words. **(Claude's call)**; whisper.cpp is the fallback.
-- **Text-to-speech:** Kokoro through `mlx-audio`, spoken sentence by sentence as text streams in, in a British male voice. The exact voice preset is unverified and is a spike item. Fallback: macOS built-in `say -v Daniel`.
+- **Speech-to-text:** Parakeet on Apple's MLX runtime (`parakeet-mlx`). Benchmarks on an M4 put it at roughly half a second for a short utterance and it returns blanks on silence rather than inventing words. **(Claude's call)**. `faster-whisper` (the second reference's choice) is measured beside it in Spike 3 and the better one on Febriel's own speech wins; whisper.cpp is the last resort. *(amended 2026-11-13)*
+- **Text-to-speech:** Kokoro, spoken sentence by sentence as text streams in, in a British male voice. Two ways of running it are measured in Spike 4, `mlx-audio` and `kokoro-onnx` (the second reference's choice), and the faster to first sound wins. The exact voice preset is unverified and is a spike item. Fallback: macOS built-in `say -v Daniel`. *(amended 2026-11-13)*
 - **Follow-up window:** for about 6 s after Jarvis finishes speaking, Febriel can reply without the wake word. This is what makes confirmations and clarifying questions usable by voice.
 - **Mic gating:** the microphone is ignored while Jarvis is speaking, so it cannot hear and obey itself.
 - **Mute:** "Jarvis, stop listening" and a key in the HUD turn the mic off; the HUD shows mic state at all times.
 - **Hold-to-talk (added 2026-11-13, Febriel's request):** holding a key also starts listening, as a fallback when the wake word does not hear him. Speech ends when the key is released (no 0.8 s silence wait), then Jarvis answers as usual. It works with the HUD closed and in any app. A terminal cannot tell when a key is released, so the hold is read by a system-wide key listener in `jarvisd`, which needs the macOS Input Monitoring permission (Febriel grants it). The key is chosen in Plan 3; it must be one that does not type text (a modifier such as Right Option, not Space). Hold-to-talk works even while muted for the wake word.
+- **Tap-to-talk (added 2026-11-13, from the second reference; Claude's call):** a short tap of the same key, under 0.3 s, starts listening exactly as the wake word does, and a pause sends. Holding it is hold-to-talk. One key, two gestures.
+- **Cancel (added 2026-11-13, from the second reference):** Escape in the HUD, or saying "cancel" or "never mind", drops what Jarvis is hearing, stops it speaking, and abandons the current small exchange. It does not stop background workers or spawned sessions; those are stopped from the queue. The state machine gains a `CANCEL` event that returns `LISTENING`, `THINKING`, `SPEAKING`, and the follow-up window to `IDLE`.
 - Spoken replies are short. Long output goes to the HUD and the vault, and Jarvis says where it put it.
 
 ### 6.2 The brain
@@ -89,11 +97,27 @@ States: `IDLE → LISTENING → THINKING → SPEAKING → (follow-up window) →
 
 | Step | Model | What it does |
 |---|---|---|
+| Instant (code in `jarvisd`) | none | Answers a fixed list of phrases itself, before anything reaches Claude Code. *(added 2026-11-13)* |
 | Front door (`jarvis`) | Sonnet | Talks to Febriel. Does small and convenient tasks itself: open an app, find a file, answer a question, run one command, set a timer. |
 | Triage (`triage`) | `claude-opus-5-5`, pinned | Called for everything the front door judges not small. Returns a verdict: which worker, which model tier, what could go wrong, and what must be asked first. Does no work itself. |
 | Workers | Haiku, Sonnet, Opus, or Fable, as triage says | Do the job. |
 
 Reading of Febriel's answer **(Claude's call)**: Sonnet decides what counts as small, so Opus is never spent on "what time is it". Everything else goes through Opus 5.5 triage, as originally asked.
+
+**Instant answers (added 2026-11-13, from the second reference's "tier 1: rules, no AI"; Claude's call).** Febriel's answer was that small tasks go to Sonnet; this takes only the phrases below away from Sonnet, because code answers them at once and they cost nothing against the limits. The whole utterance must match after lower-casing, dropping punctuation, and dropping a leading "hey jarvis", "jarvis", or "please". A phrase with any extra words goes to Sonnet as before. No model is involved in the matching. Every instant answer is still written to the day's log.
+
+| Said | Jarvis does |
+|---|---|
+| "what time is it", "what's the time" | Says the time. |
+| "what's the date", "what day is it" | Says the date. |
+| "stop listening", "mute" | Mic off for the wake word. |
+| "start listening", "unmute" (by hold-to-talk or typed, since the mic is off) | Mic on. |
+| "cancel", "never mind", "stop" | Cancel, as in §6.1. |
+| "repeat that", "say that again" | Speaks its last reply again. |
+| "status", "what are you working on" | Reads out the queue: what is running, waiting, and needing a yes. |
+| "yes", "no", "yes always" while a yes is pending | Answers the gate (§6.5). |
+
+The list is fixed in code for v1. Jev, the router model the reference uses for this sorting, is not used: it is a separate provider's model, and here the sorting is done by this list, then Sonnet, then Opus 5.5.
 
 The front door dispatches workers itself, passing the tier triage chose as the per-call model. Workers are roles, not tiers:
 
@@ -114,6 +138,7 @@ Guide for triage: Haiku for lookups and mechanical edits; Sonnet for ordinary mu
 - **grill-me** (mattpocock/skills) is preloaded in the front door for §6.5.
 - Jarvis's own small skills live in the project's `.claude/skills/`, one per job, loaded only when needed: `vault` (how to read and write memory), `sessions` (spawn and check background sessions), `system` (apps, volume, windows, timers).
 - Honey stays as it is for Febriel's ordinary Claude Code sessions; it is not loaded inside Jarvis. **(Claude's call)**
+- **Skills from Febriel's own repeat work (added 2026-11-13, from the second reference).** Once, during Plan 2, the last 30 days of Febriel's Claude Code sessions and the vault are read for tasks he keeps repeating, and a shortlist is brought to him. He picks; only the picked ones become skills. Nothing is created automatically, and none of them run on a schedule.
 
 **Staying conversational (Claude's call).** The front door never waits on a worker. Workers run in the background (background subagents, or a spawned session for long jobs), and the front door stays free to talk, take new requests, and relay questions. There is one front door and one conversation, shared by the Mac and the phone; requests are taken in arrival order. Conversation context carries across exchanges and is reset after 30 minutes of silence, when a fresh Claude Code session starts and the memory index is injected again.
 
@@ -130,6 +155,7 @@ The vault follows the reference layout:
 - `raw/` — one note per session, written by `jarvisd` itself from the event stream: time, where the request came from (Mac or phone), what was asked, what was done, which agents and models ran, what was confirmed or refused, files touched. Named `YYYY-MM-DD-HHMM-short-title.md`.
 - `wiki/` — durable knowledge: preferences, people, projects, decisions, how-tos. One topic per note, linked with `[[wiki-links]]`. `wiki/index.md` lists them.
 - `outputs/` — things Jarvis produced for Febriel: reports, plans, drafts.
+- `CLAUDE.md` at the vault root *(added 2026-11-13, from the second reference)* — the map: what each folder is for, how notes are named and linked, and the read-before, write-after rule. Any Claude session opened in the vault, Jarvis's or Febriel's own, starts with the same map. `wiki/index.md` stays the list of what is known; `CLAUDE.md` says how the vault works. Written in Plan 2.
 
 Terms: an **exchange** is one request and its answer, from wake word back to idle. A **task** is an exchange that went to triage.
 
@@ -215,11 +241,12 @@ A full-screen terminal app, gold on black (`#D4AF37` text, brighter `#FFD700` fo
 
 - **VOICE:** state word, live waveform, last heard line.
 - **AGENTS:** who is running, on which model, doing what, for how long.
-- **QUEUE:** jobs and spawned sessions; `NEEDS YOU` rows can be answered with `y` / `n`.
+- **QUEUE:** jobs and spawned sessions; `NEEDS YOU` rows can be answered with `y` / `n`. Enter on a spawned session opens it in a new terminal window to watch or steer *(added 2026-11-13)*.
 - **MEMORY:** vault reads (`r`), new notes (`+`), updates (`~`).
-- **Footer:** awake and power, phone link, mic, subscription limits.
+- **Footer:** awake and power, phone link, mic, subscription limits. `LIMITS` shows the share of the weekly allowance used when Claude Code reports it, and otherwise `ok`, `near`, or `reached` *(amended 2026-11-13; whether the figure is available is checked in Plan 2)*.
+- **Keys** *(added 2026-11-13)*: Escape cancels (§6.1); `/` lists Jarvis's skills and runs the chosen one.
 - States are always shown as words as well as colour. It must be usable at 80×24. Typing a request is possible as a fallback to voice.
-- States to design: starting up, offline (no Wi-Fi), mic muted, limit reached, phone not linked, first run (a checklist of the permissions and installs still missing).
+- States to design: starting up, offline (no Wi-Fi), mic muted, limit reached, phone not linked, vault missing or not writable (Jarvis refuses tasks, since it cannot keep the memory rule), first run (a checklist of the permissions and installs still missing).
 
 The panels differ from the reference HUD because routines and inbox/calendar are out of scope. **(Claude's call)**
 
@@ -256,6 +283,7 @@ State lives in three places only: the in-memory state machine in `jarvisd`, Clau
 - **Avoid sleep rather than wake from it.** Remote wake over the internet does not exist for a Mac. Cost: battery drain when unplugged, and no lid-closed use.
 - **Tailscale + Shortcut rather than the official app alone.** Gives "Hey Siri, Jarvis" hands-free and spoken answers. Cost: an account to create, a network service to keep private, and a token to guard. The official app remains as a free fallback.
 - **One daemon with thin clients rather than a terminal app that does everything.** Needed so Jarvis works with no terminal open. Cost: a background process that needs microphone permission, which macOS grants awkwardly to background processes (risk 2 below).
+- **A fixed phrase list rather than a router model.** Instant and free for the few things it covers, and nothing outside the Claude subscription. Cost: it only catches exact phrases; everything else still takes a Sonnet turn.
 - **Sonnet front door rather than Opus on every utterance.** Seconds faster on small tasks and far lighter on limits. Cost: Sonnet may occasionally keep a task it should have escalated.
 - **Local speech rather than Claude Code's built-in dictation.** Private, works with a wake word, and can speak back. Cost: models to download and tune.
 - **Raw notes written by code rather than by the model.** Guarantees the memory rule. Cost: raw notes are plain logs; the readable knowledge depends on the scribe pass.
@@ -298,7 +326,7 @@ Installs the build will do, each named before it runs: Tailscale, agent-desktop,
 
 ## 14. Later, not v1
 
-Bare "Jarvis" wake word (if not in v1), interrupting Jarvis mid-sentence, voice-print lock, proactive alerts, "what's on my screen", clipboard and file hand-off with the phone, a HUD page on the phone, routines, and a weekly tidy of `wiki/`.
+Bare "Jarvis" wake word (if not in v1), interrupting Jarvis mid-sentence by voice, talking to Jarvis from inside Obsidian (a plugin as a second front door), the vault drawn as a star map on the idle HUD, voice-print lock, proactive alerts, "what's on my screen", clipboard and file hand-off with the phone, a HUD page on the phone, routines, and a weekly tidy of `wiki/`.
 
 ## 15. Left to the builder
 

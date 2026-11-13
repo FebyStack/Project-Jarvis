@@ -22,6 +22,20 @@
 
 Plans 2–5 are not written yet on purpose: each spike can change their interfaces.
 
+### Carried into later plans (added 2026-11-13)
+
+Spec amendments of 2026-11-13 that this plan does not build. Whoever writes the plan named must include them.
+
+| Item (spec section) | Plan |
+|---|---|
+| Instant answers: the fixed phrase list answered by code, logged to the day's log (§6.2) | 2 |
+| `CLAUDE.md` map file at the vault root (§6.3) | 2 |
+| Skill shortlist from Febriel's last 30 days of sessions, for him to pick from (§6.2) | 2 |
+| HUD: `LIMITS` usage share if Claude Code reports it, Enter opens a spawned session, `/` skill list, vault-missing state (§7) | 2 |
+| `CANCEL` event in `jarvis/daemon/state.py`, Escape and "cancel" wired to it (§6.1) | 2 for the event and Escape, 3 for the spoken form |
+| Tap-to-talk and hold-to-talk on one key, system-wide (§6.1) | 3 |
+| Speech engines: use the winners recorded by Tasks 8 and 9 | 3 |
+
 ## Global Constraints
 
 - Subscription login only. Never pass `--bare`. `ANTHROPIC_API_KEY` must be unset in every process this project starts; a spike that finds it set stops.
@@ -351,13 +365,13 @@ Settles §10 risk 1 and decides Plan 2's bridge. Most important spike; do it fir
 
 - [ ] **Step 1:** Name the installs (`parakeet-mlx`, a voice-activity detector, model download size), then install.
 - [ ] **Step 2:** 👤 Febriel speaks ten typical requests. Detect end of speech at 0.8 s of silence and transcribe. **Bar:** median transcription under 0.7 s for utterances up to 5 s; at most 1 of 10 with an error that changes the meaning; silence produces no text.
-- [ ] **Step 3:** If the bar fails, repeat with whisper.cpp and record both. Write findings. Commit.
+- [ ] **Step 3 (amended 2026-11-13):** Name the install (`faster-whisper`, model `small.en`), then run the same ten recordings through it with `compute_type="int8"`. Record both engines side by side: median time, and meaning-changing errors out of 10. The one that meets the bar with fewer errors wins; on a tie, Parakeet. Only if both fail, repeat with whisper.cpp. The recordings live in the spike's temp folder and are deleted when the spike ends. Write findings, naming the winner. Commit.
 
 ### Task 9: Spike 4 — spoken replies 👤
 
-- [ ] **Step 1:** Name the installs (`mlx-audio`, Kokoro model), then install.
+- [ ] **Step 1 (amended 2026-11-13):** Name the installs (`mlx-audio`, `kokoro-onnx`, Kokoro model files for each), then install.
 - [ ] **Step 2:** List Kokoro's British male presets; synthesize the same three sentences in each and in `say -v Daniel`. 👤 Febriel picks one by ear.
-- [ ] **Step 3:** Stream a paragraph sentence by sentence. **Bar:** first audio within 0.5 s of the first sentence arriving; no audible gap over 0.3 s between sentences.
+- [ ] **Step 3 (amended 2026-11-13):** Stream a paragraph sentence by sentence in the chosen voice, once through `mlx-audio` and once through `kokoro-onnx`. **Bar:** first audio within 0.5 s of the first sentence arriving; no audible gap over 0.3 s between sentences. Record both; the one faster to first audio that meets the bar wins, and on a tie the one with fewer dependencies.
 - [ ] **Step 4:** Add Spike 1's first-token time and Spike 3's transcription time. **Bar (§11):** about 2.5 s from end of speech to first spoken word. Write findings, including the chosen voice. Commit.
 
 ### Task 10: Spike 5 — on-screen control 👤

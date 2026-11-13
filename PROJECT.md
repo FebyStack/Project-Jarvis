@@ -21,6 +21,13 @@ Run/test (once Plan 1 Task 1 is done): `uv run pytest -q`.
   - Face: HUD with header `J.A.R.V.I.S. ● ONLINE`, panels VITALS (inbox need-you, calls today, tasks open), TODAY (timed schedule), VOICE (waveform), COMMAND DECK (brief / plan / metrics / close day). Fed by Gmail, Calendar, Obsidian, Slack.
   - Day: 7:00 morning brief (inbox + calendar read aloud), 9:00 plan today (top 3 priorities into vault), 14:00 metrics pull, 19:00 close the day (reflection logged, tomorrow queued).
   - Not in the post (Febriel's additions): iPhone remote, keep-awake, GUI control, model-tier routing, REA, session spawning.
+- Second reference: instagram.com/p/DfKquhHHK3B (chase.h.ai "Claude Agentic OS"), all 9 slides read 2026-11-13. Setup is DM-gated; the design is:
+  - Stack: Opus 5.5 in Claude Code (or GPT-6 Astra in Codex, one switch) as the brain; Jev as router; faster-whisper + kokoro-onnx for local voice; Obsidian memory (`raw/`, `wiki/`, `outputs/`, plus a `CLAUDE.md` map); custom skills.
+  - Router tiers: 1 = rules + saved data, no AI, instant; 2 = small fast model (Haiku); 3 = real work, opens a Claude Code terminal or runs a skill in the background.
+  - Voice panel: "Tap to talk, then pause to send. Escape cancels." Text box beside it. "Speech stays local. Transcripts go to the selected provider."
+  - Dashboard (web app): weekly-usage meter, top-3 directives, skills quick access (21 skills, run in background), schedule, vault drawn as a star map, status strip (core state, vault connected, terminals connected).
+  - Skills come from the owner's own repeat work ("ask Claude which repeat tasks from your last 30 days qualify"), each with a trigger (daily 6:30, on publish, Fridays).
+  - Two front doors (web app, Obsidian plugin) → one bridge → router → vault.
 
 ## Research findings
 - **Sleep:** a fully asleep Mac cannot be woken from the internet (Wake-on-LAN is LAN-only; `womp` is 0 here). Workable design = prevent system sleep while on AC, let the display sleep. Lid closed sleeps unless external display + power, or a sudo `pmset` override (user runs it). Battery = drain.
@@ -45,6 +52,7 @@ Run/test (once Plan 1 Task 1 is done): `uv run pytest -q`.
 - **Obsidian copies:** `Astro/Claude Code/Jarvis Design.md` and `Jarvis Plan 1 Foundation and Spikes.md`. Re-copy if the sources change.
 - **Verified for the design:** `claude -p` uses the subscription login only when NOT `--bare` (docs say bare may become the `-p` default — risk). Subagent `model` accepts `haiku|sonnet|opus|fable` or a full ID; per-call model override takes aliases only. openWakeWord ships "hey jarvis", not bare "jarvis" (pretrained models are non-commercial licence). agent-desktop installs via `npm i -g agent-desktop` or brew; has a `drag` command with undocumented syntax; needs Accessibility. STT pick: parakeet-mlx; TTS pick: Kokoro via mlx-audio (British voice unverified). grill-me = mattpocock/skills.
 - **Hold-to-talk (Febriel, 2026-11-13):** hold a key to talk to Jarvis as a fallback when the wake word misses him. Spec §6.1 amended. Needs a system-wide key listener (Input Monitoring permission); key chosen in Plan 3.
+- **Second reference folded in (2026-11-13, Febriel asked; amendments written by Claude and approved by him the same day):** adopted — instant no-model answers for a fixed phrase list (spec §6.2; narrows his "small tasks go to Sonnet" answer for those phrases only), tap-to-talk + Escape/"cancel" (§6.1), `CLAUDE.md` vault map (§6.3), skill shortlist from his last 30 days (§6.2), usage share in the HUD footer, Enter opens a spawned session, `/` skill list (§7); faster-whisper and kokoro-onnx added as measured candidates in Plan 1 Tasks 8–9. Rejected — Jev (TypeSafe AI's decision model, a separate provider; breaks subscription-only), Codex/GPT brain switch (same reason), web dashboard (terminal-only requirement), scheduled skills (routines stay out). Later — Obsidian plugin front door, star-map idle HUD. Plan 1 has a "Carried into later plans" table saying which plan builds each.
 - **Dead end:** waking a sleeping Mac remotely. Use `caffeinate -i` instead.
 
 last Claude session: 2026-11-11 20:14
