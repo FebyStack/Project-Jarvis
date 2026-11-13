@@ -41,7 +41,7 @@ Run/test (once Plan 1 Task 1 is done): `uv run pytest -q`.
 ## Environment
 - Claude Code 2.1.312. Present: node, python3, ffmpeg, brew. Missing: tmux, tailscale, sox, whisper, agent-desktop.
 - Docker not needed so far.
-- Git repo on `main` since Plan 1 Task 1. Remote `origin` = github.com/FebyStack/Project-Jarvis (public; nothing pushed as of 2026-11-13). Commits carry no Claude credit; history was rewritten 2026-11-13 to strip the old trailers (backup at `refs/backup/pre-strip-claude`, never push it). `uv` 0.12.5 was already installed.
+- Git repo on `main` since Plan 1 Task 1. Remote `origin` = github.com/FebyStack/Project-Jarvis (public; `main` first pushed 2026-11-13). Commits carry no Claude credit; history was rewritten 2026-11-13 to strip the old trailers (backup at `refs/backup/pre-strip-claude`, never push it). `uv` 0.12.5 was already installed.
 - The desktop app's child environment sets `CLAUDE_CODE_SIMPLE=1` (what `--bare` sets) and an `ANTHROPIC_BASE_URL` proxy; `jarvisd` must start `claude` with a scrubbed environment.
 
 ## Decisions
