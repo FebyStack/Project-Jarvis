@@ -32,6 +32,24 @@ Run 2026-11-10 (blocked: CLI not logged in) and 2026-11-13 (after Febriel signed
 - **Latency budget:** 0.79 s to first token leaves about 1.7 s of the 2.5 s target (§11) for end-of-speech, speech-to-text and the first spoken audio. Measured with a bare Sonnet prompt; the real `jarvis` agent prompt and memory index will add some.
 - 👤 Open: accept the trust prompt (run `claude` once in `~/Developer/Project Jarvis/spikes/01-brain`) so `--bg` can be tried; check whether `--bg` and detached sessions show in the Claude app's Code tab.
 
+## Spike 2 — microphone and wake word (Task 7)
+
+Run 2026-11-13. openWakeWord 0.6.0 (`hey_jarvis_v0.1`, ONNX), onnxruntime 1.32.0, sounddevice 0.5.6, all in the `spike` dependency group. MacBook Air microphone, 16 kHz mono, 80 ms frames, threshold 0.5. Script: `spikes/02-wake/wake.py`. No audio stored; the one synthetic WAV was deleted after use.
+
+| Check | Bar | Measured | Verdict |
+|---|---|---|---|
+| Pipeline, offline | — | macOS `say` "Hey Jarvis" (Daniel, Samantha, Alex) through the model: max score 0.995–0.999 | Works |
+| Live mic, speakers → mic | — | 3 of 3 detected (0.62–0.91) | Works |
+| 👤 Febriel, "Hey Jarvis" ×10 from ~2 m | 9 of 10 | **3 of 10** (0.64, 0.74, 0.77); one near miss at 0.36; the rest scored ≈0. An earlier 5-minute run caught none. | **Fail** |
+| Inference cost | — | 4–8 ms per 80 ms frame (p99 9.6 ms) | — |
+| CPU while listening | "a few percent of one core" (§11) | 6.3–9.2 % of one core | Borderline |
+| Mic permission | — | Already granted to the Claude app (no prompt); the launchd case is still untested | — |
+
+### What it means
+- The model and the audio path work; the pretrained "hey jarvis" model does not recognise Febriel's voice reliably at 2 m on the laptop mic. Lowering the threshold will not fix it: most attempts scored near 0, not just under 0.5.
+- **Decision for Febriel** (see options in the report): train a custom model, wake by transcribing short speech locally, or use a third-party engine. Hold-to-talk (added to the spec today) is the guaranteed fallback either way.
+- Steps 3–5 (30-minute false-trigger run, launchd mic access, idle CPU) are on hold until the wake approach is chosen; launchd mic access matters whichever approach wins.
+
 ## Gate: open review findings
 
 - **Fixed 2026-11-13 (was an allow-verdict bypass):** a `cd` behind a shell keyword was missed by the folder check, so `{ cd ~/Documents; } && rm a.txt` returned `allow`. Leading keywords are now skipped before the `cd` test. Regression test: `test_cd_after_a_keyword_still_poisons_relative_paths`. No findings open.
