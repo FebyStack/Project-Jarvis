@@ -1,5 +1,6 @@
 """Spike 1 step 1: one long-lived claude -p stream-json process, two messages a minute apart."""
 import json, os, subprocess, sys, threading, time, queue
+from clean import clean_env
 
 assert "ANTHROPIC_API_KEY" not in os.environ, "ANTHROPIC_API_KEY is set — stop"
 GAP = float(sys.argv[1]) if len(sys.argv) > 1 else 60
@@ -7,7 +8,7 @@ here = os.path.dirname(os.path.abspath(__file__))
 log = open(os.path.join(here, "tmp", "step1.jsonl"), "w")
 p = subprocess.Popen(["claude", "-p", "--model", "sonnet", "--input-format", "stream-json",
                       "--output-format", "stream-json", "--verbose"],
-                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, cwd=here)
+                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, cwd=here, env=clean_env())
 q = queue.Queue()
 threading.Thread(target=lambda: [q.put(json.loads(l)) for l in p.stdout], daemon=True).start()
 

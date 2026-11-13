@@ -2,7 +2,7 @@
 
 Personal, local-only voice agent for Febriel's Mac (M4, macOS 26.4). Siri-style, gold ASCII terminal UI, Claude Code as the brain, remote from iPhone. English only. Subscription auth only — never API keys.
 
-Status (2026-11-10): Plan 1 Part A done and committed on `main` (vault writer, ask-first gate, voice state machine; 171 tests), after a fresh review and a security fix pass. **Task 6 (Spike 1) blocked:** the standalone `claude` CLI is not logged in (expired keychain credential); Febriel runs `claude` → `/login` in Terminal, then Task 6 resumes at Step 1. Tasks 7–12 need Febriel at the keyboard. Findings so far: `docs/spikes/findings.md`. Executor ledger (git-ignored): `.superpowers/sdd/2026-11-10-jarvis-plan-1-foundation-and-spikes/progress.md`.
+Status (2026-11-13): Plan 1 Part A done and committed on `main` (vault writer, ask-first gate, voice state machine; 172 tests). **Spike 1 (Task 6) passed** after Febriel signed the CLI in: stream-json on the subscription, agents on the right models, `PermissionRequest` hook bridge, background workers, detached `claude -p` + `--resume`; first token 0.79 s median. Open from Spike 1 (👤): trust prompt for `claude --bg`, Code-tab visibility. Tasks 7–12 need Febriel at the keyboard. Findings: `docs/spikes/findings.md`. Executor ledger (git-ignored): `.superpowers/sdd/2026-11-10-jarvis-plan-1-foundation-and-spikes/progress.md`.
 
 Run/test (once Plan 1 Task 1 is done): `uv run pytest -q`.
 
@@ -45,3 +45,5 @@ Run/test (once Plan 1 Task 1 is done): `uv run pytest -q`.
 - **Obsidian copies:** `Astro/Claude Code/Jarvis Design.md` and `Jarvis Plan 1 Foundation and Spikes.md`. Re-copy if the sources change.
 - **Verified for the design:** `claude -p` uses the subscription login only when NOT `--bare` (docs say bare may become the `-p` default — risk). Subagent `model` accepts `haiku|sonnet|opus|fable` or a full ID; per-call model override takes aliases only. openWakeWord ships "hey jarvis", not bare "jarvis" (pretrained models are non-commercial licence). agent-desktop installs via `npm i -g agent-desktop` or brew; has a `drag` command with undocumented syntax; needs Accessibility. STT pick: parakeet-mlx; TTS pick: Kokoro via mlx-audio (British voice unverified). grill-me = mattpocock/skills.
 - **Dead end:** waking a sleeping Mac remotely. Use `caffeinate -i` instead.
+
+last Claude session: 2026-11-11 20:14
