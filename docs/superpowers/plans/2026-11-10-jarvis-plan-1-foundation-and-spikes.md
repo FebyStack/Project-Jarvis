@@ -369,23 +369,23 @@ Settles §10 risk 1 and decides Plan 2's bridge. Most important spike; do it fir
 
 ### Task 9: Spike 4 — spoken replies 👤
 
-- [ ] **Step 1 (amended 2026-11-13; `mlx-audio` + `misaki[en]` done 2026-11-13, `kokoro-onnx` open):** Name the installs (`mlx-audio`, `kokoro-onnx`, Kokoro model files for each), then install.
+- [x] **Step 1 (amended 2026-11-13; all installed 2026-11-13):** Name the installs (`mlx-audio`, `kokoro-onnx`, Kokoro model files for each), then install.
 - [x] **Step 2:** List Kokoro's British male presets; synthesize the same three sentences in each and in `say -v Daniel`. 👤 Febriel picks one by ear. **Picked: `bm_daniel` (2026-11-13).**
-- [ ] **Step 3 (amended 2026-11-13):** Stream a paragraph sentence by sentence in the chosen voice, once through `mlx-audio` and once through `kokoro-onnx`. **Bar:** first audio within 0.5 s of the first sentence arriving; no audible gap over 0.3 s between sentences. Record both; the one faster to first audio that meets the bar wins, and on a tie the one with fewer dependencies.
+- [x] **Step 3 (amended 2026-11-13; done 2026-11-13, winner `mlx-audio`: first audio 0.19 s, no gaps; `kokoro-onnx` 0.65 s fails the bar):** Stream a paragraph sentence by sentence in the chosen voice, once through `mlx-audio` and once through `kokoro-onnx`. **Bar:** first audio within 0.5 s of the first sentence arriving; no audible gap over 0.3 s between sentences. Record both; the one faster to first audio that meets the bar wins, and on a tie the one with fewer dependencies.
 - [ ] **Step 4:** Add Spike 1's first-token time and Spike 3's transcription time. **Bar (§11):** about 2.5 s from end of speech to first spoken word. Write findings, including the chosen voice. Commit.
 
 ### Task 10: Spike 5 — on-screen control 👤
 
-- [ ] **Step 1:** Name the install, then `npm install -g agent-desktop`. 👤 Febriel grants Accessibility via `agent-desktop permissions --guide`.
-- [ ] **Step 2:** In TextEdit: snapshot, click, type a line. In Finder: `drag` a scratch file between two scratch folders, reading the syntax from `agent-desktop drag --help`. Record exact commands.
-- [ ] **Step 3:** Record what a snapshot gives for a button (role and label fields) and confirm it is enough for Task 4's `classify_screen`. If field names differ, note the mapping.
+- [x] **Step 1 (done 2026-11-13, 1.3.0; Accessibility granted to the Claude app):** Name the install, then `npm install -g agent-desktop`. 👤 Febriel grants Accessibility via `agent-desktop permissions --guide`.
+- [x] **Step 2:** In TextEdit: snapshot, click, type a line. In Finder: `drag` a scratch file between two scratch folders, reading the syntax from `agent-desktop drag --help`. Record exact commands.
+- [x] **Step 3:** Record what a snapshot gives for a button (role and label fields) and confirm it is enough for Task 4's `classify_screen`. If field names differ, note the mapping.
 - [ ] **Step 4:** 👤 With the session unlocked, run `pmset displaysleepnow`, wait 2 min, repeat Step 2 from a delayed script, and take a screenshot. **Bar:** actions succeed with the display asleep. Record whether the screenshot is usable.
 - [ ] **Step 5:** Write findings. If the bar fails, remote on-screen control needs the display awake; bring it to Febriel. Commit.
 
 ### Task 11: Spike 6 — phone round trip 👤
 
 - [ ] **Step 1:** 👤 Febriel creates a Tailscale account, installs it on the Mac and iPhone, and signs in on both. (Jarvis does not create accounts.)
-- [ ] **Step 2:** Spike server on `127.0.0.1:8787`: `POST /ask` with header `Authorization: Bearer <token>` and JSON `{"text": "..."}` returns `{"say": "...", "needs_reply": false}`; a wrong or missing token returns 401. The token is generated into `~/.jarvis/token` (mode 600) and never printed in chat.
+- [x] **Step 2:** Spike server on `127.0.0.1:8787`: `POST /ask` with header `Authorization: Bearer <token>` and JSON `{"text": "..."}` returns `{"say": "...", "needs_reply": false}`; a wrong or missing token returns 401. The token is generated into `~/.jarvis/token` (mode 600) and never printed in chat.
 - [ ] **Step 3:** `tailscale serve` it over HTTPS to the tailnet. Verify from the Mac that it is not reachable without Tailscale.
 - [ ] **Step 4:** 👤 Febriel builds the Shortcut from `shortcuts/README.md` (written in this step): Dictate Text → Get Contents of URL → Speak Text → repeat while `needs_reply` is true. Febriel pastes the token in personally.
 - [ ] **Step 5:** 👤 Test on mobile data with Wi-Fi off, by icon and by "Hey Siri, Jarvis". Make the server answer the first request with `needs_reply: true`. **Bar:** request to spoken answer under 4 s; the reply loop works hands-free; 401 without the token.
@@ -394,7 +394,7 @@ Settles §10 risk 1 and decides Plan 2's bridge. Most important spike; do it fir
 
 ### Task 12: Spike 7 — staying awake 👤
 
-- [ ] **Step 1:** 👤 Plugged in, lid open: run `caffeinate -i` overnight with a script that logs a timestamp and a tailnet reachability check every 5 min. **Bar:** no gap over 6 min in the log; `pmset -g log` shows no system sleep.
+- [ ] **Step 1 (first run started 2026-11-13 23:38 against an internet host, before Tailscale; repeat with the tailnet check later):** 👤 Plugged in, lid open: run `caffeinate -i` overnight with a script that logs a timestamp and a tailnet reachability check every 5 min. **Bar:** no gap over 6 min in the log; `pmset -g log` shows no system sleep.
 - [ ] **Step 2:** 👤 On battery for 2 h, same script. **Bar:** same. Record battery drop per hour.
 - [ ] **Step 3:** Confirm the display slept during both runs. Write findings. Commit.
 
