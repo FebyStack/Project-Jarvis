@@ -44,6 +44,7 @@ Run/test (once Plan 1 Task 1 is done): `uv run pytest -q`.
 - **Plans:** five, written one at a time because spikes can change later interfaces. Plan 1 = `docs/superpowers/plans/2026-11-10-jarvis-plan-1-foundation-and-spikes.md` (repo, vault writer, gate rules, state machine, then seven spikes). Plans 2–5 (typed Jarvis + HUD, voice, phone + keep-awake, on-screen/RE/sessions) are unwritten until Plan 1's checkpoint.
 - **Obsidian copies:** `Astro/Claude Code/Jarvis Design.md` and `Jarvis Plan 1 Foundation and Spikes.md`. Re-copy if the sources change.
 - **Verified for the design:** `claude -p` uses the subscription login only when NOT `--bare` (docs say bare may become the `-p` default — risk). Subagent `model` accepts `haiku|sonnet|opus|fable` or a full ID; per-call model override takes aliases only. openWakeWord ships "hey jarvis", not bare "jarvis" (pretrained models are non-commercial licence). agent-desktop installs via `npm i -g agent-desktop` or brew; has a `drag` command with undocumented syntax; needs Accessibility. STT pick: parakeet-mlx; TTS pick: Kokoro via mlx-audio (British voice unverified). grill-me = mattpocock/skills.
+- **Hold-to-talk (Febriel, 2026-11-13):** hold a key to talk to Jarvis as a fallback when the wake word misses him. Spec §6.1 amended. Needs a system-wide key listener (Input Monitoring permission); key chosen in Plan 3.
 - **Dead end:** waking a sleeping Mac remotely. Use `caffeinate -i` instead.
 
 last Claude session: 2026-11-11 20:14

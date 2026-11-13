@@ -78,6 +78,7 @@ States: `IDLE → LISTENING → THINKING → SPEAKING → (follow-up window) →
 - **Follow-up window:** for about 6 s after Jarvis finishes speaking, Febriel can reply without the wake word. This is what makes confirmations and clarifying questions usable by voice.
 - **Mic gating:** the microphone is ignored while Jarvis is speaking, so it cannot hear and obey itself.
 - **Mute:** "Jarvis, stop listening" and a key in the HUD turn the mic off; the HUD shows mic state at all times.
+- **Hold-to-talk (added 2026-11-13, Febriel's request):** holding a key also starts listening, as a fallback when the wake word does not hear him. Speech ends when the key is released (no 0.8 s silence wait), then Jarvis answers as usual. It works with the HUD closed and in any app. A terminal cannot tell when a key is released, so the hold is read by a system-wide key listener in `jarvisd`, which needs the macOS Input Monitoring permission (Febriel grants it). The key is chosen in Plan 3; it must be one that does not type text (a modifier such as Right Option, not Space). Hold-to-talk works even while muted for the wake word.
 - Spoken replies are short. Long output goes to the HUD and the vault, and Jarvis says where it put it.
 
 ### 6.2 The brain
@@ -287,7 +288,7 @@ State lives in three places only: the in-memory state machine in `jarvisd`, Clau
 
 ## 13. Setup Febriel does personally
 
-- Grant Microphone and Accessibility permissions when macOS asks.
+- Grant Microphone, Accessibility, and Input Monitoring (for hold-to-talk) permissions when macOS asks.
 - Create the Tailscale account; install and sign in on Mac and iPhone.
 - Build the Shortcut from the steps in `shortcuts/` and paste in the token.
 - Set lock-screen timing in System Settings.
