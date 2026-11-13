@@ -48,7 +48,7 @@ Spec amendments of 2026-11-13 that this plan does not build. Whoever writes the 
 - Follow-up window: 6.0 s. End-of-speech silence: 0.8 s. Confirmation timeouts: 60 s Mac, 600 s phone.
 - Wake word for v1: "Hey Jarvis". Triage model: `claude-opus-5-5`. Front door: `sonnet`.
 - English only.
-- Commits end with `Co-Authored-By: Claude <noreply@anthropic.com>`.
+- Commits carry no Claude credit: no `Co-Authored-By: Claude` line, no "Generated with Claude Code" (Febriel, 2026-11-13; the earlier trailers were stripped from history the same day).
 
 ## Review Focus
 
