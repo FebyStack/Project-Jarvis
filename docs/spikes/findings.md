@@ -48,7 +48,9 @@ Run 2026-11-13. openWakeWord 0.6.0 (`hey_jarvis_v0.1`, ONNX), onnxruntime 1.32.0
 ### What it means
 - The model and the audio path work; the pretrained "hey jarvis" model does not recognise Febriel's voice reliably at 2 m on the laptop mic. Lowering the threshold will not fix it: most attempts scored near 0, not just under 0.5.
 - **Decision for Febriel** (see options in the report): train a custom model, wake by transcribing short speech locally, or use a third-party engine. Hold-to-talk (added to the spec today) is the guaranteed fallback either way.
-- Steps 3–5 (30-minute false-trigger run, launchd mic access, idle CPU) are on hold until the wake approach is chosen; launchd mic access matters whichever approach wins.
+- **Step 4, mic from a launchd agent: Pass.** A temporary user agent (`launchctl bootstrap gui/<uid>` from a plist in the spike's temp folder, then `bootout`) ran `wake.py` for 20 s and got real audio (RMS 2386–2728), with no permission prompt. `jarvisd` can run as a login agent; no Terminal login item is needed. Python is Homebrew's `python3.12`.
+- **Step 5, CPU while listening:** 6.3–9.8 % of one core with openWakeWord. Recorded; the transcription wake approach is measured in Spike 3.
+- **Step 3 (30-minute false-trigger run)** moves to Spike 3, because Febriel chose wake-by-transcription (2026-11-13) after the training attempt below.
 
 ### Custom training attempt (Febriel chose "train on my voice")
 - Recorded with `record_session.py` (Mac-guided, chime per take): 30 × "Hey Jarvis", 30 × "Jarvis" (moving 1–3 m, turned toward and away), 2 min normal talk, 1 min "quiet" room (which had speech/TV in it: RMS p90 1277 vs talk p90 1069). Audio kept in `spikes/02-wake/tmp/rec/` (git-ignored) until the spike ends.
