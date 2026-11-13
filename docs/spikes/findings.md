@@ -50,6 +50,19 @@ Run 2026-11-13. openWakeWord 0.6.0 (`hey_jarvis_v0.1`, ONNX), onnxruntime 1.32.0
 - **Decision for Febriel** (see options in the report): train a custom model, wake by transcribing short speech locally, or use a third-party engine. Hold-to-talk (added to the spec today) is the guaranteed fallback either way.
 - Steps 3–5 (30-minute false-trigger run, launchd mic access, idle CPU) are on hold until the wake approach is chosen; launchd mic access matters whichever approach wins.
 
+### Custom training attempt (Febriel chose "train on my voice")
+- Recorded with `record_session.py` (Mac-guided, chime per take): 30 × "Hey Jarvis", 30 × "Jarvis" (moving 1–3 m, turned toward and away), 2 min normal talk, 1 min "quiet" room (which had speech/TV in it: RMS p90 1277 vs talk p90 1069). Audio kept in `spikes/02-wake/tmp/rec/` (git-ignored) until the spike ends.
+- Usable takes (peak ≥ 2.5× the take's own background): 13/30 "Hey Jarvis", 20/30 "Jarvis". The rest are barely above the room at the mic.
+- Lite trainer (`train_wake.py`): small MLP over openWakeWord's 16×96 embedding window. Positives: his takes + macOS voices (12 English voices × 3 rates), augmented with room noise, gain and speed. Negatives: his talk and room, `say` confusables, 70 % of openWakeWord's 10.7 h validation features. Held out: 20 % of his takes and 3.2 h of the validation audio.
+
+| Model | Held-out recall @0.5 / 0.7 / 0.9 | False wakes per hour @0.5 / 0.7 / 0.9 | Verdict |
+|---|---|---|---|
+| custom "Hey Jarvis" | 0.33 / 0.33 / 0.33 | 66 / 54 / 36 | **Fail** |
+| custom "Jarvis" | 0.33 / 0.17 / 0.08 | 65 / 39 / 17 | **Fail** |
+
+- Diagnostic, pretrained `hey_jarvis` on his recorded takes: clear takes (peak ≥ 5× background) 7/17 over 0.5 (scores up to 1.00); faint takes 0/12. So the pretrained model catches about half his clear takes and none of the far ones.
+- What it means: about 30 usable positives and 12 synthetic voices are far too little data; openWakeWord's own recipe uses thousands of synthetic speakers (Piper) and 2,000 h of negatives. Distance on the laptop mic also matters: at 2–3 m or turned away his speech is barely above the room.
+
 ## Gate: open review findings
 
 - **Fixed 2026-11-13 (was an allow-verdict bypass):** a `cd` behind a shell keyword was missed by the folder check, so `{ cd ~/Documents; } && rm a.txt` returned `allow`. Leading keywords are now skipped before the `cd` test. Regression test: `test_cd_after_a_keyword_still_poisons_relative_paths`. No findings open.

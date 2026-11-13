@@ -4,3 +4,4 @@ spikes/**/tmp/
 *.wav
 .DS_Store
 .superpowers/
+spikes/**/data/
