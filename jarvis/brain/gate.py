@@ -302,6 +302,8 @@ _ASK_FORMS = {f: w for w in ASK_WORDS for f in _forms(w)} | {
     "sent": "send", "paid": "pay", "bought": "buy", "submitted": "submit", "submitting": "submit"}
 _RETURN_KEYS = {"return", "enter", "kp_enter", "kpenter", "keypadenter", "numpadenter"}
 _COMMAND_MODIFIERS = {"cmd", "command", "meta", "super", "win", "ctrl", "control", "alt", "option", "opt", "fn"}
+# agent-desktop roles where a click only places focus, scrolls or selects (textarea/searchfield fold into textfield).
+_PASSIVE_ROLES = {"textfield", "scrollarea", "scrollbar", "list", "outline", "cell"}
 
 
 def _ask_return(app: str, cfg: GateConfig) -> Decision:
@@ -314,6 +316,10 @@ def classify_screen(action: Literal["click", "type", "press", "scroll", "open", 
         label = unicodedata.normalize("NFKC", label)
         if not label.isascii():  # look-alike letters, soft hyphens, zero-width marks: cannot be read reliably
             return Decision("ask", f"click {label!r} in {app}: label has characters the gate cannot read")
+        if not label.strip():
+            if role.strip().lower() in _PASSIVE_ROLES:
+                return Decision("allow", f"click unlabelled {role} in {app}")
+            return Decision("ask", f"click unlabelled {role or 'element'} in {app}: cannot tell what it does")
         word = next((_ASK_FORMS[w] for w in re.findall(r"[a-z]+", label.lower()) if w in _ASK_FORMS), None)
         if word is None:
             return Decision("allow", f"click {label!r} in {app}")

@@ -9,10 +9,22 @@ def test_ask_words_are_the_spec_list():
 
 @pytest.mark.parametrize("label,verdict", [
     ("Send", "ask"), ("Send Message", "ask"), ("Delete…", "ask"), ("CONFIRM", "ask"),
-    ("Sender", "allow"), ("Reply", "allow"), ("Postpone", "allow"), ("", "allow"),
+    ("Sender", "allow"), ("Reply", "allow"), ("Postpone", "allow"),
 ])
 def test_click_judged_by_whole_word_label(label, verdict, cfg):
     assert classify_screen("click", "Mail", cfg, role="button", label=label).verdict == verdict
+
+
+@pytest.mark.parametrize("role", ["button", "menubutton", "image", "treeitem", "group", "unknown", "", "widget"])
+@pytest.mark.parametrize("label", ["", "   "])
+def test_unlabelled_click_asks_and_is_never_remembered(role, label, cfg):
+    d = classify_screen("click", "Finder", cfg, role=role, label=label)
+    assert d.verdict == "ask" and d.pattern == ""
+
+
+@pytest.mark.parametrize("role", ["textfield", "scrollarea", "scrollbar", "list", "outline", "cell", "TextField"])
+def test_unlabelled_click_on_passive_role_is_free(role, cfg):
+    assert classify_screen("click", "TextEdit", cfg, role=role, label="").verdict == "allow"
 
 
 def test_typing_scrolling_opening_are_free(cfg):

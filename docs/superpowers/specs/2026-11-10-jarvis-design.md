@@ -199,7 +199,7 @@ Jarvis's own `.claude/` folder, its settings, and the gate's rule files are outs
 **When code cannot tell what an action does — strict, with remembered approvals (Claude's call; Febriel to confirm).** The gate uses fixed rules only; no model sits inside it.
 
 - *Shell:* a list of known read-only commands runs freely; known state-changing commands are judged by the paths they touch; anything unrecognised asks.
-- *On screen:* judged from the target's role and label in the accessibility snapshot. Moving around, opening, scrolling, and typing into fields are free. Activating a control whose label matches a fixed word list (send, submit, post, publish, pay, buy, delete, remove, confirm, sign) asks, and so does pressing Return in an app that is not on the trusted list.
+- *On screen:* judged from the target's role and label in the accessibility snapshot. Moving around, opening, scrolling, and typing into fields are free. Activating a control whose label matches a fixed word list (send, submit, post, publish, pay, buy, delete, remove, confirm, sign) asks, and so does pressing Return in an app that is not on the trusted list. A click on a control with no readable label asks every time and cannot be remembered with "yes, always", except on passive targets where a click only places focus, scrolls or selects (agent-desktop roles `textfield`, `scrollarea`, `scrollbar`, `list`, `outline`, `cell`), which stay free. *(amended 2026-11-13, from Spike 5)*
 - *Connector tools:* read tools are free; tools that write or send ask.
 - *Remembered approvals:* when Febriel answers "yes, always", that exact pattern (command shape, or app plus control) joins a trusted list and stops asking. The list is a plain file Febriel can read and edit.
 
