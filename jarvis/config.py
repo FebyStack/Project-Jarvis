@@ -10,6 +10,8 @@ PROJECT = Path.home() / "Developer" / "Project Jarvis"
 SETTINGS = PROJECT / ".claude" / "jarvis-settings.json"
 DEFAULT_HOME_DIR = Path.home() / ".jarvis"
 DEFAULT_VAULT = Path("/Users/febrielotud/Obsidian/Jarvis")
+# Folders whose programs jarvisd and the hook run (claude, Homebrew's Python): writes there always ask.
+RUN_PATH = (Path.home() / ".local" / "bin", Path("/opt/homebrew"), Path("/usr/local"))
 
 PORT = 8787
 EXTRA_HOSTS: tuple[str, ...] = ()  # Host names the API also answers to; Plan 4 adds the tailnet name

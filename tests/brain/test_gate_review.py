@@ -12,13 +12,14 @@ from jarvis.brain.trusted import TrustedList
 HOME = Path.home()
 DEV = HOME / "Developer"
 PROJ = DEV / "Project Jarvis"
+RUN_PATH = [HOME / ".local" / "bin", Path("/opt/homebrew"), Path("/usr/local")]   # as load_config() protects them
 
 
 @pytest.fixture
 def cfg(tmp_path):
     """Shaped like load_config(): the whole project and ~/.jarvis protected."""
     (tmp_path / "vault").mkdir()
-    return GateConfig(free_write=[DEV, tmp_path / "vault"], protected=[PROJ, HOME / ".jarvis"],
+    return GateConfig(free_write=[DEV, tmp_path / "vault"], protected=[PROJ, HOME / ".jarvis", *RUN_PATH],
                       trusted=TrustedList(tmp_path / "trusted.txt"), read_tools=set())
 
 
@@ -145,10 +146,11 @@ def test_the_question_names_every_part_that_asks(cfg):
 # ── finding 11: never a pattern as wide as the home folder ──
 
 def test_always_for_a_file_in_home_remembers_that_file_only(cfg):
-    d = classify_path_write(HOME / ".zshenv", cfg)
-    assert d.pattern == f"write:{(HOME / '.zshenv').resolve()}"
+    d = classify_path_write(HOME / "notes.txt", cfg)
+    assert d.pattern == f"write:{(HOME / 'notes.txt').resolve()}"
     cfg.trusted.add(d.pattern); cfg.trusted.add(f"write:{HOME.resolve()}")
-    assert classify_path_write(HOME / ".gitconfig", cfg).verdict == "ask"
+    assert classify_path_write(HOME / "todo.md", cfg).verdict == "ask"
+    assert classify_path_write(HOME / ".zshenv", cfg).pattern == ""          # start-up files are never remembered at all
     assert classify_shell("rm ~/a.txt", HOME, cfg).pattern == f"shell:rm:{(HOME / 'a.txt').resolve()}"
 
 
@@ -205,3 +207,34 @@ def test_every_command_the_system_skill_teaches_runs_without_asking(cfg):
                                  "osascript -e 'display notification \"a & b (c)\"'"])
 def test_anything_wider_still_asks(cmd, cfg):
     assert classify_shell(cmd, DEV, cfg).verdict == "ask"
+
+
+
+# ── from the automated review of the fixes: a remembered command must not plant something that runs later ──
+
+@pytest.mark.parametrize("trusted,cmd", [
+    ("shell:ln", "ln -sf /tmp/evil ~/Library/LaunchAgents/com.evil.plist"),       # runs at the next login
+    ("shell:ln", "ln -sf /tmp/evil ~/.zshrc"), ("shell:ln", "ln -sf /tmp/evil ~/.zshenv"),
+    ("shell:ln", "ln -sf /tmp/evil ~/.gitconfig"),                               # makes later git run programs
+    ("shell:ln", "ln -sf /tmp/evil ~/.local/bin/claude"),                        # the brain jarvisd starts
+    ("shell:ln", "ln -sf /tmp/evil /opt/homebrew/bin/python3.12"),               # the Python the hook runs on
+    ("shell:defaults", "defaults write ~/Library/LaunchAgents/com.evil ProgramArguments -array /tmp/evil"),
+    ("shell:defaults", "defaults write /tmp/x Key -string v"),
+    ("shell:chmod", "chmod +x ~/.zprofile"),
+])
+def test_a_remembered_command_cannot_plant_what_runs_later(trusted, cmd, cfg):
+    cfg.trusted.add(trusted)
+    assert asks_unremembered(cmd, cfg)
+
+
+def test_writing_where_code_runs_later_always_asks(cfg):
+    for path in (HOME / "Library" / "LaunchAgents" / "com.evil.plist", HOME / ".bash_profile", HOME / ".ssh" / "rc",
+                 HOME / ".local" / "bin" / "claude"):
+        d = classify_path_write(path, cfg)
+        assert d.verdict == "ask" and d.pattern == "", path
+    assert asks_unremembered("cp evil /opt/homebrew/bin/python3.12", cfg)
+
+
+def test_a_plain_defaults_domain_is_still_remembered(cfg):
+    cfg.trusted.add("shell:defaults")
+    assert classify_shell("defaults write com.example.app ShowDock -bool true", DEV, cfg).verdict == "allow"

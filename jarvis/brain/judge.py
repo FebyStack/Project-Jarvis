@@ -17,7 +17,7 @@ _PATH_KEY = {"Write": "file_path", "Edit": "file_path", "MultiEdit": "file_path"
 
 def load_config() -> GateConfig:
     home = config.HOME_DIR
-    return GateConfig(free_write=[Path.home() / "Developer", config.VAULT], protected=[config.PROJECT, home],
+    return GateConfig(free_write=[Path.home() / "Developer", config.VAULT], protected=[config.PROJECT, home, *config.RUN_PATH],
                       trusted=TrustedList(home / "trusted.txt"), read_tools=set())
 
 

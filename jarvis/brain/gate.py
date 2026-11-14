@@ -69,7 +69,10 @@ def _inside(real: Path, roots: list[Path]) -> bool:
 # Files here run code later without Jarvis running anything: git config and hooks (they make later "read-only" git
 # commands run programs), Claude Code settings and hooks, Obsidian plugins, VS Code tasks, direnv. A path with one of
 # these names anywhere (the name itself too, so mv/mkdir cannot make one) is protected.
-_RUN_LATER = {".git", ".claude", ".obsidian", ".vscode", ".envrc"}
+_RUN_LATER = {".git", ".claude", ".obsidian", ".vscode", ".envrc",
+              # and what the shell, git, ssh and launchd run on their own: start-up files and login agents
+              ".zshrc", ".zshenv", ".zprofile", ".zlogin", ".zlogout", ".bashrc", ".bash_profile", ".bash_login",
+              ".profile", ".gitconfig", ".ssh", "launchagents", "launchdaemons"}  # compared case-folded
 
 
 def _protects(real: Path, cfg: GateConfig) -> bool:
@@ -366,6 +369,8 @@ def _classify_part(tokens: list[str], cwd: Path | None, cfg: GateConfig) -> Deci
             return Decision("ask", f"{cmd} {sub} may run scripts or packages".replace("  ", " "))
         return _check_args(cmd, args[1:], cwd, cfg) or _ask_unless_trusted(
             Decision("ask", why, f"shell:{cmd} {sub}".rstrip()), cfg)
+    if cmd == "defaults" and any("/" in a for a in args):  # a plist path, not a plain reverse-DNS domain
+        return Decision("ask", "defaults with a file path")
     if cmd in _REMEMBER:
         return _check_args(cmd, args, cwd, cfg) or _ask_unless_trusted(
             Decision("ask", f"{cmd} may change files or settings", f"shell:{cmd}"), cfg)
