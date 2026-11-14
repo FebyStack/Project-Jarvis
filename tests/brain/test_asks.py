@@ -29,7 +29,7 @@ async def test_yes_no_and_timeout(asks):
     assert asks.history() == [("r1", ANY, True), ("r2", ANY, False), ("r3", ANY, False)]
 
 
-async def test_answer_goes_to_the_oldest_on_its_channel(asks):
+async def test_answer_stays_on_its_channel(asks):
     a = asyncio.create_task(asks.ask(ASK, "phone", "p1")); b = asyncio.create_task(asks.ask(ASK, "mac", "m1")); await asyncio.sleep(0)
     assert asks.answer("yes", channel="mac").request_id == "m1"
     assert await b is True and not a.done()
@@ -64,3 +64,22 @@ async def test_on_change_fires_on_open_and_close(trusted):
     assert calls == [1]
     asks.answer("yes", ask_id=asks.pending()[0].id); await t
     assert calls == [1, 0]
+
+
+async def test_yes_answers_the_newest_question_on_its_channel(asks):
+    """Review finding 10: the yes is meant for the question just shown or spoken, not an older one."""
+    old = asyncio.create_task(asks.ask(ASK, "mac", "m1")); await asyncio.sleep(0)
+    new = asyncio.create_task(asks.ask(Decision("ask", "write x", "write:/x"), "mac", "m2")); await asyncio.sleep(0)
+    assert asks.answer("always", channel="mac").request_id == "m2"
+    assert await new is True and not old.done()
+    old.cancel()
+
+
+async def test_question_ids_never_repeat_across_restarts(trusted):
+    """Review finding 14: a HUD still showing an old question must not answer a new one."""
+    ids = set()
+    for _ in range(3):                                   # three jarvisd starts
+        a = Asks(trusted, {"mac": 0.05, "phone": 0.2}, lambda: None)
+        t = asyncio.create_task(a.ask(ASK, "mac", "r")); await asyncio.sleep(0)
+        ids.add(a.pending()[0].id); a.answer("no"); await t
+    assert len(ids) == 3

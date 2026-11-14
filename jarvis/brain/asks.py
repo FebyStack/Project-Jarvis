@@ -1,6 +1,6 @@
 """Open yes/no questions: one Future each, answered by channel or id, or timed out as no."""
 import asyncio
-import itertools
+import uuid
 from dataclasses import dataclass, field
 from typing import Callable, Literal
 
@@ -24,10 +24,9 @@ class Asks:
         self.trusted, self.timeouts, self.on_change = trusted, timeouts, on_change
         self._open: list[Ask] = []  # oldest first
         self._history: list[tuple[str, str, bool]] = []
-        self._ids = itertools.count(1)
 
     async def ask(self, decision: Decision, channel: Channel, request_id: str) -> bool:
-        a = Ask(str(next(self._ids)), decision.reason + ". Yes or no?", decision.pattern, channel, request_id,
+        a = Ask(uuid.uuid4().hex[:12], decision.reason + ". Yes or no?", decision.pattern, channel, request_id,
                 asyncio.get_running_loop().create_future())
         self._open.append(a)
         self.on_change()
@@ -45,7 +44,8 @@ class Asks:
                ask_id: str | None = None) -> Ask | None:
         if reply not in ("yes", "no", "always"):  # fail closed: only an exact yes/always approves
             raise ValueError(f"unknown reply: {reply!r}")
-        a = next((a for a in self._open if not a.future.done() and
+        # The newest open question on the channel: the one just shown or spoken (review finding 10).
+        a = next((a for a in reversed(self._open) if not a.future.done() and
                   (a.id == ask_id if ask_id is not None else channel in (None, a.channel))), None)
         if a is None:
             return None
