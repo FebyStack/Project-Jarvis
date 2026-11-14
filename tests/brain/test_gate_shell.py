@@ -93,3 +93,10 @@ def test_protected_cannot_be_trusted(cfg):
 
 def test_free_write_path_allowed(cfg):
     assert classify_path_write(DEV / "scratch" / "a.txt", cfg).verdict == "allow"
+
+
+@pytest.mark.parametrize("cmd", ["printf 'gold' > ~/Developer/p.txt", "printf -v PATH /tmp/x", "read PATH <<< /tmp/x",
+                                 "mapfile -t PATH < /tmp/x", "readarray PATH < /tmp/x"])
+def test_builtins_that_set_variables_ask_and_are_never_remembered(cmd, cfg):
+    d = classify_shell(cmd, HOME, cfg)
+    assert d.verdict == "ask" and d.pattern == ""      # "always" for printf would later let printf -v PATH through
