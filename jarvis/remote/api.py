@@ -3,7 +3,7 @@ import asyncio
 import hmac
 import json
 
-from aiohttp import web
+from aiohttp import WSCloseCode, web
 
 from jarvis import config
 
@@ -25,6 +25,7 @@ async def _body(request: web.Request) -> dict | None:
 
 def make_app(jarvis, token: str) -> web.Application:
     expected = f"Bearer {token}".encode()
+    streams: set[web.WebSocketResponse] = set()
 
     @web.middleware
     async def guard(request: web.Request, handler):
@@ -65,6 +66,7 @@ def make_app(jarvis, token: str) -> web.Application:
     async def events(request):
         ws = web.WebSocketResponse()
         await ws.prepare(request)
+        streams.add(ws)
 
         async def pump():
             async for ev in jarvis.subscribe():
@@ -74,11 +76,17 @@ def make_app(jarvis, token: str) -> web.Application:
             async for _ in ws:  # nothing to read; this ends when the client goes
                 pass
         finally:
+            streams.discard(ws)
             task.cancel()
             await asyncio.gather(task, return_exceptions=True)
         return ws
 
+    async def close_streams(app):  # an open stream would otherwise hold the shutdown until its client leaves
+        for ws in list(streams):
+            await ws.close(code=WSCloseCode.GOING_AWAY)
+
     app = web.Application(middlewares=[guard])
+    app.on_shutdown.append(close_streams)
     app.add_routes([web.post("/ask", ask), web.post("/answer", answer), web.post("/cancel", cancel),
                     web.post("/hook", hook), web.get("/health", health), web.get("/events", events)])
     return app

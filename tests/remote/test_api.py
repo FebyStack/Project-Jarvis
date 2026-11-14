@@ -2,6 +2,7 @@ import asyncio
 import socket
 import stat
 
+import aiohttp
 import pytest
 from aiohttp.test_utils import TestClient, TestServer, unused_port
 
@@ -120,3 +121,17 @@ def unused_port_taken(monkeypatch):
 
 async def test_binds_loopback_only_and_refuses_a_taken_port(unused_port_taken):
     with pytest.raises(RuntimeError, match="is taken"): await serve(make_app(FakeJarvis(), "t"))
+
+
+async def test_stopping_closes_open_event_streams(monkeypatch, fake):
+    port = unused_port(); monkeypatch.setattr(config, "PORT", port)
+    task = asyncio.create_task(serve(make_app(fake, TOKEN)))
+    async with aiohttp.ClientSession(headers={"Authorization": f"Bearer {TOKEN}"}) as s:
+        for _ in range(100):
+            try:
+                ws = await s.ws_connect(f"http://127.0.0.1:{port}/events"); break
+            except aiohttp.ClientConnectionError:
+                await asyncio.sleep(0.02)
+        assert (await ws.receive_json())["type"] == "snapshot"
+        task.cancel()
+        await asyncio.wait_for(asyncio.gather(task, return_exceptions=True), 3)   # was: hung until the client left
