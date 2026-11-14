@@ -22,6 +22,8 @@ _FROM_ENV = {"HOME_DIR": ("JARVIS_HOME", DEFAULT_HOME_DIR), "VAULT": ("JARVIS_VA
 
 
 def __getattr__(name: str) -> Path:
+    if name == "DESKTOP_SKILLS":  # links to Febriel's desktop skills, rebuilt at each daemon start
+        return __getattr__("HOME_DIR") / "desktop-skills"
     if name not in _FROM_ENV:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
     var, default = _FROM_ENV[name]

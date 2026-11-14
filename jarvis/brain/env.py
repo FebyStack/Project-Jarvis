@@ -20,5 +20,5 @@ def claude_argv(memory_map: str, agent: str = "jarvis", resume: str | None = Non
     argv = [os.environ.get("JARVIS_CLAUDE_BIN") or "claude", "-p", "--agent", agent, "--model", "sonnet",
             "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
             "--setting-sources", "project", "--settings", str(config.SETTINGS), "--strict-mcp-config",
-            "--append-system-prompt", memory_map]
+            "--add-dir", str(config.DESKTOP_SKILLS), "--append-system-prompt", memory_map]
     return argv + ["--resume", resume] if resume else argv

@@ -81,6 +81,9 @@ def daemon() -> int:
                         format="%(asctime)s %(levelname)s %(name)s %(message)s")
     vault = Vault(config.VAULT)
     vault.ensure_map()
+    from jarvis.brain import desktop_skills
+
+    logging.info("linked %d desktop skills", len(desktop_skills.link(config.DESKTOP_SKILLS)))
     try:
         asyncio.run(_run(vault, token))
     except RuntimeError as e:

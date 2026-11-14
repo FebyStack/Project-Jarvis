@@ -55,3 +55,17 @@ def test_plist_runs_the_daemon_with_no_secrets():
     p = plistlib.loads((ROOT / "launchd" / "com.febriel.jarvisd.plist").read_bytes())
     assert p["ProgramArguments"] == ["/Users/febrielotud/Developer/Project Jarvis/.venv/bin/jarvis", "daemon"]
     assert p["RunAtLoad"] is True and "EnvironmentVariables" not in p
+
+
+def test_daemon_links_the_desktop_skills_before_starting(monkeypatch, tmp_path):
+    import jarvis.cli as cli
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setenv("JARVIS_HOME", str(tmp_path / "j")); monkeypatch.setenv("JARVIS_VAULT", str(tmp_path / "v"))
+    monkeypatch.setattr(cli, "_port_taken", lambda: False)
+    linked = []
+    monkeypatch.setattr("jarvis.brain.desktop_skills.link", lambda dest: linked.append(dest) or ["a"])
+
+    async def no_run(vault, token):
+        assert linked, "skills must be linked before the brain starts"
+    monkeypatch.setattr(cli, "_run", no_run)
+    assert cli.main(["daemon"]) == 0 and linked == [tmp_path / "j" / "desktop-skills"]
