@@ -4,6 +4,7 @@ The digest holds only the first user message of each session, cut to 200 charact
 assistant text or attachments. Nothing is sent without Febriel's yes.
 """
 import json
+import re
 import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -11,6 +12,10 @@ from pathlib import Path
 from jarvis import config
 
 CUT = 200
+# Text the harness adds to a user message, not what Febriel typed (review finding 15): dropped whole, or unwrapped.
+_DROP = re.compile(r"<(system-reminder|local-command-caveat|local-command-stdout|local-command-stderr|command-message|"
+                   r"pasted_content)\b[^>]*>.*?</\1>", re.S)
+_UNWRAP = re.compile(r"</?(command-name|command-args)>")
 PROMPT = """Below is one line per Claude Code session Febriel started in the last 30 days: the project folder, then \
 his first message. Find at most ten tasks he repeats that would make good small skills. For each, give a name \
 (kebab-case), a one-line trigger (when it should run), and the evidence lines copied from below. Markdown only, \
@@ -32,7 +37,7 @@ def _first_request(path: Path) -> str | None:
             if isinstance(content, list):  # text blocks only: no tool results, no images or files
                 content = " ".join(c["text"] for c in content
                                    if isinstance(c, dict) and c.get("type") == "text" and isinstance(c.get("text"), str))
-            if isinstance(content, str) and (text := " ".join(content.split())):
+            if isinstance(content, str) and (text := " ".join(_UNWRAP.sub(" ", _DROP.sub(" ", content)).split())):
                 return text[:CUT]
     return None
 
