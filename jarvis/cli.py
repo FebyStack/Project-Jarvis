@@ -71,6 +71,11 @@ def daemon() -> int:
     if _port_taken():
         print(f"port {config.PORT} is taken. Is jarvisd already running?", file=sys.stderr)
         return 1
+    from jarvis.brain.env import PATH
+
+    if not os.environ.get("JARVIS_CLAUDE_BIN") and not shutil.which("claude", path=PATH):
+        print("claude is not on PATH. Install Claude Code and log in, then check with: jarvis doctor", file=sys.stderr)
+        return 1
     import asyncio
     import logging
 
@@ -114,9 +119,9 @@ async def _run(vault: Vault, token: str) -> None:
         if server.done():
             server.result()  # "port … is taken" surfaces here
     finally:
-        server.cancel()
+        await jarvis.stop()  # answers and records every open request first, then stops the claude child
+        server.cancel()  # so the API's open requests have finished and its shutdown is quick
         await asyncio.gather(server, return_exceptions=True)
-        await jarvis.stop()  # stops the claude child too
 
 
 def ask(text: str) -> int:

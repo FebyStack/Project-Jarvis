@@ -17,6 +17,7 @@ ASK_TIMEOUT = {"mac": 60.0, "phone": 600.0}
 HOOK_TIMEOUT = 660
 RESET_IDLE_SECONDS = 1800
 SWEEP_IDLE_SECONDS = 1200
+SHUTDOWN_TIMEOUT = 3.0  # seconds the API waits for open requests on stop; launchd kills after 20
 
 _FROM_ENV = {"HOME_DIR": ("JARVIS_HOME", DEFAULT_HOME_DIR), "VAULT": ("JARVIS_VAULT", DEFAULT_VAULT)}
 

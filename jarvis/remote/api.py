@@ -94,7 +94,7 @@ def make_app(jarvis, token: str) -> web.Application:
 
 async def serve(app: web.Application) -> None:
     """Serves on 127.0.0.1:PORT until cancelled."""
-    runner = web.AppRunner(app, access_log=None)
+    runner = web.AppRunner(app, access_log=None, shutdown_timeout=config.SHUTDOWN_TIMEOUT)
     await runner.setup()
     try:
         try:
