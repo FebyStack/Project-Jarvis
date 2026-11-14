@@ -922,7 +922,7 @@ Spec §6.2: once, during Plan 2. Nothing is created without his pick.
 - `digest(projects_dir: Path, since: datetime, limit: int = 400) -> str` — from Claude Code's session files (`~/.claude/projects/*/*.jsonl`) modified since `since`: the first user message of each session, cut to 200 characters, one per line with the project folder's name, newest first, at most `limit` lines. Tool output, assistant text and attachments are never included.
 - `jarvis shortlist` — prints the digest's line count and asks Febriel to confirm before anything is sent; then one `claude -p --model sonnet` call (scrubbed environment, same settings) that returns at most ten repeat tasks, each with a name, a one-line trigger and the evidence lines; writes them to `outputs/skill-shortlist.md` in the vault.
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```python
 def test_digest_takes_first_user_messages_only(tmp_path):
@@ -933,7 +933,7 @@ def test_digest_takes_first_user_messages_only(tmp_path):
     assert "secret reply" not in d and "second message" not in d and "old one" not in d
 ```
 
-- [ ] **Step 2:** Run; fails. Implement. Run; passes. Commit: `feat: shortlist of repeat tasks from the last 30 days`.
+- [x] **Step 2:** Run; fails. Implement. Run; passes. Commit: `feat: shortlist of repeat tasks from the last 30 days`.
 - [ ] **Step 3:** 👤 Tell Febriel what the digest holds and that it goes to Anthropic like any session; on his yes run `uv run jarvis shortlist` and show him `outputs/skill-shortlist.md`.
 - [ ] **Step 4:** 👤 For each one he picks, write `.claude/skills/<name>/SKILL.md` with him (one job per skill, under 40 lines, no schedule). Commit each: `feat: <name> skill`.
 - [ ] **Step 5:** Tell Febriel what works now and what Plan 3 adds. Then Plan 3 is written.

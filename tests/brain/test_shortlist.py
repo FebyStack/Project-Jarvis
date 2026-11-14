@@ -1,0 +1,49 @@
+import json
+import os
+from datetime import datetime
+
+from jarvis.brain.shortlist import digest
+
+
+def user(text):
+    return {"type": "user", "message": {"role": "user", "content": text}}
+
+
+def assistant(text):
+    return {"type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": text}]}}
+
+
+def write_session(path, lines, mtime=None):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("".join(json.dumps(l) + "\n" for l in lines))
+    if mtime:
+        os.utime(path, (mtime.timestamp(), mtime.timestamp()))
+
+
+def test_digest_takes_first_user_messages_only(tmp_path):
+    write_session(tmp_path / "proj-a" / "s1.jsonl", [user("Edit the HPV reel " + "x" * 300), assistant("secret reply"), user("second message")])
+    write_session(tmp_path / "proj-b" / "old.jsonl", [user("old one")], mtime=datetime(2026, 9, 1))
+    d = digest(tmp_path, since=datetime(2026, 10, 15))
+    assert d.count("\n") == 0 and d.startswith("proj-a: Edit the HPV reel") and len(d) <= 220
+    assert "secret reply" not in d and "second message" not in d and "old one" not in d
+
+
+def test_tool_output_meta_and_attachments_are_skipped(tmp_path):
+    write_session(tmp_path / "p" / "a.jsonl", [
+        {"type": "user", "isMeta": True, "message": {"role": "user", "content": "<local-command-caveat>x"}},
+        {"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "content": "tool output"}]}},
+        {"type": "user", "message": {"role": "user", "content": [{"type": "image", "source": {"data": "AAAA"}},
+                                                                   {"type": "text", "text": "Plan the\nweek"}]}}],
+        mtime=datetime(2026, 11, 1))
+    write_session(tmp_path / "p" / "b.jsonl", [user("newer")], mtime=datetime(2026, 11, 2))
+    assert digest(tmp_path, since=datetime(2026, 10, 15)) == "p: newer\np: Plan the week"
+    assert digest(tmp_path, since=datetime(2026, 10, 15), limit=1) == "p: newer"
+
+
+def test_nothing_is_sent_without_a_yes(tmp_path, monkeypatch, capsys):
+    from jarvis.brain import shortlist
+    write_session(tmp_path / ".claude" / "projects" / "p" / "a.jsonl", [user("Edit the reel")])
+    monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+    monkeypatch.setattr("subprocess.run", lambda *a, **k: (_ for _ in ()).throw(AssertionError("sent")))
+    assert shortlist.run(tmp_path / "vault", ask=lambda prompt: "n") == 1
+    assert "1 lines" in capsys.readouterr().out and not (tmp_path / "vault").exists()

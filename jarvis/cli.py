@@ -160,5 +160,5 @@ def main(argv: list[str] | None = None) -> int:
         return ask(args.text)
     if args.cmd == "doctor":
         return doctor()
-    print("jarvis shortlist comes with Plan 2 Task 16.", file=sys.stderr)
-    return 1
+    from jarvis.brain.shortlist import run as shortlist
+    return shortlist(config.VAULT)
