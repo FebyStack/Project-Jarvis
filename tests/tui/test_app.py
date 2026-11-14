@@ -195,3 +195,10 @@ async def test_client_speaks_the_api_with_the_token():
 async def test_client_survives_a_daemon_that_is_down():
     c = Client("t", base=f"http://127.0.0.1:{free_port()}")
     assert await c.ask("hello") is None; await c.answer("no", "k1"); await c.cancel(); await c.close()
+
+
+async def test_text_from_the_daemon_is_never_markup(hud, pilot, fake):
+    fake.push({"type": "memory", "op": "+", "path": "raw/[/x] [bold]note.md"}); await pilot.pause()
+    assert "[/x] [bold]note.md" in screen_text(hud)
+    fake.push({"type": "health", "brain": "online", "vault": "ok", "checklist": ["grant [/mic] access"]}); await pilot.pause()
+    assert "grant [/mic] access" in screen_text(hud)

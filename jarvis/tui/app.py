@@ -163,7 +163,7 @@ class Hud(App):
         v = self.view
         link = {"no daemon": "○ NO DAEMON", "connecting": "○ CONNECTING"}.get(v.link) or (
             "○ OFFLINE" if v.health.get("brain") in ("offline", "down") else "● ONLINE")
-        self.query_one("#link", Static).update(f"{link}   {time.strftime('%H:%M', time.localtime(self.now()))}")
+        self.query_one("#link", Static).update(Text(f"{link}   {time.strftime('%H:%M', time.localtime(self.now()))}"))
 
         voice = Text(v.voice, style=IDLE if v.voice == "IDLE" else f"bold {ACTIVE}")
         voice.append("\n" + "▁" * 28 + "\n", style=IDLE)
@@ -187,19 +187,19 @@ class Hud(App):
             queue = Group(queue, Text(ask.question or "", style=ACTIVE), Text("y yes · n no · a always", style=IDLE))
         self.query_one("#queue", Static).update(queue)
 
-        self.query_one("#memory", Static).update("\n".join(f"{op} {path}" for op, path in v.memory))
+        self.query_one("#memory", Static).update(Text("\n".join(f"{op} {path}" for op, path in v.memory)))
 
         mic = "off" if v.muted else v.health.get("mic", "off")
         footer = [_status("AWAKE", v.health.get("awake", "n/a")), _status("PHONE", v.health.get("phone", "not linked")),
                   _status("MIC", mic), v.limits or "LIMITS ○ unknown"]
-        self.query_one("#footer", Static).update("    ".join(footer))
+        self.query_one("#footer", Static).update(Text("    ".join(footer)))
 
         main = v.screen == "main"
         self.query_one("#top").display = self.query_one("#bottom").display = main
         notice = self.query_one("#notice", Static)
         notice.display = not main
         if not main:
-            notice.update(self._notice(v))
+            notice.update(Text(self._notice(v)))  # daemon text is never markup
 
     def _notice(self, v: View) -> str:
         if v.screen == "limit":
@@ -230,7 +230,7 @@ class Hud(App):
     def action_skills(self) -> None:
         menu = self.query_one("#skills", OptionList)
         menu.clear_options()
-        menu.add_options([Option(f"{name:<16} {desc}", id=name) for name, desc in skills(self.skills_dir)] or [Option("No skills found.", disabled=True)])
+        menu.add_options([Option(Text(f"{name:<16} {desc}"), id=name) for name, desc in skills(self.skills_dir)] or [Option("No skills found.", disabled=True)])
         menu.display = True
         menu.highlighted = 0
         menu.focus()
