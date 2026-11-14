@@ -55,6 +55,7 @@ Found while building against the code that exists. Where a task's text below dis
 |---|---|
 | 9 | `Tracker.may_dispatch` treats every subagent type other than `triage` and `scribe` as a worker, not only `coder` and `researcher`: Claude Code's built-in `general-purpose` and `Explore` agents exist under `--setting-sources project` too, and would otherwise skip triage. Only background agents count in `open_agents` (a foreground agent ends inside its turn). An agent that called no tool shows in the task note with the tier it was given, else the `model:` of its agent file. `Tracker.owns(event)` is added so the core can route a late worker's events to the request that started it. |
 | 10 | `Jarvis(...)` takes one more keyword, `checklist: Callable[[], list[str]] = list`, which Task 12 sets to `checklist(slow=False)` for `health.checklist`. In `test_reset_waits_for_background_workers`, `scribe_runs` is `[task note, day log]`, not `[task note]`: 20 minutes of quiet with a grown day log is exactly when the idle sweep runs, so the second `tick()` distils the day log too. "No answer in time" and "Febriel said no" are told apart by whether the ask's timeout passed, because `Asks.ask` returns only a bool. |
+| 11 | The tests build their clients with `aiohttp.test_utils.TestClient` rather than the `aiohttp_client` fixture, which needs `pytest-aiohttp`, an install not named in Global Constraints. `config.EXTRA_HOSTS` is added (empty). `serve` runs until cancelled and releases the port when it is. |
 
 ## File structure
 
@@ -710,8 +711,8 @@ async def test_subscribers_get_a_snapshot_first(jarvis):
 | `GET /events` | WebSocket | one JSON message per event, the snapshot first |
 | `GET /health` | — | the current `health` event body |
 
-- [ ] **Step 1:** Name the install (`aiohttp`), `uv add aiohttp`.
-- [ ] **Step 2: Failing tests** (aiohttp's `aiohttp_client` fixture; a `FakeJarvis` with canned replies)
+- [x] **Step 1:** Name the install (`aiohttp`), `uv add aiohttp`.
+- [x] **Step 2: Failing tests** (aiohttp's `aiohttp_client` fixture; a `FakeJarvis` with canned replies)
 
 ```python
 async def test_every_route_needs_the_token(client_no_auth):
@@ -743,9 +744,9 @@ async def test_binds_loopback_only_and_refuses_a_taken_port(unused_port_taken):
     with pytest.raises(RuntimeError, match="is taken"): await serve(make_app(FakeJarvis(), "t"))
 ```
 
-- [ ] **Step 3:** Run; fails. Implement. The access log is off; handlers never log bodies or headers.
-- [ ] **Step 4:** Run `uv run pytest -q`; all pass.
-- [ ] **Step 5:** Commit: `feat: local HTTP and WebSocket API behind the token`.
+- [x] **Step 3:** Run; fails. Implement. The access log is off; handlers never log bodies or headers.
+- [x] **Step 4:** Run `uv run pytest -q`; all pass.
+- [x] **Step 5:** Commit: `feat: local HTTP and WebSocket API behind the token`.
 
 ### Task 12: Command line, doctor, and the login agent
 

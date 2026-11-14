@@ -12,6 +12,7 @@ DEFAULT_HOME_DIR = Path.home() / ".jarvis"
 DEFAULT_VAULT = Path("/Users/febrielotud/Obsidian/Jarvis")
 
 PORT = 8787
+EXTRA_HOSTS: tuple[str, ...] = ()  # Host names the API also answers to; Plan 4 adds the tailnet name
 ASK_TIMEOUT = {"mac": 60.0, "phone": 600.0}
 HOOK_TIMEOUT = 660
 RESET_IDLE_SECONDS = 1800
