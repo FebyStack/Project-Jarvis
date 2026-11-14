@@ -95,3 +95,27 @@ def test_skills_that_would_run_commands_outside_the_gate_are_left_out(desktop, t
     skill(own / "banged", "banged", "Repo state: !`git status`")      # runs when the skill loads, not as a tool call
     names = desktop_skills.link(tmp_path / "d")
     assert "hooked" not in names and "banged" not in names and "video-use" in names
+
+
+@pytest.mark.parametrize("text", [
+    '---\nname: q\n"hooks":\n  Stop: []\n---\nx\n',             # quoted key
+    "---\nname: q\nHooks:\n  Stop: []\n---\nx\n",                # other case
+    "---\nname: q\nmeta: {hooks: {Stop: []}}\n---\nx\n",         # flow style
+    "﻿---\nname: q\nhooks: {}\n---\nx\n",                   # byte order mark
+    "---\nname: q\ndescription: never closes\nx\n",              # frontmatter that never ends: fail closed
+    "---\nname: q\n---\n```!\ngit status\n```\n",                # a fenced command block
+    "---\nname: q\n---\nGlued: `#VALUE!`touch x`\n",             # ! against a backtick, anywhere
+])
+def test_anything_that_might_run_outside_the_gate_is_left_out(desktop, tmp_path, text):
+    folder = desktop / ".claude" / "skills" / "q"; folder.mkdir()
+    (folder / "SKILL.md").write_text(text)
+    assert "q" not in desktop_skills.link(tmp_path / "d")
+
+
+def test_a_file_reviewed_by_hand_may_hold_a_bang_in_prose(desktop, tmp_path, monkeypatch):
+    import hashlib
+    folder = skill(desktop / ".claude" / "skills" / "sheets", "sheets", "Unquoted, it evaluates to `#VALUE!`. See `xl/`.")
+    assert "sheets" not in desktop_skills.link(tmp_path / "d")
+    digest = hashlib.sha256((folder / "SKILL.md").read_bytes()).hexdigest()
+    monkeypatch.setitem(desktop_skills.REVIEWED, digest, "sheets: prose")
+    assert "sheets" in desktop_skills.link(tmp_path / "d")

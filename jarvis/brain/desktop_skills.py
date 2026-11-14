@@ -5,6 +5,7 @@ what Jarvis does. A skill that declares its own hooks, or holds a !`command` lin
 tool call), is never linked, for the same reason. Rebuilt at every daemon start into a folder passed with `--add-dir`,
 so his edits and plugin updates carry over and his own Claude Code sessions in this repo do not load the copies.
 """
+import hashlib
 import json
 import os
 import re
@@ -23,7 +24,12 @@ SKIP = {
 }
 
 
-_BANG = re.compile(r"!`[^`]+`")
+_COMMAND = re.compile(r"!`|```!")  # Claude Code may run !`cmd` and ```! blocks as a skill loads, outside the gate
+_HOOKS = re.compile(r"""\bhooks\b["']?\s*:""", re.I)  # a hooks key anywhere in the frontmatter, in any style
+REVIEWED = {  # sha256 of SKILL.md files read by hand whose "!`" is prose, not a command; a changed file drops out
+    "f32b1c2b5d5d31e02964df110d6489613d9345f86830c118cfe24159d8448ce6": "xlsx: `#VALUE!` in a sentence",
+    "80353c24eae7643e54c03626df53987903aef7434be63330fa69422ed0822f54": "konsepto-write-post: (`!!!`) in its list of bans",
+}
 
 
 def _frontmatter(text: str) -> dict[str, str]:
@@ -43,8 +49,14 @@ def _name(skill_md: Path) -> str:
 
 
 def _runs_commands(skill_md: Path) -> bool:
-    text = skill_md.read_text(encoding="utf-8", errors="replace")
-    return "hooks" in _frontmatter(text) or bool(_BANG.search(text))
+    """Fails closed: hooks in the frontmatter, a frontmatter that never ends, or any command marker not reviewed."""
+    data = skill_md.read_bytes()
+    text = data.decode("utf-8", errors="replace").lstrip("\ufeff")
+    if text.startswith("---"):
+        end = text.find("\n---", 3)
+        if end < 0 or _HOOKS.search(text[3:end]):
+            return True
+    return bool(_COMMAND.search(text)) and hashlib.sha256(data).hexdigest() not in REVIEWED
 
 
 def _json(path: Path) -> dict:
