@@ -63,8 +63,8 @@ def scribe_runs():
 async def make(vault, clock, scribe_runs):
     made = []
 
-    async def build(v=vault, **kw):
-        j = Jarvis(v, FakeBridge, clock, lambda: NOW, run_scribe=lambda v, p: scribe_runs.append((v, p)), **kw)
+    async def build(v=vault, bridge=FakeBridge, **kw):
+        j = Jarvis(v, bridge, clock, lambda: NOW, run_scribe=lambda v, p: scribe_runs.append((v, p)), **kw)
         await j.start(); made.append(j)
         return j
     yield build
@@ -225,3 +225,13 @@ async def test_yes_to_a_background_workers_question_answers_at_once(jarvis, brid
     assert jarvis.asks.pending()[0].request_id == "1"
     assert (await asyncio.wait_for(jarvis.submit("yes", "mac"), 1)).say == "Okay."
     assert (await h)["verdict"] == "allow"
+
+
+class QuietBridge(FakeBridge):
+    async def start(self):  # the real CLI sends its first init only with the first message
+        pass
+
+
+async def test_brain_is_online_once_the_child_runs(make):
+    j = await make(bridge=QuietBridge)
+    assert (await anext(j.subscribe()))["health"]["brain"] == "online"

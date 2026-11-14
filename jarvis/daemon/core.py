@@ -424,7 +424,7 @@ class Jarvis:
             return "limit"
         if self._offline:
             return "offline"
-        return "online" if self._init_seen else "starting"
+        return "online" if self._init_seen or self.bridge.alive else "starting"  # init comes with the first message
 
     def _health_body(self) -> dict:
         return {"brain": self._brain(), "vault": self.vault.status(), "mic": "off", "phone": "not linked",
