@@ -582,4 +582,9 @@ Run from this checkout: `.venv/bin/jarvis daemon` on Febriel's subscription (`cl
 
 The `raw/` notes and day-log lines written between 22:01 and 22:22 stay as history. Removed after the run: the seeded `wiki/poetry.md` (made-up preferences), the test-made `wiki/protected-paths.md`, the index lines for both, `~/Developer/jarvis-e2e/` and `~/Documents/jarvis-e2e.txt`. `CLAUDE.md` (the vault map from `ensure_map`) stays.
 
-Rows 10–11 wait for Febriel.
+### Rows 10–11 (Febriel, 2026-11-14 22:33–22:40)
+
+| # | What ran | Seen | Verdict |
+|---|---|---|---|
+| 10 | `uv run jarvis hud` in an 80×24 Terminal window, against jarvisd from the login agent | Screenshot: gold on black, header `● ONLINE` and clock, VOICE, AGENTS, QUEUE and MEMORY readable, footer `AWAKE ○ n/a  PHONE ○ not linked  MIC ○ off  LIMITS ● 82%`; typing worked ("hey", "status" answered). The `NEEDS YOU` test failed: after Enter the input kept focus, so Febriel's `y` went to Jarvis as text (day log `22:38 · mac · y → …`), and the `touch` question timed out ("No answer in time, so no"; no file). Fixed in `0ea1325`, which also keeps the first letter typed with nothing focused (Textual's `Input` selected its text on focus, so the second key overwrote it). Not yet seen: Escape cancelling, and closing the HUD leaving Jarvis running. A long memory path wraps onto a second line under its `r` | **Fail**, fixed; `y`/`n`, Escape and closing to be re-checked |
+| 11 | Login agent loaded from `launchd/README.md`; `jarvis ask "status"` | Loaded at 22:33:38 (`launchctl print`: running, `runs = 1`); `status` answered "Nothing is running." both from a new Terminal tab and from the project folder; a hand-started `jarvis daemon` refused with "port 8787 is taken". The daemon was still the 22:33:38 process at 22:40, so no macOS log-out and log-in happened (a log-out ends every login agent) | **Partial**: loads and answers; start at login not yet seen |
