@@ -343,23 +343,23 @@ Spike code is throwaway, lives in `spikes/NN-name/`, has no tests, and is never 
 
 Settles §10 risk 1 and decides Plan 2's bridge. Most important spike; do it first.
 
-- [ ] **Step 1:** Assert `ANTHROPIC_API_KEY` is unset. Start `claude -p --model sonnet --input-format stream-json --output-format stream-json --verbose` as a child process; send two user messages a minute apart on stdin. **Bar:** both answered in one process, second remembers the first, `system/init` shows subscription auth and no API key.
-- [ ] **Step 2:** Add `spikes/01-brain/.claude/agents/` with `jarvis` (sonnet), `triage` (`model: claude-opus-5-5`), `quick` (haiku). Run with `--agent jarvis`; ask something that makes it call `triage`, then dispatch `quick` passing a per-call model. **Bar:** stream shows each agent on the expected model.
-- [ ] **Step 3:** Permission bridge. Try a `PermissionRequest` hook that calls a local script, and `--permission-prompt-tool`; the script waits 5 s then answers. Ask for `touch ~/Documents/jarvis-spike.txt`. **Bar:** the command is held until the script answers; deny prevents it; allow runs it. Record which mechanism works and the exact payload the script receives. Delete the file afterwards.
-- [ ] **Step 4:** Start a second session in `/tmp` with `--settings <path to the spike's settings>`. **Bar:** the same hook fires there.
-- [ ] **Step 5:** Run a worker as a background subagent for 60 s and send a new user message meanwhile. **Bar:** the front door answers before the worker finishes. If not, record whether one process per channel is needed.
-- [ ] **Step 6:** Try `claude --bg "<task>"` and a detached `claude -p` resumed by session ID. Record which gives a session that survives the parent and shows in the Claude app's Code tab.
-- [ ] **Step 7:** Record time from sending a short message to first text token, ten runs. Write findings. Commit.
+- [x] **Step 1 (done 2026-11-13: pass):** Assert `ANTHROPIC_API_KEY` is unset. Start `claude -p --model sonnet --input-format stream-json --output-format stream-json --verbose` as a child process; send two user messages a minute apart on stdin. **Bar:** both answered in one process, second remembers the first, `system/init` shows subscription auth and no API key.
+- [x] **Step 2 (done: pass):** Add `spikes/01-brain/.claude/agents/` with `jarvis` (sonnet), `triage` (`model: claude-opus-5-5`), `quick` (haiku). Run with `--agent jarvis`; ask something that makes it call `triage`, then dispatch `quick` passing a per-call model. **Bar:** stream shows each agent on the expected model.
+- [x] **Step 3 (done: pass, hook and prompt tool both work):** Permission bridge. Try a `PermissionRequest` hook that calls a local script, and `--permission-prompt-tool`; the script waits 5 s then answers. Ask for `touch ~/Documents/jarvis-spike.txt`. **Bar:** the command is held until the script answers; deny prevents it; allow runs it. Record which mechanism works and the exact payload the script receives. Delete the file afterwards.
+- [x] **Step 4 (done: pass):** Start a second session in `/tmp` with `--settings <path to the spike's settings>`. **Bar:** the same hook fires there.
+- [x] **Step 5 (done: pass):** Run a worker as a background subagent for 60 s and send a new user message meanwhile. **Bar:** the front door answers before the worker finishes. If not, record whether one process per channel is needed.
+- [x] **Step 6 (done: detached `-p` + `--resume` works; `--bg` needs folder trust, untested):** Try `claude --bg "<task>"` and a detached `claude -p` resumed by session ID. Record which gives a session that survives the parent and shows in the Claude app's Code tab.
+- [x] **Step 7 (done: 0.79 s median first token):** Record time from sending a short message to first text token, ten runs. Write findings. Commit.
 
 **If the bar in Step 1 or 3 fails:** stop the plan and bring it to Febriel; the design's engine choice is in question.
 
 ### Task 7: Spike 2 — microphone and wake word 👤
 
-- [ ] **Step 1:** Name the installs (`openwakeword`, `sounddevice`, `onnxruntime`), then add them to a spike-only dependency group.
-- [ ] **Step 2:** Script: open the mic, run the "hey jarvis" model, print a timestamp per detection. 👤 Febriel grants the microphone prompt and says "Hey Jarvis" ten times from about 2 m. **Bar:** 9 of 10 detected.
-- [ ] **Step 3:** 👤 Leave it running 30 min with a video or music playing. **Bar:** at most 1 false trigger.
-- [ ] **Step 4:** Run the same script from a `launchd` user agent. Record whether the mic opens. If not, Plan 3 starts `jarvisd` from a Terminal login item.
-- [ ] **Step 5:** Record idle CPU. Write findings. Commit.
+- [x] **Step 1 (done 2026-11-13):** Name the installs (`openwakeword`, `sounddevice`, `onnxruntime`), then add them to a spike-only dependency group.
+- [x] **Step 2 (done: fail, 3 of 10; custom training also failed; Febriel chose wake by transcription, tested in Task 8):** Script: open the mic, run the "hey jarvis" model, print a timestamp per detection. 👤 Febriel grants the microphone prompt and says "Hey Jarvis" ten times from about 2 m. **Bar:** 9 of 10 detected.
+- [x] **Step 3 (moved to Task 8, done 2026-11-14: 0 false wakes in 29 min):** 👤 Leave it running 30 min with a video or music playing. **Bar:** at most 1 false trigger.
+- [x] **Step 4 (done 2026-11-13: pass, mic opens from a launchd agent):** Run the same script from a `launchd` user agent. Record whether the mic opens. If not, Plan 3 starts `jarvisd` from a Terminal login item.
+- [x] **Step 5 (done: 6–10 % with openWakeWord; 2–4 % with wake by transcription):** Record idle CPU. Write findings. Commit.
 
 ### Task 8: Spike 3 — speech-to-text and end of speech 👤
 
@@ -379,8 +379,8 @@ Settles §10 risk 1 and decides Plan 2's bridge. Most important spike; do it fir
 - [x] **Step 1 (done 2026-11-13, 1.3.0; Accessibility granted to the Claude app):** Name the install, then `npm install -g agent-desktop`. 👤 Febriel grants Accessibility via `agent-desktop permissions --guide`.
 - [x] **Step 2:** In TextEdit: snapshot, click, type a line. In Finder: `drag` a scratch file between two scratch folders, reading the syntax from `agent-desktop drag --help`. Record exact commands.
 - [x] **Step 3:** Record what a snapshot gives for a button (role and label fields) and confirm it is enough for Task 4's `classify_screen`. If field names differ, note the mapping.
-- [ ] **Step 4:** 👤 With the session unlocked, run `pmset displaysleepnow`, wait 2 min, repeat Step 2 from a delayed script, and take a screenshot. **Bar:** actions succeed with the display asleep. Record whether the screenshot is usable.
-- [ ] **Step 5:** Write findings. If the bar fails, remote on-screen control needs the display awake; bring it to Febriel. Commit.
+- [x] **Step 4 (done 2026-11-14: fail while locked; lock is "immediately", so asleep means locked; decision for Febriel):** 👤 With the session unlocked, run `pmset displaysleepnow`, wait 2 min, repeat Step 2 from a delayed script, and take a screenshot. **Bar:** actions succeed with the display asleep. Record whether the screenshot is usable.
+- [x] **Step 5 (done 2026-11-14: findings written, brought to Febriel):** Write findings. If the bar fails, remote on-screen control needs the display awake; bring it to Febriel. Commit.
 
 ### Task 11: Spike 6 — phone round trip 👤
 
