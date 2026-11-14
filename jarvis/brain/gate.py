@@ -153,7 +153,8 @@ _RUNNERS = {"sh", "bash", "zsh", "dash", "fish", "ksh", "csh", "tcsh", "env", "x
             "setopt", "ulimit", "umask", "printf", "read", "mapfile", "readarray",
             # zsh: precommand modifiers that run the next word, history re-runs, and more variable setters
             "noglob", "nocorrect", "-", "fc", "r", "print", "vared", "zparseopts", "getopts", "let", "autoload",
-            "zmodload", "emulate", "functions", "disable"}
+            "zmodload", "emulate", "functions", "disable", "repeat", "sched", "zpty", "foreach", "integer", "float",
+            "private", "unsetopt", "zle", "bindkey", "zcompile", "unalias", "unfunction", "unhash"}
 _OPTION = re.compile(r"-[A-Za-z]+|--[a-z][a-z-]*(=.*)?")
 _NAV = {"cd", "pushd", "popd"}
 _RESERVED = {"!", "if", "then", "else", "elif", "do", "while", "until", "case", "select", "{", "}", "coproc",

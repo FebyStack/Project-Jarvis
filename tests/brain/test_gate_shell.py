@@ -104,7 +104,10 @@ def test_builtins_that_set_variables_ask_and_are_never_remembered(cmd, cfg):
 
 @pytest.mark.parametrize("cmd", ["print -v PATH /tmp/x", "noglob rm -rf ~/Documents", "- rm ~/Documents/a", "nocorrect rm x",
                                  "vared PATH", "zparseopts -A PATH", "getopts a PATH", "let PATH=1", "fc -e - ",
-                                 "r", "autoload x", "zmodload zsh/files", "emulate sh -c 'rm x'", "functions -c a b", "disable rm"])
+                                 "r", "autoload x", "zmodload zsh/files", "emulate sh -c 'rm x'", "functions -c a b", "disable rm",
+                                 "repeat 1 rm x", "sched +1 rm x", "zpty a rm", "foreach f (x) rm $f; end", "integer PATH",
+                                 "float PATH", "private PATH", "unsetopt x", "zle -N x", "bindkey x y", "zcompile x",
+                                 "unalias ls", "unfunction x", "unhash ls"])
 def test_zsh_builtins_that_run_or_set_things_are_never_remembered(cmd, cfg):
     d = classify_shell(cmd, HOME, cfg)
     assert d.verdict == "ask" and d.pattern == ""      # the Bash tool runs in Febriel's zsh
