@@ -56,6 +56,7 @@ Found while building against the code that exists. Where a task's text below dis
 | 9 | `Tracker.may_dispatch` treats every subagent type other than `triage` and `scribe` as a worker, not only `coder` and `researcher`: Claude Code's built-in `general-purpose` and `Explore` agents exist under `--setting-sources project` too, and would otherwise skip triage. Only background agents count in `open_agents` (a foreground agent ends inside its turn). An agent that called no tool shows in the task note with the tier it was given, else the `model:` of its agent file. `Tracker.owns(event)` is added so the core can route a late worker's events to the request that started it. |
 | 10 | `Jarvis(...)` takes one more keyword, `checklist: Callable[[], list[str]] = list`, which Task 12 sets to `checklist(slow=False)` for `health.checklist`. In `test_reset_waits_for_background_workers`, `scribe_runs` is `[task note, day log]`, not `[task note]`: 20 minutes of quiet with a grown day log is exactly when the idle sweep runs, so the second `tick()` distils the day log too. "No answer in time" and "Febriel said no" are told apart by whether the ask's timeout passed, because `Asks.ask` returns only a bool. |
 | 11 | The tests build their clients with `aiohttp.test_utils.TestClient` rather than the `aiohttp_client` fixture, which needs `pytest-aiohttp`, an install not named in Global Constraints. `config.EXTRA_HOSTS` is added (empty). `serve` runs until cancelled and releases the port when it is. |
+| 12 | The doctor's login check runs `claude -p --model haiku --setting-sources project --strict-mcp-config "ok"`: without the two flags Febriel's user-level hooks, plugins and MCP servers start too, which slows the check and is not what Jarvis runs with. The checklist runs the slow check only when nothing else is missing. |
 
 ## File structure
 
@@ -759,7 +760,7 @@ async def test_binds_loopback_only_and_refuses_a_taken_port(unused_port_taken):
 - `jarvis doctor` and `checklist() -> list[str]` — one line per thing still missing, empty when ready. Checks, in order: `claude` on `PATH`; `ANTHROPIC_API_KEY` unset; the vault's `status()`; `SETTINGS` exists; no `.claude/settings.json`; the five agent files exist; the token file's mode is 600; `claude -p --model haiku "ok"` with the scrubbed environment answers within 30 s (login works). `jarvisd` puts `checklist()` (without the last, slow check) into `health.checklist`.
 - The plist runs `/Users/febrielotud/Developer/Project Jarvis/.venv/bin/jarvis daemon` with `RunAtLoad` and `KeepAlive`, working directory the project, no environment variables. `launchd/README.md` gives Febriel the two commands to load and unload it (`launchctl bootstrap gui/$(id -u) …` / `bootout`). The plan does not load it; that is his step, in Task 15.
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```python
 def test_checklist_names_what_is_missing(tmp_path, monkeypatch):
@@ -782,9 +783,9 @@ def test_plist_runs_the_daemon_with_no_secrets():
     assert p["RunAtLoad"] is True and "EnvironmentVariables" not in p
 ```
 
-- [ ] **Step 2:** Run; fails. Implement with `argparse`.
-- [ ] **Step 3:** Run `uv run pytest -q`; all pass. Then by hand: `uv run jarvis daemon` in one terminal, `uv run jarvis ask "what time is it"` in another prints the time; Ctrl-C stops the daemon and leaves no `claude` child (`pgrep -f "claude -p --agent jarvis"` prints nothing).
-- [ ] **Step 4:** Commit: `feat: jarvis command line, doctor checklist and login agent template`.
+- [x] **Step 2:** Run; fails. Implement with `argparse`.
+- [x] **Step 3:** Run `uv run pytest -q`; all pass. Then by hand: `uv run jarvis daemon` in one terminal, `uv run jarvis ask "what time is it"` in another prints the time; Ctrl-C stops the daemon and leaves no `claude` child (`pgrep -f "claude -p --agent jarvis"` prints nothing).
+- [x] **Step 4:** Commit: `feat: jarvis command line, doctor checklist and login agent template`.
 
 ### Task 13: HUD view state
 

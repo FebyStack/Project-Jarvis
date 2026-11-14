@@ -7,6 +7,9 @@ dependencies = [
     "textual>=8.2.8",
 ]
 
+[project.scripts]
+jarvis = "jarvis.cli:main"
+
 [dependency-groups]
 dev = [
     "pytest",
