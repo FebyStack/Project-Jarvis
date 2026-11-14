@@ -10,8 +10,10 @@ PROJECT = Path.home() / "Developer" / "Project Jarvis"
 SETTINGS = PROJECT / ".claude" / "jarvis-settings.json"
 DEFAULT_HOME_DIR = Path.home() / ".jarvis"
 DEFAULT_VAULT = Path("/Users/febrielotud/Obsidian/Jarvis")
-# Folders whose programs jarvisd and the hook run (claude, Homebrew's Python): writes there always ask.
-RUN_PATH = (Path.home() / ".local" / "bin", Path("/opt/homebrew"), Path("/usr/local"))
+# Folders holding the programs jarvisd and the hook run, or settings that make git run programs: writes there always
+# ask. ~/.local/bin/claude is a symlink into ~/.local/share/claude; the venv's Python is Homebrew's.
+RUN_PATH = (Path.home() / ".local" / "bin", Path.home() / ".local" / "share" / "claude", Path("/opt/homebrew"),
+            Path("/usr/local"), Path.home() / ".config" / "git")
 
 PORT = 8787
 EXTRA_HOSTS: tuple[str, ...] = ()  # Host names the API also answers to; Plan 4 adds the tailnet name

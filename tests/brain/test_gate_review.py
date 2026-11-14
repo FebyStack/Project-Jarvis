@@ -12,7 +12,8 @@ from jarvis.brain.trusted import TrustedList
 HOME = Path.home()
 DEV = HOME / "Developer"
 PROJ = DEV / "Project Jarvis"
-RUN_PATH = [HOME / ".local" / "bin", Path("/opt/homebrew"), Path("/usr/local")]   # as load_config() protects them
+from jarvis import config
+RUN_PATH = list(config.RUN_PATH)   # as load_config() protects them
 
 
 @pytest.fixture
@@ -238,3 +239,18 @@ def test_writing_where_code_runs_later_always_asks(cfg):
 def test_a_plain_defaults_domain_is_still_remembered(cfg):
     cfg.trusted.add("shell:defaults")
     assert classify_shell("defaults write com.example.app ShowDock -bool true", DEV, cfg).verdict == "allow"
+
+
+
+def test_the_real_programs_behind_jarvis_and_their_settings_always_ask(cfg, monkeypatch, tmp_path):
+    from jarvis.brain.judge import load_config
+    monkeypatch.setenv("JARVIS_HOME", str(tmp_path / "j")); monkeypatch.setenv("JARVIS_VAULT", str(tmp_path / "v"))
+    real = load_config()
+    targets = [Path(os.path.expanduser("~/.local/bin/claude")).resolve(),       # the binary behind the symlink
+               PROJ.joinpath(".venv", "bin", "python").resolve()]               # the Python the hook runs on
+    for t in targets:
+        d = classify_path_write(t, real)
+        assert d.verdict == "ask" and d.pattern == "", t
+    for path in (HOME / ".config" / "git" / "config", HOME / ".bash_logout"):
+        d = classify_path_write(path, real)
+        assert d.verdict == "ask" and d.pattern == "", path

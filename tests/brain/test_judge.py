@@ -73,8 +73,8 @@ def test_unknown_and_connector_tools_ask(cfg):
 def test_load_config_protects_the_project_and_state_dir(monkeypatch, tmp_path):
     monkeypatch.setenv("JARVIS_HOME", str(tmp_path / "j")); monkeypatch.setenv("JARVIS_VAULT", str(tmp_path / "v"))
     cfg = load_config()
-    assert cfg.protected == [Path.home() / "Developer" / "Project Jarvis", tmp_path / "j",
-                             Path.home() / ".local" / "bin", Path("/opt/homebrew"), Path("/usr/local")]
+    assert cfg.protected[:2] == [Path.home() / "Developer" / "Project Jarvis", tmp_path / "j"]
+    assert {Path.home() / ".local" / "bin", Path.home() / ".local" / "share" / "claude", Path("/opt/homebrew")} <= set(cfg.protected)
     assert cfg.free_write == [Path.home() / "Developer", tmp_path / "v"]
 
 

@@ -71,7 +71,7 @@ def _inside(real: Path, roots: list[Path]) -> bool:
 # these names anywhere (the name itself too, so mv/mkdir cannot make one) is protected.
 _RUN_LATER = {".git", ".claude", ".obsidian", ".vscode", ".envrc",
               # and what the shell, git, ssh and launchd run on their own: start-up files and login agents
-              ".zshrc", ".zshenv", ".zprofile", ".zlogin", ".zlogout", ".bashrc", ".bash_profile", ".bash_login",
+              ".zshrc", ".zshenv", ".zprofile", ".zlogin", ".zlogout", ".bashrc", ".bash_profile", ".bash_login", ".bash_logout",
               ".profile", ".gitconfig", ".ssh", "launchagents", "launchdaemons"}  # compared case-folded
 
 
