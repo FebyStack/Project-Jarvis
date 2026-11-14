@@ -199,6 +199,9 @@ def test_every_command_the_system_skill_teaches_runs_without_asking(cfg):
                                  "open -a /Applications/Safari.app --args --evil", "open https://example.com",
                                  "osascript -e 'do shell script \"rm x\"'", "osascript -e 'set volume output volume 300'",
                                  "osascript -e 'display notification \"a\\\" & (do shell script \\\"x\\\") & \\\"\"'",
-                                 "osascript script.scpt", "sleep 1; rm ~/Documents/a"])
+                                 "osascript script.scpt", "sleep 1; rm ~/Documents/a",
+                                 'osascript -e "display notification \\"$X\\""',                    # expands at run time
+                                 "osascript -e 'display notification \u201ca\u201d & (do shell script \u201cx\u201d)'",
+                                 "osascript -e 'display notification \"a & b (c)\"'"])
 def test_anything_wider_still_asks(cmd, cfg):
     assert classify_shell(cmd, DEV, cfg).verdict == "ask"
