@@ -1,11 +1,13 @@
 """The skills installed in Febriel's Claude desktop app, linked for Jarvis (plan 2, Task 16 amendment, his choice).
 
 Skill folders only: never plugin hooks, permission rules or connectors, so the gate stays the only thing that approves
-what Jarvis does. Rebuilt at every daemon start into a folder passed with `--add-dir`, so his edits and plugin updates
-carry over and his own Claude Code sessions in this repo do not load the copies.
+what Jarvis does. A skill that declares its own hooks, or holds a !`command` line (run as the skill loads, not as a
+tool call), is never linked, for the same reason. Rebuilt at every daemon start into a folder passed with `--add-dir`,
+so his edits and plugin updates carry over and his own Claude Code sessions in this repo do not load the copies.
 """
 import json
 import os
+import re
 from pathlib import Path
 
 from jarvis import config
@@ -21,16 +23,28 @@ SKIP = {
 }
 
 
-def _name(skill_md: Path) -> str:
-    lines = skill_md.read_text(encoding="utf-8", errors="replace").splitlines()
+_BANG = re.compile(r"!`[^`]+`")
+
+
+def _frontmatter(text: str) -> dict[str, str]:
+    lines, meta = text.splitlines(), {}
     if lines and lines[0].strip() == "---":
         for line in lines[1:]:
             if line.strip() == "---":
                 break
             key, _, value = line.partition(":")
-            if key.strip() == "name" and value.strip():
-                return value.strip().strip("\"'")
-    return skill_md.parent.name
+            if key and not key[0].isspace():
+                meta[key.strip()] = value.strip().strip("\"'")
+    return meta
+
+
+def _name(skill_md: Path) -> str:
+    return _frontmatter(skill_md.read_text(encoding="utf-8", errors="replace")).get("name") or skill_md.parent.name
+
+
+def _runs_commands(skill_md: Path) -> bool:
+    text = skill_md.read_text(encoding="utf-8", errors="replace")
+    return "hooks" in _frontmatter(text) or bool(_BANG.search(text))
 
 
 def _json(path: Path) -> dict:
@@ -72,7 +86,7 @@ def link(dest: Path) -> list[str]:
     for root in sources():
         for skill_md in sorted(root.glob("*/SKILL.md")):
             name = _name(skill_md)
-            if name in taken or "/" in name or name.startswith("."):
+            if name in taken or "/" in name or name.startswith(".") or _runs_commands(skill_md):
                 continue
             taken.add(name)
             (folder / name).symlink_to(skill_md.parent)

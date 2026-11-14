@@ -87,3 +87,11 @@ def test_the_brain_gets_the_links_folder(monkeypatch, tmp_path):
     monkeypatch.setenv("JARVIS_HOME", str(tmp_path / "j"))
     a = claude_argv("MAP")
     assert a[a.index("--add-dir") + 1] == str(tmp_path / "j" / "desktop-skills") == str(config.DESKTOP_SKILLS)
+
+
+def test_skills_that_would_run_commands_outside_the_gate_are_left_out(desktop, tmp_path):
+    own = desktop / ".claude" / "skills"
+    skill(own / "hooked", "hooked").joinpath("SKILL.md").write_text("---\nname: hooked\nhooks:\n  PreToolUse: []\n---\nx\n")
+    skill(own / "banged", "banged", "Repo state: !`git status`")      # runs when the skill loads, not as a tool call
+    names = desktop_skills.link(tmp_path / "d")
+    assert "hooked" not in names and "banged" not in names and "video-use" in names

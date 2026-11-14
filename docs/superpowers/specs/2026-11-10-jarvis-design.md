@@ -150,6 +150,7 @@ Guide for triage: Haiku for lookups and mechanical edits; Sonnet for ordinary mu
 - **Skills from Febriel's own repeat work (added 2026-11-13, from the second reference).** Once, during Plan 2, the last 30 days of Febriel's Claude Code sessions and the vault are read for tasks he keeps repeating, and a shortlist is brought to him. He picks; only the picked ones become skills. Nothing is created automatically, and none of them run on a schedule.
 - *(amended 2026-11-14, Febriel's choice)* The shortlist turned up little worth a new skill. Instead Jarvis gets the skills already installed in his Claude desktop app (81 on 2026-11-14), with these limits:
   - Skill files only: no plugin hooks, permission rules or connectors, so the gate stays the only thing that approves what Jarvis does.
+  - A skill that declares its own hooks, or holds a !`command` line that runs as it loads, is never linked, for the same reason.
   - Only the skills that can run without the desktop app's own tools or connectors.
   - superpowers comes in; honey stays out.
   - They are linked afresh at every `jarvisd` start and passed to Claude Code with `--add-dir`, so his edits carry over.
