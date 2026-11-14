@@ -5,13 +5,16 @@ An empty pattern means the decision can never be remembered (sudo, protected
 paths, paths that cannot be resolved, commands that run other commands).
 """
 import glob
+import ipaddress
 import os
 import re
 import shlex
+import socket
 import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlsplit
 
 from jarvis.brain.trusted import TrustedList
 
@@ -35,8 +38,15 @@ class GateConfig:
 
 
 def _strictest(decisions: list[Decision]) -> Decision:
-    # max() keeps the first of equals, so the earliest offending part names the pattern.
-    return max(decisions, key=lambda d: _RANK[d.verdict]) if decisions else Decision("allow", "nothing to run")
+    """The strictest verdict. When several parts ask, the question names every one of them, and since one "yes,
+    always" could not cover them all, it is never remembered."""
+    if not decisions:
+        return Decision("allow", "nothing to run")
+    top = max(decisions, key=lambda d: _RANK[d.verdict])
+    asking = [d for d in decisions if d.verdict == "ask"]
+    if top.verdict != "ask" or len(asking) == 1:
+        return top
+    return Decision("ask", "; ".join(dict.fromkeys(d.reason for d in asking)))
 
 
 def _ask_unless_trusted(d: Decision, cfg: GateConfig) -> Decision:
@@ -82,14 +92,26 @@ def _where(real: Path, cfg: GateConfig) -> str:
     return "free" if _inside(real, cfg.free_write) else "out"
 
 
+def _locations(p: Path) -> list[Path]:
+    """Where a write to `p` can land: the name itself (its folder resolved), and the target of any symlink."""
+    norm = Path(os.path.normpath(p))
+    lexical, real = norm.parent.resolve() / norm.name, p.resolve()
+    return [lexical] if lexical == real else [lexical, real]
+
+
+def _scope(real: Path) -> Path:
+    """What a "yes, always" covers: the file's folder, or the file alone when that folder is the home folder or above."""
+    home = Path.home().resolve()
+    return real if real.parent in (home, *home.parents) else real.parent
+
+
 def classify_path_write(path: Path, cfg: GateConfig) -> Decision:
-    real = Path(os.path.expanduser(str(path))).resolve()
-    where = _where(real, cfg)
-    if where == "free":
+    *_, real = locs = _locations(Path(os.path.expanduser(str(path))))
+    if any(_where(loc, cfg) == "protected" for loc in locs):
+        return Decision("ask", f"protected path: {locs[0]}")
+    if _where(real, cfg) == "free":
         return Decision("allow", f"inside a free-write area: {real}")
-    if where == "protected":
-        return Decision("ask", f"protected path: {real}")
-    return _ask_unless_trusted(Decision("ask", f"outside the free-write areas: {real}", f"write:{real.parent}"), cfg)
+    return _ask_unless_trusted(Decision("ask", f"outside the free-write areas: {real}", f"write:{_scope(real)}"), cfg)
 
 
 def _resolve(token: str, cwd: Path | None) -> list[Path] | None:
@@ -107,9 +129,9 @@ def _resolve(token: str, cwd: Path | None) -> list[Path] | None:
     folder, name = os.path.split(str(base))
     if _GLOB.search(folder):
         return None  # a glob over folders can pass through symlinks we cannot see
-    reals = [base.resolve()]
+    reals = _locations(base)
     if _GLOB.search(name):
-        reals += [Path(m).resolve() for m in glob.glob(str(base))]
+        reals += [loc for m in glob.glob(str(base)) for loc in _locations(Path(m))]
     return reals
 
 
@@ -124,22 +146,63 @@ def _judge_targets(cmd: str, targets: list[str], cwd: Path | None, cfg: GateConf
                 return Decision("ask", f"{cmd} touches protected path {real}")
             if where == "out":
                 d = _ask_unless_trusted(
-                    Decision("ask", f"{cmd} writes outside the free-write areas: {real}", f"shell:{cmd}:{real.parent}"), cfg)
+                    Decision("ask", f"{cmd} writes outside the free-write areas: {real}", f"shell:{cmd}:{_scope(real)}"), cfg)
                 if d.verdict == "ask":
                     return d
     return Decision("allow", f"{cmd} stays inside the free-write areas")
 
 
+# ── local addresses ──────────────────────────────────────────────────────────
+
+_DNS_NAME = re.compile(r"[a-z0-9-]+(\.[a-z0-9-]+)*")
+_LOCAL_SUFFIXES = (".localhost", ".local", ".ts.net")
+# Public DNS services whose names resolve to any address written into them (127.0.0.1.nip.io, localtest.me …).
+_WILDCARD_DNS = ("nip.io", "sslip.io", "xip.io", "localtest.me", "lvh.me", "vcap.me", "traefik.me", "localhost.direct")
+_EMBEDDED_V4 = re.compile(r"(?<!\d)(\d{1,3})[.-](\d{1,3})[.-](\d{1,3})[.-](\d{1,3})(?!\d)")
+
+
+def local_host(host: str) -> bool:
+    """True for a host that reaches this Mac, the LAN or the tailnet. `host` is ASCII, lower-case, no trailing dot.
+    Raises ValueError for a name code cannot read; callers ask."""
+    if ":" in host:  # urlsplit strips the brackets from an IPv6 literal
+        ip = ipaddress.IPv6Address(host)
+        ip = ip.ipv4_mapped or ip
+    else:
+        try:  # inet_aton also reads the forms fetchers accept: 127.1, 2130706433, 0x7f000001
+            ip = ipaddress.IPv4Address(socket.inet_aton(host))
+        except OSError:
+            if not _DNS_NAME.fullmatch(host):
+                raise ValueError(host)  # %-escapes, underscores, odd characters: a fetcher may read them differently
+            if any(host == w or host.endswith("." + w) for w in _WILDCARD_DNS):
+                return True
+            if (m := _EMBEDDED_V4.search(host)) and all(int(g) < 256 for g in m.groups()) \
+                    and not ipaddress.IPv4Address(".".join(m.groups())).is_global:
+                return True  # a name carrying a private address, the way those services build theirs
+            # A dotless name only resolves through local search domains, mDNS or Tailscale MagicDNS.
+            return "." not in host or host == "localhost" or host.endswith(_LOCAL_SUFFIXES)
+    return not ip.is_global  # loopback, private, link-local, unspecified, 100.64/10 (tailnet), reserved
+
+
 # ── shell ────────────────────────────────────────────────────────────────────
 
-_READ_ONLY = {"ls", "cat", "head", "tail", "grep", "rg", "pwd", "echo", "date", "which", "wc", "stat", "file", "du", "df", "ps"}
+_READ_ONLY = {"ls", "cat", "head", "tail", "grep", "rg", "pwd", "echo", "date", "which", "wc", "stat", "file", "du", "df", "ps",
+              "[", "test", "od"}
+# The only commands whose "yes, always" is remembered by name (everything else not judged above asks every time).
+# Even when remembered, their arguments must not reach a protected path or a local address (_check_args).
+_REMEMBER = {"sed", "ln", "chmod", "defaults", "ffmpeg", "ffprobe", "jq", "say"}
+_SECURITY_CMDS = {"spctl", "csrutil", "fdesetup"}
+_SECURITY_KEYS = ("quarantine", "com.apple.security", "gatekeeper", "askforpassword", "com.apple.screensaver",
+                  "com.apple.alf", "loginwindow")
+# zsh and bash syntax the parser cannot model exactly: $'…' and $"…" quoting, ${…} (it can assign), arithmetic,
+# zsh's >! and >| clobbering redirects, and any control character (shlex splits on some the shells do not).
+_UNMODELLED = re.compile(r"\$['\"]|\$\{|\$\(\(|\$\[|>[!|]|[\x00-\x08\x0b-\x1f\x7f]")
 _GIT_READ = {"status", "log", "diff", "show", "branch"}
 _BRANCH_LIST_FLAGS = {"-a", "-r", "-v", "-vv", "--all", "--remotes", "--list", "--show-current"}
 _PATH_CMDS = {"rm", "mv", "cp", "mkdir", "touch", "tee"}
 _SUBCOMMAND_CMDS = {"git", "brew", "npm", "pip", "pip3", "uv"}
 _INSTALLS = {("brew", "install"), ("npm", "install"), ("npm", "i"), ("pip", "install"), ("pip3", "install"),
              ("uv", "add"), ("uv", "pip install")}
-_EXEC_OPTIONS = ("--receive-pack", "--upload-pack", "--exec", "--config", "-c")
+_EXEC_OPTIONS = ("--receive-pack", "--upload-pack", "--exec", "--config", "-c", "--template")
 _FIND_UNSAFE = {"-delete", "-exec", "-execdir", "-ok", "-okdir", "-fprint", "-fprint0", "-fprintf", "-fls"}
 _NEVER_CMDS = {"sudo", "su", "doas", "pkexec"}
 # Commands that run other commands: a "yes, always" for one would unlock everything, so they are never remembered.
@@ -191,6 +254,40 @@ def _operands(args: list[str]) -> list[str]:
     return out
 
 
+def _candidates(arg: str) -> list[str]:
+    """What in one argument could be a path or an address: the word, an option's value, an @file."""
+    if arg.startswith("-"):
+        out = [arg.split("=", 1)[1]] if "=" in arg else ([arg[2:]] if len(arg) > 2 and arg[1] != "-" else [])
+    else:
+        out = [arg]
+    return [c[1:] if c.startswith("@") else c for c in out if c]
+
+
+_HOSTISH = re.compile(r"(localhost|\[[0-9a-fA-F:.]+\]|\d{1,3}(?:\.\d{1,3}){3})(?::\d+)?(?:/.*)?", re.I)
+
+
+def _check_args(cmd: str, args: list[str], cwd: Path | None, cfg: GateConfig) -> Decision | None:
+    """Even a remembered command must not reach a protected path or a local address. None when nothing does."""
+    for arg in args:
+        for c in _candidates(arg):
+            host = urlsplit(c).hostname if "://" in c else (m.group(1).strip("[]") if (m := _HOSTISH.fullmatch(c)) else None)
+            if host is not None:
+                try:
+                    local = local_host(host.lower().rstrip("."))
+                except ValueError:
+                    local = True
+                if local:
+                    return Decision("ask", f"{cmd} reaches a local or private address: {c}")
+            if c.startswith(("/", "~")) or cwd is None or _where(cwd.resolve(), cfg) == "protected" \
+                    or (cwd / c.split("/")[0]).exists():
+                reals = _resolve(c, cwd)
+                if reals is None:
+                    return Decision("ask", f"{cmd}: cannot tell where {c!r} points")
+                if any(_where(r, cfg) == "protected" for r in reals):
+                    return Decision("ask", f"{cmd} touches protected path {c}")
+    return None
+
+
 def _git_read_only(args: list[str]) -> bool:
     sub, rest = args[0], args[1:]
     if sub not in _GIT_READ or any(a.startswith("--output") for a in rest):
@@ -207,6 +304,9 @@ def _classify_part(tokens: list[str], cwd: Path | None, cfg: GateConfig) -> Deci
     cmd = os.path.basename(word)
     if cmd in _NEVER_CMDS or "sudo" in (os.path.basename(t) for t in tokens):
         return Decision("never", "needs root; Febriel runs it himself")
+    if cmd in _SECURITY_CMDS or (cmd == "defaults" and {"write", "delete", "import", "rename"} & set(args)
+                                 and any(k in " ".join(args).casefold() for k in _SECURITY_KEYS)):
+        return Decision("never", "changes a system security setting; Febriel does that himself")
     if "=" in word or "$" in word:
         return Decision("ask", f"cannot tell what command {word!r} runs")
     if "/" in word and os.path.dirname(word) not in _SYSTEM_BINS:
@@ -240,14 +340,20 @@ def _classify_part(tokens: list[str], cwd: Path | None, cfg: GateConfig) -> Deci
             return Decision("ask", f"{cmd} with options that change what it runs")
         if sub not in _REMEMBERABLE[cmd]:
             return Decision("ask", f"{cmd} {sub} may run scripts or packages".replace("  ", " "))
-        return _ask_unless_trusted(Decision("ask", why, f"shell:{cmd} {sub}".rstrip()), cfg)
-    return _ask_unless_trusted(Decision("ask", f"unrecognised command: {cmd}", f"shell:{cmd}"), cfg)
+        return _check_args(cmd, args[1:], cwd, cfg) or _ask_unless_trusted(
+            Decision("ask", why, f"shell:{cmd} {sub}".rstrip()), cfg)
+    if cmd in _REMEMBER:
+        return _check_args(cmd, args, cwd, cfg) or _ask_unless_trusted(
+            Decision("ask", f"{cmd} may change files or settings", f"shell:{cmd}"), cfg)
+    return Decision("ask", f"unrecognised command: {cmd}")
 
 
 def classify_shell(command: str, cwd: Path | None, cfg: GateConfig) -> Decision:
     command = command.replace("\\\n", "")  # backslash-newline joins lines, as in the shell
     if _SUDO.search(command):
         return Decision("never", "needs sudo; Febriel runs it himself")
+    if m := _UNMODELLED.search(command):
+        return Decision("ask", f"uses shell syntax the gate cannot read safely: {m.group()!r}")
     cwd = None if cwd is None else Path(os.path.expanduser(str(cwd)))
 
     decisions: list[Decision] = []
@@ -263,6 +369,8 @@ def classify_shell(command: str, cwd: Path | None, cfg: GateConfig) -> Decision:
         tokens = list(lex)
     except ValueError:
         return Decision("ask", "could not parse the command")
+    if any(t.startswith("=") for t in tokens):  # zsh replaces =name with the program's full path
+        return Decision("ask", "uses zsh's =name expansion, which the gate cannot follow")
 
     parts: list[list[str]] = [[]]
     redirects: list[str] = []

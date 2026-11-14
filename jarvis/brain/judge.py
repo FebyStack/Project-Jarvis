@@ -2,44 +2,23 @@
 
 A tool the table does not name asks; nothing falls through to allow.
 """
-import ipaddress
 import os
-import re
-import socket
 from pathlib import Path
 from urllib.parse import urlsplit
 
 from jarvis import config
 from jarvis.brain.gate import (Decision, GateConfig, _ask_unless_trusted, classify_path_write, classify_shell,
-                               classify_tool)
+                               classify_tool, local_host)
 from jarvis.brain.trusted import TrustedList
 
 _FREE = {"Read", "Glob", "Grep", "LS", "WebSearch", "TodoWrite", "Skill", "Agent", "Task", "TaskOutput", "ToolSearch"}
 _PATH_KEY = {"Write": "file_path", "Edit": "file_path", "MultiEdit": "file_path", "NotebookEdit": "notebook_path"}
-_DNS_NAME = re.compile(r"[a-z0-9-]+(\.[a-z0-9-]+)*")
-_LOCAL_SUFFIXES = (".localhost", ".local", ".ts.net")
 
 
 def load_config() -> GateConfig:
     home = config.HOME_DIR
     return GateConfig(free_write=[Path.home() / "Developer", config.VAULT], protected=[config.PROJECT, home],
                       trusted=TrustedList(home / "trusted.txt"), read_tools=set())
-
-
-def _local_host(host: str) -> bool:
-    """True for a host that reaches this Mac, the LAN or the tailnet. `host` is ASCII, lower-case, no trailing dot."""
-    if ":" in host:  # urlsplit strips the brackets from an IPv6 literal
-        ip = ipaddress.IPv6Address(host)  # ValueError for junk: the caller asks
-        ip = ip.ipv4_mapped or ip
-    else:
-        try:  # inet_aton also reads the forms fetchers accept: 127.1, 2130706433, 0x7f000001
-            ip = ipaddress.IPv4Address(socket.inet_aton(host))
-        except OSError:
-            if not _DNS_NAME.fullmatch(host):
-                raise ValueError(host)  # %-escapes, underscores, odd characters: a fetcher may read them differently
-            # A dotless name only resolves through local search domains, mDNS or Tailscale MagicDNS.
-            return "." not in host or host == "localhost" or host.endswith(_LOCAL_SUFFIXES)
-    return not ip.is_global  # loopback, private, link-local, unspecified, 100.64/10 (tailnet), reserved
 
 
 def _judge_fetch(url) -> Decision:
@@ -51,7 +30,7 @@ def _judge_fetch(url) -> Decision:
         if parts.scheme.lower() not in ("http", "https") or not netloc.isascii() or not netloc.isprintable() \
                 or "\\" in netloc or not parts.hostname:
             raise ValueError(url)  # a backslash is a slash to browser-style parsers: the host would differ
-        local = _local_host(parts.hostname.rstrip("."))
+        local = local_host(parts.hostname.rstrip("."))
     except ValueError:
         return Decision("ask", f"cannot tell where this URL goes: {url!r}")
     if local:

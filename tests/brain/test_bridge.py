@@ -97,7 +97,9 @@ def test_env_keeps_only_the_named_variables(monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setenv("SECRET_TOKEN", "s"); monkeypatch.setenv("JARVIS_HOME", "/tmp/jh"); monkeypatch.setenv("JARVIS_VAULT", "")
     env = clean_env()
-    assert set(env) <= {"HOME", "USER", "LOGNAME", "SHELL", "TERM", "LANG", "TMPDIR", "PATH", "JARVIS_HOME", "JARVIS_VAULT"}
+    from jarvis.brain.env import GIT_SAFE
+    assert set(env) <= {"HOME", "USER", "LOGNAME", "SHELL", "TERM", "LANG", "TMPDIR", "PATH", "JARVIS_HOME", "JARVIS_VAULT",
+                        *GIT_SAFE}
     assert env["JARVIS_HOME"] == "/tmp/jh" and "JARVIS_VAULT" not in env
     assert env["PATH"].endswith(os.path.expanduser("~/.local/bin"))
 

@@ -11,7 +11,7 @@ class TrustedList:
     def _patterns(self) -> set[str]:
         if not self.path.exists():
             return set()
-        lines = (l.strip() for l in self.path.read_text(encoding="utf-8").split("\n"))
+        lines = self.path.read_text(encoding="utf-8").split("\n")  # only the newline goes: a space can be part of a name
         return {l for l in lines if l and not l.startswith("#") and l.isprintable()}
 
     def contains(self, pattern: str) -> bool:

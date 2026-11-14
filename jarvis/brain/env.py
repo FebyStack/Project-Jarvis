@@ -4,6 +4,10 @@ import os
 from jarvis import config
 
 KEEP = ("HOME", "USER", "LOGNAME", "SHELL", "TERM", "LANG", "TMPDIR")
+# Git settings above any config file: a found bare repository is refused (a planted one could name programs that a
+# "read-only" git diff or status runs), and no fsmonitor hook runs.
+GIT_SAFE = {"GIT_CONFIG_COUNT": "2", "GIT_CONFIG_KEY_0": "safe.bareRepository", "GIT_CONFIG_VALUE_0": "explicit",
+            "GIT_CONFIG_KEY_1": "core.fsmonitor", "GIT_CONFIG_VALUE_1": "false"}
 PATH = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:" + os.path.expanduser("~/.local/bin")
 
 
@@ -13,7 +17,7 @@ def clean_env() -> dict[str, str]:
     env = {k: os.environ[k] for k in KEEP if k in os.environ}
     env["PATH"] = PATH
     env |= {k: os.environ[k] for k in ("JARVIS_HOME", "JARVIS_VAULT") if os.environ.get(k)}
-    return env
+    return env | GIT_SAFE
 
 
 def claude_argv(memory_map: str, agent: str = "jarvis", resume: str | None = None) -> list[str]:
