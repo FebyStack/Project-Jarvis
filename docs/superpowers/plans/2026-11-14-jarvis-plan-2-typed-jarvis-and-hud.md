@@ -26,13 +26,26 @@ Moved out of this plan, with the reason: `operator`, `reverser`, the `sessions` 
 
 1. **Jarvis's hooks live in `.claude/jarvis-settings.json`, passed with `--settings`. There is no `.claude/settings.json`.** Spec §8 names `settings.json`; a project settings file would load into every Claude Code session opened in this repo and put development sessions behind Jarvis's gate (and deny everything while `jarvisd` is down). Task 15 amends §8.
 2. **The whole project folder is protected, not only `.claude/`.** The repo sits inside `~/Developer` (free-write), and the gate's rules are the code in `jarvis/` and the interpreter in `.venv/`. Spec §6.5 says Jarvis cannot loosen its own gate without a yes, so any write inside `~/Developer/Project Jarvis` asks and is never remembered.
-3. **One hook client for both hook events; `jarvisd` decides.** `PreToolUse` gets allow / deny / ask. An ask is then held by the `PermissionRequest` hook until Febriel answers (spec §6.5). Task 1 checks that path; if it fails, the hold moves into `PreToolUse` behind one constant.
+3. **One hook client for both hook events; `jarvisd` decides, and the question is held inside `PreToolUse`.** *(Amended 2026-11-14 from Task 1: in `-p` mode a `PreToolUse` answer of `ask` is a silent deny and `PermissionRequest` never fires, so `jarvisd` never answers `ask`. It holds the call until Febriel answers and then says allow or deny. `PermissionRequest` stays registered as a net: it fires only if `PreToolUse` gave no answer, and is judged the same way.)*
 4. **`jarvisd` down means no.** The hook client denies every tool call when it cannot reach `jarvisd`.
 5. **Vault missing or not writable: Jarvis refuses every request**, not only tasks (spec §7 says tasks). A small exchange must be logged too (§6.3, §4), and it cannot be.
 6. **`scribe` runs as its own one-shot `claude -p --agent scribe` process**, under the same settings file, so distilling never spends the front door's context or blocks it.
 7. **The memory map is injected with `--append-system-prompt`** each time a conversation starts.
 8. **API routes and event names** are fixed in Tasks 10–11. `POST /ask` keeps Spike 6's contract (`{"text"}` → `{"say", "loop"?}`), so the existing Shortcut works unchanged in Plan 4.
 9. **Third-party skills are vendored** into `.claude/skills/` at a pinned commit, because `--setting-sources project` keeps Febriel's user-level plugins out of Jarvis.
+
+### Amendments after Task 1 (2026-11-14)
+
+The probes are in `docs/spikes/findings.md`, "Plan 2 probes". They change these tasks; where a task's text below disagrees with this list, this list wins.
+
+| Task | Change |
+|---|---|
+| 4b (new) | The gate also asks, with an empty pattern, before any write into a `.claude`, `.obsidian` or `.vscode` folder or to a `.envrc` file, wherever it is (the same rule `.git` already has). These are files that run code later without Jarvis running anything. Found by the security pass on Task 4. Spec §6.5 gets a dated line, Febriel to confirm. |
+| 6 | `render("PreToolUse", "ask", …)` renders a **deny** (an `ask` must never reach Claude Code). `.claude/jarvis-settings.json` also sets `"autoMemoryEnabled": false` and `"claudeMdExcludes": ["/Users/febrielotud/.claude/CLAUDE.md"]`: without them Febriel's personal Claude Code rules and this repo's development memory reach Jarvis. A worker's call is the one whose payload carries `agent_id` (`agent_type` names the agent). |
+| 7 | Every turn starts with a `system/init`; only the first one of a process is a start. A `result` with `subtype: "error_during_execution"` right after an interrupt is a cancel: the `turn` event carries `cancelled: bool`. `Bridge.interrupt()` writes the `control_request`; no kill-and-resume. |
+| 8 | `skills:` does not load on the `--agent` main thread. `jarvis.md` has no `skills` key; the `humanizer` and `grill-me` skill bodies are pasted below a line `<!-- vendored skills -->`, and the 60-line limit applies to the part above it. Subagents keep `skills:`. |
+| 10 | No `HOLD_IN_PRETOOL` constant. `hook` treats both events the same: `never` → deny, `allow` → allow (after the dispatch rule), `ask` → hold on `asks.ask(...)`, then allow or deny. It never returns `ask`. In `test_gate_ask_yes_and_no` the held call is the `PreToolUse` one. `asks.answer` raises `ValueError` for anything but `yes`, `no`, `always`; the core passes only those. |
+| 11 | Requests whose `Host` header is not `127.0.0.1:8787` or `localhost:8787` (or a name in `config.EXTRA_HOSTS`, empty until Plan 4) get 403, before the token check. This closes a public name that resolves to this Mac. |
 
 ## File structure
 
