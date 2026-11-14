@@ -81,6 +81,11 @@ class Tracker:
         except (ValueError, OSError):
             return None
 
+    def owns(self, event: dict) -> bool:
+        """True for an event from one of this request's agents (a background worker can outlive the request)."""
+        parent, task = event.get("parent"), event.get("task_id")
+        return (parent is not None and parent in self._agents) or (task is not None and task in self.open_agents)
+
     def may_dispatch(self, subagent_type: str) -> tuple[bool, str]:
         if subagent_type in FREE_AGENTS:
             return True, ""

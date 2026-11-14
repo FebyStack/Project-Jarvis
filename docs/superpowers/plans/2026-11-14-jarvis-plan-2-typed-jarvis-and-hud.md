@@ -47,6 +47,15 @@ The probes are in `docs/spikes/findings.md`, "Plan 2 probes". They change these 
 | 10 | No `HOLD_IN_PRETOOL` constant. `hook` treats both events the same: `never` → deny, `allow` → allow (after the dispatch rule), `ask` → hold on `asks.ask(...)`, then allow or deny. It never returns `ask`. In `test_gate_ask_yes_and_no` the held call is the `PreToolUse` one. `asks.answer` raises `ValueError` for anything but `yes`, `no`, `always`; the core passes only those. |
 | 11 | Requests whose `Host` header is not `127.0.0.1:8787` or `localhost:8787` (or a name in `config.EXTRA_HOSTS`, empty until Plan 4) get 403, before the token check. This closes a public name that resolves to this Mac. |
 
+### Amendments during Tasks 9–12 (2026-11-14)
+
+Found while building against the code that exists. Where a task's text below disagrees with this list, this list wins.
+
+| Task | Change |
+|---|---|
+| 9 | `Tracker.may_dispatch` treats every subagent type other than `triage` and `scribe` as a worker, not only `coder` and `researcher`: Claude Code's built-in `general-purpose` and `Explore` agents exist under `--setting-sources project` too, and would otherwise skip triage. Only background agents count in `open_agents` (a foreground agent ends inside its turn). An agent that called no tool shows in the task note with the tier it was given, else the `model:` of its agent file. `Tracker.owns(event)` is added so the core can route a late worker's events to the request that started it. |
+| 10 | `Jarvis(...)` takes one more keyword, `checklist: Callable[[], list[str]] = list`, which Task 12 sets to `checklist(slow=False)` for `health.checklist`. In `test_reset_waits_for_background_workers`, `scribe_runs` is `[task note, day log]`, not `[task note]`: 20 minutes of quiet with a grown day log is exactly when the idle sweep runs, so the second `tick()` distils the day log too. "No answer in time" and "Febriel said no" are told apart by whether the ask's timeout passed, because `Asks.ask` returns only a bool. |
+
 ## File structure
 
 | File | Responsibility |
@@ -604,7 +613,7 @@ def test_scribe_argv(vault):
 - When triage's verdict parses, the task's queue row takes `title` from it and the `triage` row in `agents` shows its `why` as `doing` (spec §6.2: the HUD shows triage's reason). Every `Read`, `Write` or `Edit` under the vault publishes a `memory` event (`r`, `+` for a new file, `~` for an existing one).
 - `brain` is `offline` when a turn fails and a TCP connect to `api.anthropic.com:443` fails; it is re-tried every 30 s and requests queue meanwhile.
 
-- [ ] **Step 1: Failing tests** (a `FakeBridge` records `sent` and lets the test emit events; `jarvis` fixture is started on a tmp vault)
+- [x] **Step 1: Failing tests** (a `FakeBridge` records `sent` and lets the test emit events; `jarvis` fixture is started on a tmp vault)
 
 ```python
 async def test_instant_answer_never_reaches_the_model(jarvis, bridge, vault):
@@ -678,10 +687,10 @@ async def test_subscribers_get_a_snapshot_first(jarvis):
 ```
 
   `outside_write(bridge, tmp_path)` is a test helper returning `{"hook_event_name": "PreToolUse", "session_id": bridge.session_id, "cwd": str(tmp_path), "tool_name": "Write", "tool_input": {"file_path": str(tmp_path / "outside.txt")}}` (`tmp_path` is outside the free-write areas). `tool`, `tool_result`, `agent_start`, `agent_done`, `turn` build bridge events as in Task 9's tests; `scribe_runs` collects `run_scribe` calls.
-- [ ] **Step 2:** Run; fails on import.
-- [ ] **Step 3:** Implement. One `asyncio.Queue` of requests and one worker task; `tick()` is called once a second by `start()` and directly by tests; the bus is a list of subscriber queues.
-- [ ] **Step 4:** Run `uv run pytest -q`; all pass.
-- [ ] **Step 5:** Commit: `feat: jarvisd core — queue, instant answers, gate decisions, memory rule, limits`.
+- [x] **Step 2:** Run; fails on import.
+- [x] **Step 3:** Implement. One `asyncio.Queue` of requests and one worker task; `tick()` is called once a second by `start()` and directly by tests; the bus is a list of subscriber queues.
+- [x] **Step 4:** Run `uv run pytest -q`; all pass.
+- [x] **Step 5:** Commit: `feat: jarvisd core — queue, instant answers, gate decisions, memory rule, limits`.
 
 ### Task 11: The local API
 
