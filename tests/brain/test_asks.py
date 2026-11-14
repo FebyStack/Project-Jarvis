@@ -48,6 +48,15 @@ async def test_always_is_remembered_unless_the_pattern_is_empty(asks, trusted):
     assert trusted._patterns() == {"shell:rm:~/Documents"}
 
 
+async def test_an_unknown_reply_is_refused_and_answers_nothing(asks):
+    t = asyncio.create_task(asks.ask(ASK, "mac", "r1")); await asyncio.sleep(0)
+    for reply in ("nope", "Yes ", ""):
+        with pytest.raises(ValueError):
+            asks.answer(reply)
+    assert not t.done()
+    assert await t is False                                      # still only a timeout
+
+
 async def test_on_change_fires_on_open_and_close(trusted):
     calls = []
     asks = Asks(trusted, {"mac": 0.05, "phone": 0.2}, lambda: calls.append(len(asks.pending())))

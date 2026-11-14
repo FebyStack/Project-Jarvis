@@ -43,13 +43,15 @@ class Asks:
 
     def answer(self, reply: Literal["yes", "no", "always"], channel: Channel | None = None,
                ask_id: str | None = None) -> Ask | None:
+        if reply not in ("yes", "no", "always"):  # fail closed: only an exact yes/always approves
+            raise ValueError(f"unknown reply: {reply!r}")
         a = next((a for a in self._open if not a.future.done() and
                   (a.id == ask_id if ask_id is not None else channel in (None, a.channel))), None)
         if a is None:
             return None
         if reply == "always" and a.pattern:
             self.trusted.add(a.pattern)
-        a.future.set_result(reply != "no")
+        a.future.set_result(reply in ("yes", "always"))
         return a
 
     def pending(self, channel: Channel | None = None) -> list[Ask]:
