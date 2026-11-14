@@ -425,3 +425,13 @@ async def test_a_request_the_brain_cannot_take_is_still_recorded(jarvis, bridge,
     bridge.alive = False; bridge.emit({"kind": "down", "reason": "claude keeps exiting"})
     assert (await asyncio.wait_for(jarvis.submit("capital of Peru", "mac"), 1)).say == "Claude isn't running, so I can't do that now."
     assert "capital of Peru" in day_log(vault)
+
+
+async def test_an_empty_turn_of_its_own_is_not_announced_or_logged(jarvis, bridge, vault):     # re-run, row 9
+    events = jarvis.subscribe(); await anext(events)
+    bridge.emit({"kind": "turn_start"}); bridge.emit(turn(""))
+    await jarvis.submit("what time is it", "mac")
+    seen = []
+    while not any(e["type"] == "reply" for e in seen):
+        seen.append(await anext(events))
+    assert [e["text"] for e in seen if e["type"] == "reply"] == [say_time(NOW)] and "(worker finished)" not in day_log(vault)

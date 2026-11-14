@@ -443,8 +443,9 @@ class Jarvis:
         if req:
             req.answer += "\n\n" + text
         self._last_activity = self.clock()
-        self._reply(channel, text, False)
-        self.vault.log_exchange(Exchange(self.now(), channel, "(worker finished)", text))
+        if text.strip():  # an empty turn (e.g. right after a restart) has nothing to say or log
+            self._reply(channel, text, False)
+            self.vault.log_exchange(Exchange(self.now(), channel, "(worker finished)", text))
         self._record_closed()
         self._publish_queue()
         self._wake.set()
