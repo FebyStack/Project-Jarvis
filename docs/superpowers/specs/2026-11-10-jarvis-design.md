@@ -173,7 +173,7 @@ Terms: an **exchange** is one request and its answer, from wake word back to idl
 - **Private network:** Tailscale on the Mac and the iPhone. `jarvisd` listens only on `127.0.0.1`; `tailscale serve` publishes it to Febriel's own devices over HTTPS. Tailscale Funnel (public exposure) is never used.
 - **Second lock:** every request carries a secret token generated on the Mac. Febriel pastes it into the Shortcut once. A request without it is refused even from inside the private network.
 - **Shortcut "Jarvis":** triggered by **Back Tap** (double-tap the back of the iPhone) or its tile/home-screen icon. **(Amended 2026-11-14:** "Hey Siri, Jarvis" did not start it in testing; Febriel chose Back Tap.) It dictates the request, sends the text, and speaks the answer. If Jarvis needs a yes or has a clarifying question, the reply says so and the Shortcut listens again, in a loop, until the exchange is done.
-- **Long jobs:** the Shortcut gets "started, I'll message you" straight away. When the job finishes or needs approval, Jarvis notifies the phone. **(Claude's call)** the notification is an iMessage from the Mac to Febriel's own Apple ID, because it needs no extra account or app. To be confirmed.
+- **Long jobs:** the Shortcut gets "started, I'll message you" straight away. When the job finishes or needs approval, Jarvis notifies the phone. the notification is **an iCloud Reminder with an alert** that Jarvis adds on the Mac; it syncs to the iPhone and notifies there, with no extra account or app. **(Amended 2026-11-14, Febriel's choice:** the earlier iMessage to his own Apple ID was tested and does not notify the iPhone, because a message to yourself counts as sent by you.)
 - **Fallback, no build needed:** Claude Code's own Remote Control in the Claude iOS app can still open and steer any spawned session for a full view.
 - Speech-to-text on the phone is Apple's dictation, not Jarvis's local model. The phone hears typed-quality text back and reads it aloud.
 
@@ -193,7 +193,7 @@ Two separate behaviours.
 | Read-only shell commands | Any other shell command that changes state outside the free-write areas | Anything needing `sudo` — Jarvis explains the command and Febriel runs it |
 | | On-screen clicks that submit, send, pay, or delete | |
 
-A request for a yes is spoken on the Mac or sent to the phone, whichever channel the request came from, and shown in the HUD queue as `NEEDS YOU`. On the phone the yes is given through the Shortcut; the iMessage is only a nudge and replies to it are not read. No answer within 60 s on the Mac (10 min on the phone) counts as no. Implemented with Claude Code permission rules plus a permission hook that hands the question to `jarvisd`.
+A request for a yes is spoken on the Mac or sent to the phone, whichever channel the request came from, and shown in the HUD queue as `NEEDS YOU`. On the phone the yes is given through the Shortcut; the Reminder is only a nudge and nothing done to it is read as an answer. No answer within 60 s on the Mac (10 min on the phone) counts as no. Implemented with Claude Code permission rules plus a permission hook that hands the question to `jarvisd`.
 
 Jarvis's own `.claude/` folder, its settings, and the gate's rule files are outside the free-write areas, so Jarvis cannot loosen its own gate without a yes.
 
