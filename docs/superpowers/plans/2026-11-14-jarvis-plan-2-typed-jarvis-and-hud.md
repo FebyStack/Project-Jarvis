@@ -907,7 +907,7 @@ Run with `uv run jarvis daemon` in one terminal. Scenarios go through `uv run ja
 | 10 | 👤 Febriel: `uv run jarvis hud` in an 80×24 window | Gold on black, all four panels readable, typing works, a `NEEDS YOU` row answers with `y`/`n`, Escape cancels, closing the HUD leaves Jarvis running |
 | 11 | 👤 Febriel: load the login agent from `launchd/README.md`, log out and in | `jarvis ask "status"` answers without starting anything by hand |
 
-- [ ] **Step 1:** Run rows 1–9; fix what fails with a failing test first; record results.
+- [x] **Step 1:** Run rows 1–9; fix what fails with a failing test first; record results.
 - [ ] **Step 2:** 👤 Rows 10–11 with Febriel.
 - [ ] **Step 3:** Amend the spec, each change dated: §8 (`jarvis-settings.json`, no project `settings.json`; `jarvis/config.py`), §6.5 (the whole project folder and `~/.jarvis` are protected; loopback fetches ask), §7 (vault missing refuses every request), §6.3 (`scribe` as a one-shot process), §15 (routes and event names now fixed in `jarvis/remote/api.py` and `jarvis/daemon/core.py`). Update `PROJECT.md`. Copy this plan's results to Obsidian per Febriel's global rule.
 - [ ] **Step 4:** Commit: `checkpoint: typed Jarvis passes end to end; spec amended from Plan 2`.

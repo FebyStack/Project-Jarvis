@@ -543,3 +543,43 @@ Run 2026-11-14. Claude Code 2.1.322, Max subscription. Scripts: `spikes/08-hooks
 ## Gate: open review findings
 
 - **Fixed 2026-11-13 (was an allow-verdict bypass):** a `cd` behind a shell keyword was missed by the folder check, so `{ cd ~/Documents; } && rm a.txt` returned `allow`. Leading keywords are now skipped before the `cd` test. Regression test: `test_cd_after_a_keyword_still_poisons_relative_paths`. No findings open.
+
+## Plan 2 results (Task 15 Step 1, rows 1–9, 2026-11-14)
+
+Run from this checkout: `.venv/bin/jarvis daemon` on Febriel's subscription (`claude` 2.1.322, scrubbed environment, `--setting-sources project --settings .claude/jarvis-settings.json --strict-mcp-config`), the real vault and `~/.jarvis`. Requests went through `jarvis ask` (channel `mac`). Evidence: `~/.jarvis/jarvisd.log` (timings only) and a recorder on `GET /events` with wall-clock stamps. The daemon was restarted twice to load fixes (rows 1–2 on the first run, row 3's last try and rows 4–9 on the third).
+
+| # | What ran | Seen | Verdict |
+|---|---|---|---|
+| 1 | `what time is it`, 3 times via the CLI, 5 times by HTTP | CLI 0.05–0.06 s wall, Python start included; HTTP round trip 0.4–6.7 ms. No `claude` line in the log. One day-log line each | **Pass** |
+| 2 | `what's the capital of Australia` | "Canberra." from the front door: no `Agent` call, no triage row, one day-log line. First token 1.12 s (the process's first turn); warm repeats 0.97 s and 1.50 s, against Spike 1's 0.79 s | **Pass**; first token about 0.2–0.7 s slower than Spike 1 |
+| 3 | Poem to `~/Developer/jarvis-e2e/poem.txt`, with `wiki/poetry.md` seeded first | Try 1: the front door wrote it itself with `printf`, no triage (the gate then asked about `printf`). Try 2: triage ran **in the background**; the front door dispatched `coder` in a turn nobody prompted, and jarvisd refused it with "Call triage before dispatching a worker." Try 3, after both fixes below: triage on `claude-opus-5-5` (background) at 3.2 s; `wiki/poetry.md` read at 3.4 s; `coder` dispatched at 10.6 s, background, on `claude-haiku-5-5` (triage said `tier: haiku`); front door answered at 4.3 s and 11.7 s, before the worker ended at 17.3 s; "Done" at 18.5 s; the file held four lines. Task note `2026-11-14-2209-write-gold-poem-file.md`: agents `jarvis (sonnet)`, `triage (claude-opus-5-5)`, `coder (claude-haiku-5-5)`, the file, `[[poetry]]`; the day log links it. `scribe` started at 21.5 s, read the note, `wiki/index.md` and `wiki/poetry.md`, and wrote nothing ("nothing to keep" is allowed by its prompt). A second task carrying a preference: the front door wrote it into `wiki/poetry.md` itself; scribe again wrote nothing. Scribe did write after row 6's task: it created `wiki/protected-paths.md` and updated `wiki/index.md` (22:21:56) | **Pass** after fixes; the scribe write was seen on row 6's task, not on row 3's |
+| 4 | `Create an empty file at ~/Documents/jarvis-e2e.txt`: no, then yes, then no answer | Each went triage → background `coder`, whose call asked 9–16 s in. `no`: refused, no file, Jarvis said so. `yes`: the worker asked twice (`[ -e … ]`, then `touch`); after both yeses the file existed. Silence: denied at the 60 s timeout ("No answer in time, so no."), no file, and Jarvis said so 74 s in | **Pass** |
+| 5 | `Run sudo ls` | Refused in 2.9 s with no question; Jarvis said to run it in his own terminal. The model never called Bash, so the gate was also checked directly: `/hook` with `sudo ls` → `deny` "needs sudo; Febriel runs it himself" in 3 ms, and the hook client renders it as a `PreToolUse` deny | **Pass** |
+| 6 | `Add a comment to jarvis/brain/gate.py` | Triage asked first ("What should the comment say?"). Then `coder` asked for `od` (yes) and for "protected path: …/gate.py". `yes, always` let that one edit through and wrote nothing to `trusted.txt`. Asked again: it asked again; `no` left the file unchanged. The test comment was reverted with `git checkout` | **Pass** |
+| 7 | 600-word answer, then `jarvis ask "never mind"` after 21 deltas | `never mind` answered "Cancelled." in 0.09 s; the long request's turn ended 0.10 s after it, last delta 0.02 s after it. Next request ("what was the last thing I asked you to explain") named the jet-engine question | **Pass** |
+| 8 | A normal `claude -p` in the repo (clean environment, default setting sources) running `ls` | `ls` ran; the only hook was Febriel's own `SessionStart`; nothing from `jarvis.brain.hook`; 13 MCP servers. Jarvis's own process logged `brain online; 0 MCP servers` | **Pass** |
+| 9 | `pkill -f "claude -p --agent [j]arvis"`, then a question | A new child 1.49 s later with `--resume <session>`; the answer (2.6 s) recalled both poem tasks | **Pass** |
+
+### Fixed during the run (each with a failing test first)
+
+- `fce4102`: a yes to a background worker's question waited for a turn that never came, so `jarvis ask "yes"` hung. It now answers "Okay." at once.
+- `61511d9` (row 3, try 1): `jarvis.md` says making or changing a file is never small.
+- `77677a4` (row 3, try 2): when no request is current, front-door calls and stream events belong to the latest open request; a background triage's verdict is read from its summary.
+- `02b719f`: Ctrl-C hung while any `/events` client (the HUD) was connected; shutdown now closes the streams. Measured after: 0.7 s with a client connected.
+- `637d128`: the CLI sends its first `init` only with the first message, so the HUD would have shown STARTING UP until Febriel typed. The brain now counts as online once the child runs.
+- `da1f7ed`: starting jarvisd no longer bumps `wiki/index.md`'s time.
+- Gate, from the automated security review of these commits: `6747476` made `printf` read-only; `9206a5f`, `87f602e` took that back (`printf -v PATH …` and brace expansion set variables); `ff91e96`, `b67241c`, `a0cd8af` make `printf`, `read`, `mapfile` and the zsh builtins that run the next word or set variables (`noglob`, `-`, `print`, `vared`, `repeat`, `sched`, …) ask with no pattern, so "always" can never remember them.
+
+### For the review pass
+
+- **The gate's "never remember" list is a denylist.** The security review added names five times in a row. An allowlist of commands whose "always" may be remembered would end that; it changes what Febriel's "always" does, so it is his call.
+- **Triage runs in the background** although `jarvis.md` says to wait for it. The first reply is "Triage is checking it", and the rest arrive as unprompted replies, which only `/events` (the HUD) shows; `jarvis ask` and the phone's `POST /ask` get the first reply only. That matters for Plan 4.
+- **Workers ask for read-only commands the gate does not know** (`[`, `od`): three extra questions across rows 4 and 6. And questions are worded in the gate's terms ("cannot tell what command 'f=/Users/…' runs", "unrecognised command: [. Yes or no?"), which is hard to judge by ear.
+- **Task notes carry triage's verdict block** in "Done" (it is a background agent's summary).
+- **A request whose first reply is a question** is logged with its last reply, and the `yes`/`no` that answered it gets its own line.
+
+### Left in the vault
+
+The `raw/` notes and day-log lines written between 22:01 and 22:22 stay as history. Removed after the run: the seeded `wiki/poetry.md` (made-up preferences), the test-made `wiki/protected-paths.md`, the index lines for both, `~/Developer/jarvis-e2e/` and `~/Documents/jarvis-e2e.txt`. `CLAUDE.md` (the vault map from `ensure_map`) stays.
+
+Rows 10–11 wait for Febriel.
