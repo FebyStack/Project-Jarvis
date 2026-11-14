@@ -26,6 +26,9 @@ CHECK_EVERY = 30.0  # seconds between offline re-tries and vault checks
 VAULT_SAYS = {"missing": "The vault is missing, so I can't keep notes. Fix the vault and ask again.",
               "read-only": "The vault is read-only, so I can't keep notes. Fix the vault and ask again."}
 NO_BRAIN = "Claude isn't running, so I can't do that now."
+CHILD_DIED = "Claude stopped while answering. Ask me again."
+SERVE_FAILED = "Something went wrong on my side while answering. Ask me again."
+STOPPING = "Jarvis is stopping, so this one wasn't answered. Ask again once it's back."
 OFFLINE = "I can't reach Claude right now. I'll answer when the connection is back."
 VAULT_TOOLS = {"Read": "file_path", "Write": "file_path", "Edit": "file_path", "MultiEdit": "file_path"}
 
@@ -77,9 +80,12 @@ class Jarvis:
         self._agents: dict[str, dict] = {}  # task id -> HUD row, plus "_tu" (its Agent tool_use_id)
         self._memory: deque[dict] = deque(maxlen=50)  # newest first
         self._limits = {"status": "ok", "weekly": None, "resets_at": None}
-        self._init_seen = self._offline = False
+        self._offline = self._turn_open = self._cancelling = False
+        self._unprompted_owner: str | None = None  # the request an unprompted turn belongs to, by id
+        self._causes: deque[str] = deque()  # requests whose background worker ended and await their announcement
+        self._sweep: tuple[Path, object] | None = None  # (day log, scribe process) of a running idle sweep
         self._down: str | None = None
-        self._last_request = clock()
+        self._last_activity = clock()
         self._reset_done = True
         self._next_check = 0.0
         self._health: dict = {}
@@ -101,9 +107,22 @@ class Jarvis:
         self._tasks = [asyncio.create_task(self._serve()), asyncio.create_task(self._every_second())]
 
     async def stop(self) -> None:
+        """Every open request is answered and recorded before the child stops, so nothing waits and nothing is lost."""
         for t in self._tasks:
             t.cancel()
         await asyncio.gather(*self._tasks, return_exceptions=True)
+        for a in self.asks.pending():
+            self.asks.answer("no", ask_id=a.id)
+        still_open = [r for r in (self._current, *self._pending, *self._waiting) if r]
+        self._current, self._pending, self._waiting = None, [], deque()
+        for req in still_open:
+            req.tracker.abandon("jarvisd stopped")
+            if req.waiters:
+                self._resolve(req, STOPPING, False)
+            try:
+                req.tracker.finish(req.answer or "(not answered: jarvisd stopped)", self._confirmations(req))
+            except Exception:
+                log.exception("recording an open request on stop failed")
         await self.bridge.stop()
 
     async def _every_second(self) -> None:
@@ -121,15 +140,13 @@ class Jarvis:
             self._limits = {"status": "ok", "weekly": self._limits.get("weekly"), "resets_at": None}
             self._publish("limits", **self._limits)
             self._wake.set()
-        busy = self._current is not None or bool(self._waiting) or any(r.tracker.open_agents for r in self._pending)
-        if (not self._reset_done and now - self._last_request >= config.RESET_IDLE_SECONDS
-                and not any(r.tracker.open_agents for r in self._pending)):
+        # Quiet: no turn running, nothing queued, every request recorded (a worker's note waits for its announcement).
+        quiet = self._current is None and not self._turn_open and not self._waiting and not self._pending
+        if not self._reset_done and quiet and now - self._last_activity >= config.RESET_IDLE_SECONDS:
             self._reset_done = True
             await self.bridge.reset()
-            log.info("conversation reset after %.0f s idle", now - self._last_request)
-        if (day := self.sweeper.due(now, self._last_request, busy)) is not None:
-            self.run_scribe(self.vault, day)
-            self.sweeper.mark(day)
+            log.info("conversation reset after %.0f s idle", now - self._last_activity)
+        self._sweep_step(now, quiet)
         full = now >= self._next_check
         if full:
             self._next_check = now + CHECK_EVERY
@@ -137,6 +154,28 @@ class Jarvis:
                 self._offline = False
                 self._wake.set()
         self._publish_health(full)
+
+    def _sweep_step(self, now: float, quiet: bool) -> None:
+        """The idle sweep: only when quiet and the brain is usable; a day log is marked swept only if scribe worked."""
+        if self._sweep is not None:
+            day, proc = self._sweep
+            code = proc.poll() if proc is not None else 0
+            if code is None:
+                return
+            self._sweep = None
+            if code == 0:
+                self.sweeper.mark(day)
+            else:
+                log.error("scribe sweep exited with %s", code)
+                self.sweeper.retry_after = now + config.SWEEP_IDLE_SECONDS
+            return
+        usable = self._limits["status"] != "reached" and not self._offline and not self._down
+        if (day := self.sweeper.due(now, self._last_activity, not (quiet and usable))) is not None:
+            try:
+                self._sweep = (day, self.run_scribe(self.vault, day))
+            except Exception:
+                log.exception("starting the scribe sweep failed")
+                self.sweeper.retry_after = now + config.SWEEP_IDLE_SECONDS
 
     # ---- requests --------------------------------------------------------------------------------------------
 
@@ -151,20 +190,24 @@ class Jarvis:
         if action:
             reply = await self._instant(action, channel)
             self.vault.log_exchange(Exchange(self.now(), channel, text, reply.say))
+            self._last_activity = self.clock()
             return reply
         rid = str(next(self._ids))
         req = _Request(rid, text, channel, Tracker(self.vault, rid, channel, text, self.now()))
         fut = asyncio.get_running_loop().create_future()
         req.waiters.append(fut)
         self._waiting.append(req)
-        self._last_request, self._reset_done = self.clock(), False
+        self._last_activity, self._reset_done = self.clock(), False
         self._wake.set()
         self._publish_queue()
         if self._limits["status"] == "reached":
-            at = self._limits.get("resets_at")
-            when = datetime.fromtimestamp(at).strftime("%H:%M") if at is not None else "the reset"
-            return self._reply(channel, f"I've hit the subscription limit. I'll pick this up when it resets at {when}.", False)
+            return self._reply(channel, self._limit_sentence(), False)
         return await fut
+
+    def _limit_sentence(self) -> str:
+        at = self._limits.get("resets_at")
+        when = datetime.fromtimestamp(at).strftime("%H:%M") if at is not None else "the reset"
+        return f"I've hit the subscription limit. I'll pick this up when it resets at {when}."
 
     async def _instant(self, action: str, channel: Channel) -> Reply:
         match action:
@@ -200,55 +243,75 @@ class Jarvis:
         return self.asks.answer(reply, channel=channel, ask_id=ask_id) is not None
 
     async def cancel(self) -> None:
+        """Stops the turn that is running and any background worker; queued requests stay queued."""
         self.sm.on(Event.CANCEL)
         self._publish_state()
-        req = self._current
-        if req is None:
-            return
+        mine = {r.id for r in (self._current, *self._pending) if r}
         for a in self.asks.pending():
-            if a.request_id == req.id:
+            if a.request_id in mine:
                 self.asks.answer("no", ask_id=a.id)
-        with contextlib.suppress(RuntimeError):
-            await self.bridge.interrupt()
+        if any(r.tracker.open_agents for r in (self._current, *self._pending) if r):
+            self._cancelling = True
+            await self.bridge.restart()  # the workers die with the child; it resumes the same conversation
+        elif self._current is not None or self._turn_open:
+            with contextlib.suppress(RuntimeError):
+                await self.bridge.interrupt()
 
     async def _serve(self) -> None:
         """Serves requests one at a time, in arrival order, while the brain is usable."""
         while True:
-            while not self._waiting or self._limits["status"] == "reached" or self._offline:
+            while not self._waiting or self._turn_open or self._limits["status"] == "reached" or self._offline:
                 self._wake.clear()
                 await self._wake.wait()
             req = self._waiting.popleft()
-            self._current = req
-            self._publish_queue()
-            self._publish_agents()
             try:
-                self._sent_at, self._first_token = self.clock(), False
-                await self.bridge.send(req.text)
-            except RuntimeError:
-                self._current = None
-                self._resolve(req, NO_BRAIN, False)
-                continue
-            await req.done.wait()
-            ev = req.turn
-            if ev["is_error"] and not ev["cancelled"] and not await reachable():
-                self._offline = True
-                self._current = None
-                req.done.clear()
-                self._waiting.appendleft(req)
-                self._resolve(req, OFFLINE, False)
-                self._publish_health()
-                continue
-            log.info("turn %.2f s", self.clock() - self._sent_at)
-            text = "Cancelled." if ev["cancelled"] else ev["text"]
-            req.tracker.feed(ev)
-            req.answer = text
-            self._agents = {k: a for k, a in self._agents.items() if a["background"]}
+                await self._serve_one(req)
+            except Exception:  # logged, never request text; the queue goes on
+                log.exception("serving a request failed")
+                if self._current is req:
+                    self._current = None
+                if req.waiters:
+                    self._resolve(req, SERVE_FAILED, False)
+
+    async def _serve_one(self, req: _Request) -> None:
+        self._current = req
+        self._publish_queue()
+        self._publish_agents()
+        try:
+            self._sent_at, self._first_token = self.clock(), False
+            await self.bridge.send(req.text)
+        except RuntimeError:
             self._current = None
-            self._resolve(req, text, text.rstrip().endswith("?"))
-            self._pending.append(req)
-            self._record_closed()
-            self._publish_queue()
-            self._publish_agents()
+            self._resolve(req, NO_BRAIN, False)
+            return
+        await req.done.wait()
+        ev = req.turn
+        if ev["is_error"] and not ev["cancelled"]:
+            if self._limits["status"] == "reached":  # run it again once the limit resets
+                return self._requeue(req, self._limit_sentence())
+            if not await reachable():
+                self._offline = True
+                self._requeue(req, OFFLINE)
+                return self._publish_health()
+        log.info("turn %.2f s", self.clock() - self._sent_at)
+        text = "Cancelled." if ev["cancelled"] else ev["text"]
+        req.tracker.feed(ev)
+        req.answer = text
+        self._agents = {k: a for k, a in self._agents.items() if a["background"]}
+        self._current = None
+        self._last_activity = self.clock()
+        self._resolve(req, text, text.rstrip().endswith("?"))
+        self._pending.append(req)
+        self._record_closed()
+        self._publish_queue()
+        self._publish_agents()
+
+    def _requeue(self, req: _Request, say: str) -> None:
+        self._current = None
+        req.done.clear()
+        req.turn = None
+        self._waiting.appendleft(req)
+        self._resolve(req, say, False)
 
     def _resolve(self, req: _Request, text: str, loop: bool) -> None:
         self._reply(req.channel, text, loop)
@@ -266,16 +329,24 @@ class Jarvis:
         """Writes the vault record of every request whose turn and background workers are over."""
         for req in [r for r in self._pending if r.tracker.closed]:
             self._pending.remove(req)
-            confirmations = [(q, yes) for rid, q, yes in self.asks.history() if rid == req.id]
-            path = req.tracker.finish(req.answer, confirmations)
+            path = req.tracker.finish(req.answer, self._confirmations(req))
             if req.tracker.is_task:
                 self.run_scribe(self.vault, path)
 
+    def _confirmations(self, req: _Request) -> list[tuple[str, bool]]:
+        return [(q, yes) for rid, q, yes in self.asks.history() if rid == req.id]
+
     def _owner(self, event: dict) -> _Request | None:
-        """The request an event or hook call belongs to: the one whose agent it is, else the current request, else
-        the latest open one (the front door also acts in turns nobody prompted, e.g. after a background triage)."""
-        return (next((r for r in self._pending if r.tracker.owns(event)), None) or self._current
-                or (self._pending[-1] if self._pending else None))
+        """The request an event or hook call belongs to, always by id: the one whose agent it is, else the request
+        whose turn is running, else the one whose finished worker the running unprompted turn announces."""
+        if owner := next((r for r in self._pending if r.tracker.owns(event)), None):
+            return owner
+        if self._current is not None:
+            return self._current
+        return self._find(self._unprompted_owner) if self._turn_open and self._unprompted_owner else None
+
+    def _in_flight(self) -> bool:
+        return self._current is not None and not self._current.done.is_set()
 
     def _find(self, request_id: str) -> _Request | None:
         return next((r for r in [self._current, *self._pending, *self._waiting] if r and r.id == request_id), None)
@@ -285,38 +356,48 @@ class Jarvis:
     def _on_event(self, ev: dict) -> None:
         kind = ev.get("kind")
         if kind == "init":
-            self._init_seen, self._down = True, None
+            self._down = None
             log.info("brain online; %d MCP servers", len(ev.get("mcp_servers") or []))
+        elif kind == "turn_start":
+            if not self._in_flight():  # Claude started a turn of its own: a worker's announcement
+                self._open_unprompted()
+        elif kind == "exited":
+            self._child_gone(CHILD_DIED, "Claude restarted")
         elif kind == "down":
             self._down = ev.get("reason")
             log.error("brain down: %s", self._down)
-            if self._current and not self._current.done.is_set():
-                self._current.turn = {"kind": "turn", "text": NO_BRAIN, "is_error": False, "cancelled": False}
-                self._current.done.set()
+            self._child_gone(NO_BRAIN, "Claude stopped")
         elif kind == "limits":
             self._limits = {k: ev.get(k) for k in ("status", "weekly", "resets_at")}
             self._publish("limits", **self._limits)
             self._wake.set()
         elif kind == "delta":
+            if not self._in_flight():
+                self._open_unprompted()
             if not self._first_token:
                 self._first_token = True
                 log.info("first token %.2f s", self.clock() - self._sent_at)
             self._publish("reply_delta", text=ev["text"])
         elif kind == "turn":
-            if self._current and not self._current.done.is_set():
+            if self._in_flight():
                 self._current.turn = ev
                 self._current.done.set()
             else:
-                self._unprompted(ev.get("text") or "")
+                self._close_unprompted(ev.get("text") or "")
         else:
+            if kind == "tool" and not ev.get("parent") and not self._in_flight():
+                self._open_unprompted()
             self._track(ev)
         self._publish_health()
 
     def _track(self, ev: dict) -> None:
         owner = self._owner(ev)
+        kind = ev.get("kind")
+        ended = kind == "agent_done" and owner is not None and ev.get("task_id") in owner.tracker.open_agents
         if owner:
             owner.tracker.feed(ev)
-        kind = ev.get("kind")
+        if ended and owner is not self._current:  # the front door will announce it in a turn of its own
+            self._causes.append(owner.id)
         if kind == "agent_start":
             self._agents[ev["task_id"]] = {"id": ev["task_id"], "name": ev["agent"], "model": agent_model(ev["agent"]),
                                            "doing": ev.get("description") or "", "since": self.clock(),
@@ -336,16 +417,50 @@ class Jarvis:
             self._publish_queue()
         self._publish_agents()
 
-    def _unprompted(self, text: str) -> None:
-        """A turn nobody asked for: the front door announcing a worker that finished."""
-        req = self._owner({})
+    def _open_unprompted(self) -> None:
+        """A turn nobody asked for has started: it belongs to the oldest request whose worker ended unannounced."""
+        if self._turn_open:
+            return
+        self._turn_open, self._unprompted_owner = True, None
+        while self._causes:
+            rid = self._causes.popleft()
+            if self._find(rid):
+                self._unprompted_owner = rid
+                break
+
+    def _close_unprompted(self, text: str) -> None:
+        """The front door's own turn ended, announcing a worker that finished."""
+        self._open_unprompted()
+        req = self._find(self._unprompted_owner) if self._unprompted_owner else None
+        self._turn_open, self._unprompted_owner = False, None
         channel = req.channel if req else "mac"
         if req:
             req.answer += "\n\n" + text
+        self._last_activity = self.clock()
         self._reply(channel, text, False)
         self.vault.log_exchange(Exchange(self.now(), channel, "(worker finished)", text))
         self._record_closed()
         self._publish_queue()
+        self._wake.set()
+
+    def _child_gone(self, say: str, why: str) -> None:
+        """The child died or stopped: the turn in flight ends now, its workers are gone, and requests are recorded."""
+        why = "cancelled" if self._cancelling else why
+        cur = self._current
+        if self._in_flight():
+            cur.tracker.abandon(why)
+            cur.turn = {"kind": "turn", "text": "Cancelled." if self._cancelling else say, "is_error": False,
+                        "cancelled": self._cancelling, "session_id": None}
+            cur.done.set()
+        for req in self._pending:
+            req.tracker.abandon(why)
+        self._turn_open, self._unprompted_owner, self._cancelling = False, None, False
+        self._causes.clear()
+        self._agents = {}
+        self._record_closed()
+        self._publish_queue()
+        self._publish_agents()
+        self._wake.set()
 
     # ---- hooks -----------------------------------------------------------------------------------------------
 
@@ -434,7 +549,7 @@ class Jarvis:
             return "limit"
         if self._offline:
             return "offline"
-        return "online" if self._init_seen or self.bridge.alive else "starting"  # init comes with the first message
+        return "online" if self.bridge.alive else "starting"  # its first init comes only with the first message
 
     def _health_body(self) -> dict:
         return {"brain": self._brain(), "vault": self.vault.status(), "mic": "off", "phone": "not linked",
@@ -451,7 +566,7 @@ class Jarvis:
         return self._health_body()
 
     def _agent_rows(self) -> list[dict]:
-        front = {"id": "jarvis", "name": "jarvis", "model": "sonnet", "since": self._last_request,
+        front = {"id": "jarvis", "name": "jarvis", "model": "sonnet", "since": self._last_activity,
                  "doing": "working on your request" if self._current else "idle", "background": False}
         return [front] + [{k: v for k, v in a.items() if k != "_tu"} for a in self._agents.values()]
 

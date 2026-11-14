@@ -2,6 +2,7 @@
 import asyncio
 import contextlib
 import json
+import logging
 import os
 import signal
 import time
@@ -10,6 +11,8 @@ from collections.abc import Awaitable, Callable
 
 from jarvis import config
 from jarvis.brain.env import claude_argv, clean_env
+
+log = logging.getLogger("jarvisd")
 
 RESTART_DELAY = 1.0
 RESTARTS_PER_MINUTE = 3
@@ -75,7 +78,8 @@ def _parse(line) -> list[dict]:
                  "parent": parent} for b in _blocks(line, "tool_use")]
     if kind == "user":
         return [{"kind": "tool_result", "tool_use_id": b.get("tool_use_id"), "text": _text(b.get("content")),
-                 "parent": line.get("parent_tool_use_id")} for b in _blocks(line, "tool_result")]
+                 "parent": line.get("parent_tool_use_id"), "is_error": bool(b.get("is_error"))}
+                for b in _blocks(line, "tool_result")]
     if kind == "rate_limit_event":
         info = line.get("rate_limit_info")
         if not isinstance(info, dict):
@@ -120,6 +124,11 @@ class Bridge:
         self._interrupted = True
         await self._write({"type": "control_request", "request_id": str(uuid.uuid4()), "request": {"subtype": "interrupt"}})
 
+    async def restart(self) -> None:
+        """Kills the child; the supervisor resumes the same session, so background workers stop and memory stays."""
+        if self._proc is not None:
+            self._kill(self._proc)
+
     async def reset(self) -> None:
         await self.stop()
         self.session_id = None
@@ -159,17 +168,18 @@ class Bridge:
             self._kill(proc)
             await proc.wait()
             if self._halt:
-                return self._emit({"kind": "down", "reason": self._halt})
+                return self._safe_emit({"kind": "down", "reason": self._halt})
+            self._safe_emit({"kind": "exited"})  # a turn in flight and any background workers died with it
             now = self._clock()
             self._restarts = [t for t in self._restarts if now - t < 60]
             if len(self._restarts) >= RESTARTS_PER_MINUTE:
-                return self._emit({"kind": "down", "reason": "claude keeps exiting"})
+                return self._safe_emit({"kind": "down", "reason": "claude keeps exiting"})
             await self._sleep(RESTART_DELAY)
             self._restarts.append(self._clock())
             try:
                 await self._spawn(resume=self.session_id)
             except Exception as e:  # e.g. the binary is gone, or ANTHROPIC_API_KEY appeared
-                return self._emit({"kind": "down", "reason": f"cannot start claude: {e}"})
+                return self._safe_emit({"kind": "down", "reason": f"cannot start claude: {e}"})
 
     def _handle(self, raw: bytes) -> None:
         try:
@@ -183,13 +193,24 @@ class Bridge:
                     return
                 self.session_id = ev["session_id"] or self.session_id
                 if self._seen_init:  # every turn starts with an init; only a process's first is a start
+                    self._safe_emit({"kind": "turn_start"})
                     continue
                 self._seen_init = True
+                self._safe_emit(ev)
+                self._safe_emit({"kind": "turn_start"})
+                continue
             elif ev["kind"] == "turn":
                 ev["cancelled"] = self._interrupted and line.get("subtype") == "error_during_execution"
                 self._interrupted = False
                 self.session_id = ev["session_id"] or self.session_id
+            self._safe_emit(ev)
+
+    def _safe_emit(self, ev: dict) -> None:
+        """An error in the listener is logged and the stream reading goes on."""
+        try:
             self._emit(ev)
+        except Exception:
+            log.exception("handling a %s event failed", ev.get("kind"))
 
     @staticmethod
     def _kill(proc: asyncio.subprocess.Process) -> None:

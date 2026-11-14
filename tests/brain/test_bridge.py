@@ -148,7 +148,8 @@ def test_parse_fields_match_the_table():
     assert bash["name"] == "Bash" and bash["parent"] == "toolu_0187TGeSwKYt2TmgxLYSogjZ" and bash["model"] == "claude-haiku-5-5"
     sub_result, front_result = by("tool_result")
     assert sub_result == {"kind": "tool_result", "tool_use_id": "toolu_014yfEs1e52E5FoP8YvcoaXo",
-                          "text": "(Bash completed with no output)", "parent": "toolu_0187TGeSwKYt2TmgxLYSogjZ"}
+                          "text": "(Bash completed with no output)", "parent": "toolu_0187TGeSwKYt2TmgxLYSogjZ",
+                          "is_error": False}
     assert front_result["parent"] is None and "tier: sonnet" in front_result["text"]
     assert by("agent_start") == [{"kind": "agent_start", "task_id": "a62c8189d5f7535d2",
                                   "tool_use_id": "toolu_01QuSF1bXyNZGyhL8uUa8WaJ", "agent": "triage",
@@ -229,7 +230,7 @@ async def test_send_writes_a_user_message_and_later_inits_are_not_starts(fake_cl
     await b.send("one"); await b.send("two")
     await until(lambda: sum(e["kind"] == "turn" for e in events) == 2)
     assert fake_claude.stdin == [{"type": "user", "message": {"role": "user", "content": t}} for t in ("one", "two")]
-    assert [e["kind"] for e in events] == ["init", "turn", "turn"]
+    assert [e["kind"] for e in events] == ["init", "turn_start", "turn_start", "turn", "turn_start", "turn"]
     assert [e["text"] for e in events if e["kind"] == "turn"] == ["one", "two"]
     assert fake_claude.last_argv[-2:] == ["--append-system-prompt", "MAP"] and fake_claude.starts == 1
     await b.stop()
@@ -331,3 +332,41 @@ async def test_stop_kills_a_child_that_will_not_exit_and_its_group(fake_claude, 
     await asyncio.wait_for(b.stop(), 5)  # the grandchild holds stdout open: only a group kill lets wait() return
     assert gone(pid) and not b.alive
     await until(lambda: gone(grandchild))
+
+
+# ── Plan 2 review pass ──
+
+async def test_a_child_that_dies_is_reported_before_it_is_resumed(fake_claude):          # daemon finding 1
+    events = []; b = Bridge(events.append, lambda: "MAP"); await b.start()
+    await until(lambda: fake_claude.starts == 1)
+    fake_claude.kill()
+    await until(lambda: {"kind": "exited"} in events and b.alive and fake_claude.starts == 2)
+    await b.stop()
+
+
+async def test_an_error_in_the_listener_does_not_stop_the_reader(fake_claude):           # daemon finding 2
+    seen = []
+
+    def listener(ev):
+        seen.append(ev)
+        if ev["kind"] == "turn" and len([e for e in seen if e["kind"] == "turn"]) == 1:
+            raise RuntimeError("boom")
+    b = Bridge(listener, lambda: "MAP"); await b.start()
+    await b.send("one"); await b.send("two")
+    await until(lambda: [e["text"] for e in seen if e["kind"] == "turn"] == ["one", "two"])
+    await b.stop()
+
+
+async def test_every_turn_start_is_reported(fake_claude):
+    events = []; b = Bridge(events.append, lambda: "MAP"); await b.start()
+    await b.send("one"); await b.send("two")
+    await until(lambda: [e["kind"] for e in events if e["kind"] in ("turn_start", "turn")].count("turn") == 2)
+    kinds = [e["kind"] for e in events if e["kind"] in ("init", "turn_start", "turn")]
+    assert kinds == ["init", "turn_start", "turn_start", "turn", "turn_start", "turn"]       # the start init, then two turns
+    await b.stop()
+
+
+def test_tool_results_say_when_they_failed():
+    line = {"type": "user", "message": {"content": [{"type": "tool_result", "tool_use_id": "t", "content": "no such file",
+                                                     "is_error": True}]}}
+    assert parse(line)[0]["is_error"] is True

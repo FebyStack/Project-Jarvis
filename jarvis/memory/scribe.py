@@ -16,9 +16,9 @@ def scribe_argv(vault: Vault, target: Path) -> list[str]:
     return argv + [f"Distil this note into wiki/: {target}"]
 
 
-def run(vault: Vault, target: Path) -> None:
-    """Starts scribe detached and returns at once; its output is discarded."""
-    subprocess.Popen(scribe_argv(vault, target), cwd=config.PROJECT, env=clean_env(), start_new_session=True,
+def run(vault: Vault, target: Path) -> subprocess.Popen:
+    """Starts scribe detached and returns at once (the caller may poll it); its output is discarded."""
+    return subprocess.Popen(scribe_argv(vault, target), cwd=config.PROJECT, env=clean_env(), start_new_session=True,
                      stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
@@ -27,6 +27,7 @@ class Sweeper:
 
     def __init__(self, vault: Vault, home: Path):
         self.vault, self.file = vault, home / "scribe.json"
+        self.retry_after = 0.0  # after a failed sweep, wait another quiet period before trying again
 
     def _sizes(self) -> dict[str, int]:
         try:
@@ -35,7 +36,7 @@ class Sweeper:
             return {}
 
     def due(self, now: float, last_request: float, busy: bool) -> Path | None:
-        if busy or now - last_request < config.SWEEP_IDLE_SECONDS:
+        if busy or now - last_request < config.SWEEP_IDLE_SECONDS or now < self.retry_after:
             return None
         sizes = self._sizes()
         return next((p for p in sorted(self.vault.raw.glob("????-??-??.md"))

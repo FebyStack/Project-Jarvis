@@ -32,15 +32,15 @@ class Tracker:
         self.notes_read: list[str] = []
         self.files: list[str] = []
         self.summaries: list[str] = []
-        self._agents: dict[str, dict] = {}  # Agent tool_use_id -> {"name", "model", "asked_model"}, first seen first
+        self._agents: dict[str, dict] = {}  # Agent tool_use_id -> {"name", "model", "asked_model"}, in start order
+        self._asked: dict[str, str | None] = {}  # Agent tool_use_id -> the tier it was asked for
+        self._reads: dict[str, str] = {}  # Read tool_use_id -> vault note, counted once the read succeeds
         self._turn_ended = self._finished = False
 
     @property
     def closed(self) -> bool:
         return self._turn_ended and not self.open_agents
 
-    def _agent(self, tool_use_id: str, name: str, asked_model: str | None = None) -> None:
-        self._agents.setdefault(tool_use_id, {"name": name, "model": None, "asked_model": asked_model})
 
     def feed(self, event: dict) -> None:
         kind = event.get("kind")
@@ -48,22 +48,25 @@ class Tracker:
             name, inp = event.get("name"), event.get("input") or {}
             if event.get("parent") in self._agents and self._agents[event["parent"]]["model"] is None:
                 self._agents[event["parent"]]["model"] = event.get("model")
-            if name == "Agent":
-                self._agent(event.get("id"), inp.get("subagent_type") or "general-purpose", inp.get("model"))
+            if name == "Agent":  # listed only once it starts: the gate may refuse it
+                self._asked[event.get("id")] = inp.get("model")
                 if inp.get("subagent_type") == "triage":
                     self.is_task = True
-            elif name == "Read":
-                note = self._in_vault(inp.get("file_path"))
-                if note and note not in self.notes_read:
-                    self.notes_read.append(note)
+            elif name == "Read" and (note := self._in_vault(inp.get("file_path"))):
+                self._reads[event.get("id")] = note
             elif name in WRITE_KEYS:
                 path = inp.get(WRITE_KEYS[name])
                 if isinstance(path, str) and path not in self.files:
                     self.files.append(path)
-        elif kind == "tool_result" and self.verdict is None and event.get("parent") is None:
-            self.verdict = parse_verdict(event.get("text"))
+        elif kind == "tool_result":
+            note = self._reads.pop(event.get("tool_use_id"), None)
+            if note and not event.get("is_error") and note not in self.notes_read:
+                self.notes_read.append(note)
+            if self.verdict is None and event.get("parent") is None:
+                self.verdict = parse_verdict(event.get("text"))
         elif kind == "agent_start":
-            self._agent(event.get("tool_use_id"), event.get("agent"))
+            tu = event.get("tool_use_id")
+            self._agents.setdefault(tu, {"name": event.get("agent"), "model": None, "asked_model": self._asked.get(tu)})
             if event.get("background"):
                 self.open_agents.add(event.get("task_id"))
         elif kind == "agent_done" and event.get("task_id") in self.open_agents:
@@ -81,6 +84,13 @@ class Tracker:
             return str(Path(path).resolve().relative_to(self.vault.root.resolve()))
         except (ValueError, OSError):
             return None
+
+    def abandon(self, why: str) -> None:
+        """Its background workers died (Claude restarted, cancel, jarvisd stopping): close it so it can be recorded."""
+        if self.open_agents or not self._turn_ended:
+            self.summaries.append(f"({why})")
+        self.open_agents.clear()
+        self._turn_ended = True
 
     def owns(self, event: dict) -> bool:
         """True for an event from one of this request's agents (a background worker can outlive the request)."""
