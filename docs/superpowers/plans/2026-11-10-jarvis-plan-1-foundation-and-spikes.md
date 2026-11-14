@@ -400,7 +400,7 @@ Settles §10 risk 1 and decides Plan 2's bridge. Most important spike; do it fir
 
 ### Task 13: Checkpoint
 
-- [ ] **Step 1:** Read `docs/spikes/findings.md` end to end. For every bar that failed or finding that contradicts the spec, amend the spec and mark the amendment with the date.
-- [ ] **Step 2:** Update `PROJECT.md`: replace the "Verified for the design" entry with measured facts, record dead ends.
-- [ ] **Step 3:** File the findings to Obsidian per Febriel's global rule. Commit.
-- [ ] **Step 4:** Bring Febriel a short summary: what held, what changed, and anything needing a decision. Then write Plan 2.
+- [x] **Step 1 (done 2026-11-14, except Spike 7, which is still open: spec amended in §5, §6, §6.1, §6.2, §6.4, §6.5, §6.6, §9–§15):** Read `docs/spikes/findings.md` end to end. For every bar that failed or finding that contradicts the spec, amend the spec and mark the amendment with the date.
+- [x] **Step 2 (done 2026-11-14):** Update `PROJECT.md`: replace the "Verified for the design" entry with measured facts, record dead ends.
+- [x] **Step 3 (done 2026-11-14: Jarvis Design and Plan 1 re-copied, Jarvis Plan 1 Findings filed):** File the findings to Obsidian per Febriel's global rule. Commit.
+- [x] **Step 4 (summary given 2026-11-14; Plan 2 is written in the planning session):** Bring Febriel a short summary: what held, what changed, and anything needing a decision. Then write Plan 2.
