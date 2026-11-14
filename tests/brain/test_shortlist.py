@@ -58,6 +58,7 @@ def test_the_shortlist_call_has_no_tools(tmp_path, monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     calls = []
     monkeypatch.setattr("subprocess.run", lambda argv, **k: calls.append(argv) or subprocess.CompletedProcess(argv, 0, "- one\n", ""))
+    (tmp_path / "vault").mkdir()
     assert shortlist.run(tmp_path / "vault", ask=lambda prompt: "y") == 0
     argv = calls[0]; assert argv[argv.index("--tools") + 1] == ""
     assert (tmp_path / "vault" / "outputs" / "skill-shortlist.md").read_text() == "- one\n"
