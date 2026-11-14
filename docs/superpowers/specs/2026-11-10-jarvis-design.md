@@ -88,6 +88,7 @@ States: `IDLE → LISTENING → THINKING → SPEAKING → (follow-up window) →
 - **Tap-to-talk (added 2026-11-13, from the second reference; Claude's call):** a short tap of the same key, under 0.3 s, starts listening exactly as the wake word does, and a pause sends. Holding it is hold-to-talk. One key, two gestures.
 - **Cancel (added 2026-11-13, from the second reference):** Escape in the HUD, or saying "cancel" or "never mind", drops what Jarvis is hearing, stops it speaking, and abandons the current small exchange. It does not stop background workers or spawned sessions; those are stopped from the queue. The state machine gains a `CANCEL` event that returns `LISTENING`, `THINKING`, `SPEAKING`, and the follow-up window to `IDLE`.
 - Spoken replies are short. Long output goes to the HUD and the vault, and Jarvis says where it put it.
+- **No parroting (amended 2026-11-14, Febriel):** Jarvis never repeats back what Febriel just said ("You said: …"). It answers or acts.
 
 ### 6.2 The brain
 
@@ -205,7 +206,7 @@ Jarvis's own `.claude/` folder, its settings, and the gate's rule files are outs
 
 The cost of strict: early on, remote on-screen work will ask often, and gets quieter as the trusted list grows. The alternative is to let a model judge the unclear cases, which is smoother but puts a model inside the gate.
 
-**Grilling.** For any request that goes to triage, if triage finds it unclear or consequential, Jarvis asks questions one at a time until the job is pinned down, then repeats the plan in one sentence and waits for "go". Small tasks are never grilled. Reading of "it should grill-me for it" **(Claude's call)**: this is the mattpocock grill-me behaviour applied before big tasks, in addition to the confirmation gate.
+**Grilling.** For any request that goes to triage, if triage finds it unclear or consequential, Jarvis asks questions one at a time until the job is pinned down, then repeats the plan in one sentence and waits for "go". **Once a task is clarified, those clarifications are not repeated (amended 2026-11-14, Febriel):** later replies about the same task do not restate settled answers or re-ask settled questions, unless the task has changed. Small tasks are never grilled. Reading of "it should grill-me for it" **(Claude's call)**: this is the mattpocock grill-me behaviour applied before big tasks, in addition to the confirmation gate.
 
 **Read content is data.** Text from web pages, emails, documents, and screens is never treated as an instruction. The gate applies no matter what any agent has been told, because it sits below the model.
 
