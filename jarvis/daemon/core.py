@@ -268,6 +268,12 @@ class Jarvis:
             if req.tracker.is_task:
                 self.run_scribe(self.vault, path)
 
+    def _owner(self, event: dict) -> _Request | None:
+        """The request an event or hook call belongs to: the one whose agent it is, else the current request, else
+        the latest open one (the front door also acts in turns nobody prompted, e.g. after a background triage)."""
+        return (next((r for r in self._pending if r.tracker.owns(event)), None) or self._current
+                or (self._pending[-1] if self._pending else None))
+
     def _find(self, request_id: str) -> _Request | None:
         return next((r for r in [self._current, *self._pending, *self._waiting] if r and r.id == request_id), None)
 
@@ -304,7 +310,7 @@ class Jarvis:
         self._publish_health()
 
     def _track(self, ev: dict) -> None:
-        owner = next((r for r in self._pending if r.tracker.owns(ev)), self._current)
+        owner = self._owner(ev)
         if owner:
             owner.tracker.feed(ev)
         kind = ev.get("kind")
@@ -329,8 +335,10 @@ class Jarvis:
 
     def _unprompted(self, text: str) -> None:
         """A turn nobody asked for: the front door announcing a worker that finished."""
-        closed = [r for r in self._pending if r.tracker.closed]
-        channel = closed[0].channel if closed else "mac"
+        req = self._owner({})
+        channel = req.channel if req else "mac"
+        if req:
+            req.answer += "\n\n" + text
         self._reply(channel, text, False)
         self.vault.log_exchange(Exchange(self.now(), channel, "(worker finished)", text))
         self._record_closed()
@@ -343,8 +351,7 @@ class Jarvis:
         cwd = Path(payload.get("cwd") or config.PROJECT)
         req = None
         if payload.get("session_id") == self.bridge.session_id:
-            agent = {"task_id": payload.get("agent_id")}
-            req = next((r for r in self._pending if r.tracker.owns(agent)), self._current)
+            req = self._owner({"task_id": payload.get("agent_id")})
         decision = judge(tool, inp, cwd, self.gate)
         if decision.verdict == "never":
             return {"verdict": "deny", "reason": decision.reason}

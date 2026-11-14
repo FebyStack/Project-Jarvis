@@ -70,6 +70,7 @@ class Tracker:
             self.open_agents.discard(event["task_id"])
             if event.get("summary"):
                 self.summaries.append(event["summary"])
+                self.verdict = self.verdict or parse_verdict(event["summary"])  # a background triage's verdict
         elif kind == "turn":
             self._turn_ended = True
 

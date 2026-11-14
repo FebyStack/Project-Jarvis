@@ -60,3 +60,10 @@ def test_task_stays_open_until_its_background_worker_ends(tracker, vault):
 def test_title_falls_back_to_the_first_six_words(tracker, vault):
     tracker.feed(tool("Agent", {"subagent_type": "triage"})); tracker.feed(turn("Done."))
     assert tracker.finish("Done.", []).name == "2026-11-14-2014-fix-the-export-bug-now-please.md"
+
+
+def test_a_background_triage_gives_its_verdict_in_its_summary(tracker):
+    tracker.feed(tool("Agent", {"subagent_type": "triage"}, id="tuT"))
+    tracker.feed(agent_start("t0", "triage", background=True, tool_use_id="tuT")); tracker.feed(turn("Waiting."))
+    tracker.feed(agent_done("t0", "completed", GOOD_VERDICT, tool_use_id="tuT"))
+    assert tracker.verdict.title == "Fix export bug" and tracker.closed

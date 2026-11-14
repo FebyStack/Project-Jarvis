@@ -235,3 +235,29 @@ class QuietBridge(FakeBridge):
 async def test_brain_is_online_once_the_child_runs(make):
     j = await make(bridge=QuietBridge)
     assert (await anext(j.subscribe()))["health"]["brain"] == "online"
+
+
+async def test_a_background_triage_lets_the_front_door_dispatch_later(jarvis, bridge, vault):
+    """Task 15 row 3: triage ran in the background, and the worker was dispatched in a turn nobody prompted."""
+    (vault.root / "wiki").mkdir(); (vault.root / "wiki" / "poetry.md").write_text("x")
+    t = asyncio.create_task(jarvis.submit("write a poem", "phone")); await bridge.got("write a poem")
+    for e in (tool("Agent", {"subagent_type": "triage"}, id="tuT"), agent_start("t0", "triage", background=True, tool_use_id="tuT"),
+              turn("Triage is running.")):
+        bridge.emit(e)
+    await t
+    bridge.emit(agent_done("t0", "completed", GOOD_VERDICT, tool_use_id="tuT"))
+    bridge.emit(tool("Read", {"file_path": str(vault.root / "wiki" / "poetry.md")}))
+    d = await jarvis.hook({"hook_event_name": "PreToolUse", "session_id": bridge.session_id, "cwd": "/tmp",
+                           "tool_name": "Agent", "tool_input": {"subagent_type": "coder"}})
+    assert d["verdict"] == "allow"
+    events = jarvis.subscribe(); await anext(events)
+    for e in (agent_start("t1", "coder", background=True, tool_use_id="tuC"), turn("The worker has started."),
+              agent_done("t1", "completed", "Wrote the poem.", tool_use_id="tuC"), turn("The poem is written.")):
+        bridge.emit(e)
+    replies = []
+    while len(replies) < 2:
+        if (e := await anext(events))["type"] == "reply":
+            replies.append(e)
+    assert [r["channel"] for r in replies] == ["phone", "phone"]
+    text = next(vault.raw.glob("*-fix-export-bug.md")).read_text()
+    assert "coder (" in text and "Wrote the poem." in text and "[[poetry]]" in text
