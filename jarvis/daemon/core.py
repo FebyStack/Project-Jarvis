@@ -185,6 +185,9 @@ class Jarvis:
                 say = self._status_sentence()
             case _:  # yes, no, always
                 ask = self.asks.answer(action, channel=channel)
+                if ask is None and len(waiting := self.asks.pending(channel)) > 1:
+                    return self._reply(channel, f"{len(waiting)} questions are waiting, so I won't guess which one you "
+                                                "mean. Answer each in the HUD.", False)
                 req = self._current if ask and self._current and ask.request_id == self._current.id else None
                 if req is None:  # no turn will follow: a background worker's or another session's question
                     return self._reply(channel, "Okay.", False)

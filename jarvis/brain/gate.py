@@ -189,7 +189,8 @@ _READ_ONLY = {"ls", "cat", "head", "tail", "grep", "rg", "pwd", "echo", "date", 
               "[", "test", "od"}
 # The only commands whose "yes, always" is remembered by name (everything else not judged above asks every time).
 # Even when remembered, their arguments must not reach a protected path or a local address (_check_args).
-_REMEMBER = {"sed", "ln", "chmod", "defaults", "ffmpeg", "ffprobe", "jq", "say"}
+# sed, ffmpeg and the like are left out: their scripts and inputs name files in ways the gate cannot follow.
+_REMEMBER = {"ln", "chmod", "defaults", "say"}
 _SECURITY_CMDS = {"spctl", "csrutil", "fdesetup"}
 _SECURITY_KEYS = ("quarantine", "com.apple.security", "gatekeeper", "askforpassword", "com.apple.screensaver",
                   "com.apple.alf", "loginwindow")
@@ -270,7 +271,16 @@ def _check_args(cmd: str, args: list[str], cwd: Path | None, cfg: GateConfig) ->
     """Even a remembered command must not reach a protected path or a local address. None when nothing does."""
     for arg in args:
         for c in _candidates(arg):
-            host = urlsplit(c).hostname if "://" in c else (m.group(1).strip("[]") if (m := _HOSTISH.fullmatch(c)) else None)
+            if "://" in c:
+                parts = urlsplit(c)
+                if parts.scheme.lower() not in ("http", "https") or not re.fullmatch(r"[A-Za-z0-9.:\[\]-]+", parts.netloc) \
+                        or any(ch in c for ch in "@#\\"):
+                    return Decision("ask", f"{cmd}: cannot tell what {c!r} reaches")
+                host = parts.hostname
+            elif "/" in c and ":" in c.split("/")[0]:  # file:/x, concat:/a|/b, host:path: a prefix that hides the path
+                return Decision("ask", f"{cmd}: cannot tell what {c!r} reaches")
+            else:
+                host = m.group(1).strip("[]") if (m := _HOSTISH.fullmatch(c)) else None
             if host is not None:
                 try:
                     local = local_host(host.lower().rstrip("."))

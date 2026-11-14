@@ -261,3 +261,15 @@ async def test_a_background_triage_lets_the_front_door_dispatch_later(jarvis, br
     assert [r["channel"] for r in replies] == ["phone", "phone"]
     text = next(vault.raw.glob("*-fix-export-bug.md")).read_text()
     assert "coder (" in text and "Wrote the poem." in text and "[[poetry]]" in text
+
+
+async def test_with_two_questions_open_a_bare_yes_is_not_guessed(jarvis, bridge, tmp_path):
+    t = asyncio.create_task(jarvis.submit("make two files", "mac")); await bridge.got("make two files")
+    call = outside_write(bridge, tmp_path)
+    h1 = asyncio.create_task(jarvis.hook(call)); h2 = asyncio.create_task(jarvis.hook(call))
+    await until(lambda: len(jarvis.asks.pending()) == 2)
+    r = await jarvis.submit("yes", "mac")
+    assert r.say.startswith("2 questions are waiting") and not h1.done() and not h2.done()
+    for a in jarvis.asks.pending():
+        jarvis.answer("no", ask_id=a.id)
+    await asyncio.gather(h1, h2); t.cancel()

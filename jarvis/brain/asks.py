@@ -44,9 +44,11 @@ class Asks:
                ask_id: str | None = None) -> Ask | None:
         if reply not in ("yes", "no", "always"):  # fail closed: only an exact yes/always approves
             raise ValueError(f"unknown reply: {reply!r}")
-        # The newest open question on the channel: the one just shown or spoken (review finding 10).
-        a = next((a for a in reversed(self._open) if not a.future.done() and
-                  (a.id == ask_id if ask_id is not None else channel in (None, a.channel))), None)
+        if ask_id is not None:
+            a = next((a for a in self._open if a.id == ask_id and not a.future.done()), None)
+        else:  # a bare answer applies only when one question is open on the channel: never guess (review finding 10)
+            open_ = [a for a in self._open if not a.future.done() and channel in (None, a.channel)]
+            a = open_[0] if len(open_) == 1 else None
         if a is None:
             return None
         if reply == "always" and a.pattern:

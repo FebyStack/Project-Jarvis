@@ -66,13 +66,15 @@ async def test_on_change_fires_on_open_and_close(trusted):
     assert calls == [1, 0]
 
 
-async def test_yes_answers_the_newest_question_on_its_channel(asks):
-    """Review finding 10: the yes is meant for the question just shown or spoken, not an older one."""
+async def test_a_bare_answer_never_guesses_between_open_questions(asks, trusted):
+    """Review finding 10: with two questions open, a yes or an always could land on the one Febriel did not mean."""
     old = asyncio.create_task(asks.ask(ASK, "mac", "m1")); await asyncio.sleep(0)
     new = asyncio.create_task(asks.ask(Decision("ask", "write x", "write:/x"), "mac", "m2")); await asyncio.sleep(0)
-    assert asks.answer("always", channel="mac").request_id == "m2"
-    assert await new is True and not old.done()
-    old.cancel()
+    assert asks.answer("always", channel="mac") is None and asks.answer("yes", channel="mac") is None
+    assert not old.done() and not new.done() and not trusted.contains("write:/x")
+    assert asks.answer("yes", ask_id=asks.pending()[1].id).request_id == "m2"           # the HUD answers by id
+    assert asks.answer("no", channel="mac").request_id == "m1"                          # one left: no doubt
+    await asyncio.gather(old, new)
 
 
 async def test_question_ids_never_repeat_across_restarts(trusted):
