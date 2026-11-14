@@ -148,6 +148,12 @@ Guide for triage: Haiku for lookups and mechanical edits; Sonnet for ordinary mu
 - Jarvis's own small skills live in the project's `.claude/skills/`, one per job, loaded only when needed: `vault` (how to read and write memory), `sessions` (spawn and check background sessions), `system` (apps, volume, windows, timers).
 - Honey stays as it is for Febriel's ordinary Claude Code sessions; it is not loaded inside Jarvis. **(Claude's call)**
 - **Skills from Febriel's own repeat work (added 2026-11-13, from the second reference).** Once, during Plan 2, the last 30 days of Febriel's Claude Code sessions and the vault are read for tasks he keeps repeating, and a shortlist is brought to him. He picks; only the picked ones become skills. Nothing is created automatically, and none of them run on a schedule.
+- *(amended 2026-11-14, Febriel's choice)* The shortlist turned up little worth a new skill. Instead Jarvis gets the skills already installed in his Claude desktop app (81 on 2026-11-14), with these limits:
+  - Skill files only: no plugin hooks, permission rules or connectors, so the gate stays the only thing that approves what Jarvis does.
+  - Only the skills that can run without the desktop app's own tools or connectors.
+  - superpowers comes in; honey stays out.
+  - They are linked afresh at every `jarvisd` start and passed to Claude Code with `--add-dir`, so his edits carry over.
+  - A small reply's first token was unchanged (0.95–1.13 s).
 
 **Staying conversational (Claude's call).** The front door never waits on a worker. Workers run in the background (background subagents, or a spawned session for long jobs), and the front door stays free to talk, take new requests, and relay questions. There is one front door and one conversation, shared by the Mac and the phone; requests are taken in arrival order. Conversation context carries across exchanges and is reset after 30 minutes of silence, when a fresh Claude Code session starts and the memory index is injected again.
 

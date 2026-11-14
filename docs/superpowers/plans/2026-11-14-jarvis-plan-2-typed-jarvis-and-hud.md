@@ -58,6 +58,7 @@ Found while building against the code that exists. Where a task's text below dis
 | 11 | The tests build their clients with `aiohttp.test_utils.TestClient` rather than the `aiohttp_client` fixture, which needs `pytest-aiohttp`, an install not named in Global Constraints. `config.EXTRA_HOSTS` is added (empty). `serve` runs until cancelled and releases the port when it is. |
 | 12 | The doctor's login check runs `claude -p --model haiku --setting-sources project --strict-mcp-config "ok"`: without the two flags Febriel's user-level hooks, plugins and MCP servers start too, which slows the check and is not what Jarvis runs with. The checklist runs the slow check only when nothing else is missing. |
 | 15 | From rows 1–9 (details and commits in `docs/spikes/findings.md`, "Plan 2 results"). `jarvis.md` adds "Making or changing a file is never small": the spec leaves "small" to Sonnet, and Sonnet wrote row 3's poem itself. Triage runs in the background in practice, so the front door also acts in turns nobody prompted; the core gives those calls and events to the latest open request, and reads a background triage's verdict from its summary. The brain counts as `online` once the child runs, since the CLI sends its first `init` only with the first message. The gate never remembers `printf`, `read`, `mapfile` or the zsh builtins that run the next word or set variables. |
+| 16 | Step 4, Febriel's choice: no new skills were written from the shortlist, whose 11 candidates were mostly noise from automated and test sessions. Instead Jarvis gets the skills installed in his Claude desktop app: skill files only, no plugin hooks, permission rules or connectors, and only those that can run without the desktop app's own tools or connectors. Superpowers comes in; honey stays out. `jarvis/brain/desktop_skills.py` relinks them at every daemon start into `~/.jarvis/desktop-skills/.claude/skills/` (81 on 2026-11-14), and `claude_argv` passes that folder with `--add-dir`, so his edits and plugin updates carry over and his own sessions in this repo do not load copies. A small reply's first token stayed at 0.95–1.13 s. Decision 9 still holds for the skills vendored into `.claude/skills/`. |
 
 ## File structure
 
@@ -936,5 +937,5 @@ def test_digest_takes_first_user_messages_only(tmp_path):
 
 - [x] **Step 2:** Run; fails. Implement. Run; passes. Commit: `feat: shortlist of repeat tasks from the last 30 days`.
 - [x] **Step 3:** 👤 Tell Febriel what the digest holds and that it goes to Anthropic like any session; on his yes run `uv run jarvis shortlist` and show him `outputs/skill-shortlist.md`.
-- [ ] **Step 4:** 👤 For each one he picks, write `.claude/skills/<name>/SKILL.md` with him (one job per skill, under 40 lines, no schedule). Commit each: `feat: <name> skill`.
-- [ ] **Step 5:** Tell Febriel what works now and what Plan 3 adds. Then Plan 3 is written.
+- [x] **Step 4:** 👤 For each one he picks, write `.claude/skills/<name>/SKILL.md` with him (one job per skill, under 40 lines, no schedule). Commit each: `feat: <name> skill`.
+- [x] **Step 5:** Tell Febriel what works now and what Plan 3 adds. Then Plan 3 is written.
