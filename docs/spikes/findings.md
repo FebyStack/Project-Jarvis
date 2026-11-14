@@ -98,7 +98,30 @@ How it works: the VAD cuts utterances; Parakeet transcribes each; it wakes if on
 - Live (ten requests): woke on 3 of 3 utterances whose start was recorded intact. In four more, the start was cut by the test harness itself (the script dropped audio recorded while the chime played, and Febriel had started speaking on the chime), so these say nothing about waking.
 - On the Spike 2 recording: the "clear" takes included sentences Febriel did not say ("More money", "I'm going to take a look at it"): **there was background speech (a TV or another person) during that session**, which confounds the Spike 2 wake-word numbers. His "talk normally" part was him reading Claude's message aloud, which contains "Jarvis", so its one "false wake" was a real "Jarvis" (and the custom-training negatives were contaminated with the wake word).
 - Wake latency is no longer "wake word → listening in 0.3 s": the wake and the request arrive together about 1 s after he stops speaking (0.8 s silence + ~0.2 s transcription). For "Jarvis" said alone, Jarvis starts listening ~1 s later.
-- Still to run (👤): a clean live wake test without the chime harness, and the 30-minute false-trigger run with a video or music playing (Spike 2 Step 3, moved here).
+
+### Live wake and false-trigger run (35 min, `wake_live.py`, 2026-11-14)
+Phases: 2 min quiet → Febriel says "Jarvis"/"Hey Jarvis" plus requests at his own pace (TV off, 1–2 m) → ~29 min of video and music at normal volume with other people talking (partly not in English). Every utterance the VAD passed was transcribed by Parakeet; no audio was stored.
+
+| Measure | Bar | Measured | Verdict |
+|---|---|---|---|
+| Wakes on Febriel's "Jarvis" | 9 of 10 | 23 wakes; 3 likely misses heard as "Hey Jovis", "Pervis", "Agries, check my emails" → **≈ 88 % of utterances** (23/26). Febriel counted 17 attempts; the transcripts hold about 28 "Jarvis" mentions, some several to an utterance, so the per-utterance figure is used. | **Borderline** (just under 9/10) |
+| False wakes with video/music/people talking | ≤ 1 in 30 min | **0** in 155 utterances over ~29 min | **Pass** |
+| CPU, quiet room | "a few percent of one core" (§11) | 2.0 % | Pass |
+| CPU, video playing | same | median 3.7 % per minute (1.6–5.5 %; one 12.8 % minute while the Mac was busy elsewhere); 4.0 % over the whole run | Pass |
+| Transcription per utterance | — | median 0.20 s, 90th percentile 0.53 s; 196 utterances, 816 s of speech in 35 min | — |
+
+Compared with Spike 2: the pretrained `hey_jarvis` model caught 3 of 10 live; wake by transcription caught about 88 % with no false wakes, at a similar CPU cost (2–4 % against 6–10 %).
+
+### What the wake rule means for the spec (for the Task 13 amendment)
+- **Wake phrase.** Spec §6.1 says v1 ships on "Hey Jarvis". What was tested is "Jarvis" anywhere in the first three words (fuzzy, ≥ 0.75 similarity), so **both "Jarvis" and "Hey Jarvis" wake it**, and bare "Jarvis" (Febriel's original ask) is no longer a later item.
+- **Engine.** No wake-word model: Silero VAD → Parakeet → name match. openWakeWord is dropped.
+- **Timing.** §11's "wake word to LISTENING under 0.3 s" no longer applies. The wake and the request arrive together about **1 s after he stops speaking** (0.8 s silence + ~0.2 s transcription). "Jarvis" said alone starts a listening turn about 1 s later, and the follow-up window still lets him reply without the name.
+- **Misses.** Parakeet hears his "Jarvis" mostly as "Jervis" and sometimes as "Jovis", "Pervis" or "Agries". Plan 3 should tune the match (for example accept ≥ 0.7, which takes "Jovis" but still rejects "Travis" at 0.67) against a recorded set, and keep hold-to-talk as the fallback.
+- **Privacy.** This way Jarvis transcribes everything said near the Mac, including other people. The text never leaves the Mac, but the spec should say that utterances without the wake word are discarded at once, never logged or written to the vault.
+- **Fit with the 2.5 s target.** End of speech → text is about 1 s (0.8 s of it is the silence wait), so the 2.5 s budget to the first spoken word leaves about 1.5 s for the brain's first token (0.79 s, Spike 1) and the first audio.
+
+### Cleanup
+All spike audio is deleted: the Spike 2 session recording, the ten Spike 3 request recordings, and the transcript logs (they held other people's speech). The two failed custom wake models (`wake_*.joblib`, derived from his voice) are deleted. Kept, git-ignored: openWakeWord's public validation features (`spikes/02-wake/data/`, 185 MB), deletable any time.
 
 ## Spike 4 — spoken replies (Task 9), Steps 1–2
 
