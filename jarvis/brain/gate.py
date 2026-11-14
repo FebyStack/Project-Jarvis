@@ -216,6 +216,8 @@ def _classify_part(tokens: list[str], cwd: Path | None, cfg: GateConfig) -> Deci
             return Decision("ask", "rg --pre runs another program")
         if cmd == "file" and any(a.startswith("-C") or a == "--compile" for a in args):
             return Decision("ask", "file -C writes magic files")
+        if cmd == "printf" and args and args[0].startswith("-"):
+            return Decision("ask", "printf -v sets a shell variable")
         return Decision("allow", f"{cmd} is read-only")
     if cmd == "find":
         if any(a in _FIND_UNSAFE for a in args):

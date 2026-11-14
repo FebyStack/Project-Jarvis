@@ -20,6 +20,8 @@ HOME = Path.home()
     ("echo hi > ~/Documents/a.txt", "ask"),
     ("printf 'gold\\n' > ~/Developer/jarvis-e2e/poem.txt", "allow"),
     ("printf hi > ~/Documents/a.txt", "ask"),
+    ("printf -v PATH /tmp/x; ls", "ask"),               # -v sets a shell variable: PATH would change what ls runs
+    ("printf -- -v", "ask"),
     ("cat $(rm ~/Documents/a.txt)", "ask"),
     ("rm ~/Developer/../Documents/a.txt", "ask"),
     ("find ~/Developer -name '*.tmp' -delete", "ask"),
