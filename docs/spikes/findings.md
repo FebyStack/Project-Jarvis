@@ -156,33 +156,33 @@ Chosen engine and voice: **`mlx-audio` 0.6.5, `mlx-community/Kokoro-82M-bf16`, v
 - Versions check against a snapshot taken before the removal: nothing changed version. Only `kokoro-onnx` 0.6.1 and `phonemizer` 3.6.0 are gone. `import phonemizer` reports 3.3.2, the `phonemizer-fork` version, reinstalled clean by the sync. `mlx-audio` synthesizes a `bm_daniel` sentence (2.38 s of audio).
 - **Quieter re-check of first audio:** one `mlx` race, 5 passes, 23:45, 1-minute load average 4.9 → 4.0 (no model work by other spikes running). First audio **0.177 s** median (0.174–0.236), no gaps, cold start 1.0 + 4.0 s. This confirms Step 3's 0.19 s.
 
-### Step 4 — end of speech to first spoken word (provisional)
+### Step 4 — end of speech to first spoken word (final 2026-11-14, with Spike 3's live number)
 
 | Term | Value | Source |
 |---|---|---|
 | End-of-speech silence (voice activity detection) | 0.80 s | Spec §6.1, "about 0.8 s" |
-| Transcription (Parakeet) | 0.28 s | Spike 3, median on Febriel's *recorded* audio (provisional; the live ten-request number comes later) |
+| Transcription (Parakeet) | 0.17 s | Spike 3, live median over Febriel's spoken requests (max 0.41 s). Spike 3 measured end of speech → transcript at 0.97 s in one piece, which matches the two rows above. The provisional figure from recorded audio was 0.28 s (sum 2.06 s) |
 | First text token | 0.79 s | Spike 1 Step 7, warm process, bare Sonnet prompt |
 | First audio of the first sentence | 0.19 s | Spike 4 Step 3 (re-check 0.18 s) |
-| **Sum** | **2.06 s** | Bar §11: about 2.5 s → **passes, with 0.44 s to spare (provisional)** |
+| **Sum** | **1.95 s** | Bar §11: about 2.5 s → **passes, with 0.55 s to spare** |
 
 #### What the sum leaves out (best estimates)
-1. **The first sentence has to finish arriving before it can be synthesized.** The 0.79 s is time to the first token, not to the first full sentence. Spike 1 measured a *whole* short reply at 1.0–1.5 s, so the first sentence lands 0.2–0.7 s after the first token. A short opener ("Right.", "Good evening, Febriel.") is at the low end. **+0.2–0.7 s → 2.3–2.8 s.** This is the biggest gap.
+1. **The first sentence has to finish arriving before it can be synthesized.** The 0.79 s is time to the first token, not to the first full sentence. Spike 1 measured a *whole* short reply at 1.0–1.5 s, so the first sentence lands 0.2–0.7 s after the first token. A short opener ("Right.", "Good evening, Febriel.") is at the low end. **+0.2–0.7 s → 2.15–2.65 s.** This is the biggest gap.
 2. **The real `jarvis` prompt and memory index.** Spike 1 used a bare prompt, and `docs/spikes/findings.md` has no number for a heavy one. Rough guess: +0.1–0.5 s to first token on a warm, cached session, more on the first turn after a context change. **Unmeasured.**
-3. **Live transcription vs recorded.** 0.28 s is on recorded audio. Live adds capture buffering and the model sharing the machine. **Spike 3's live number replaces it.**
+3. **Live transcription vs recorded.** Settled: the live number (0.17 s) came in under the recorded one (0.28 s).
 4. **Machine load.** Under load average 6–13, first audio rose to 0.39 s median with one 1.6 s outlier (Step 3, run 2). Spike 1's token times were taken on a quieter machine. A busy Mac (a CapCut export, say) could add 0.2 s or more across the TTS and transcription terms.
 5. **Cold paths, excluded by design.** The first TTS synthesis after load costs 4–6 s (14 s under load), and the first Claude turn including process start was 1.63 s against 0.79 s. `jarvisd` must keep both warm (load the model, synthesize a throwaway sentence, and keep the `claude` process running), or the first reply of the day misses the bar badly.
 6. **Replies that call a tool before speaking** (look something up, then answer) are not "small requests" and are outside this bar; their first word waits for the tool.
 7. **Audio output start** (Core Audio buffer, device wake from idle) is unmeasured; usually tens of milliseconds, more if the output device was asleep.
 
-**Realistic estimate: about 2.3–2.9 s** for a small request: the 2.06 s sum, plus 0.2–0.7 s for the first sentence and up to about 0.2 s for prompt weight. That is around the 2.5 s bar, not safely under it.
+**Realistic estimate: about 2.2–2.8 s** for a small request: the 1.95 s sum, plus 0.2–0.7 s for the first sentence and up to about 0.2 s for prompt weight. That is around the 2.5 s bar, not safely under it.
 
-#### Levers for Plan 3, if the live number confirms the squeeze
+#### Levers for Plan 3
 - Tell the `jarvis` agent to open with a very short first sentence. That turns item 1 into about +0.2 s.
 - Start synthesis at the first clause break (a comma or dash) when the first sentence is long. `mlx-audio` handles short fragments in about 0.18 s.
 - Shorten the end-of-speech silence from 0.8 s to 0.6 s if Spike 3's false-cutoff rate allows. That saves 0.2 s.
 
-Verdict: **provisional pass on the bare sum (2.06 s), borderline once the first-sentence wait is counted (about 2.3–2.9 s).** Re-add with Spike 3's live transcription number before closing Task 9.
+Verdict: **pass on the bare sum (1.95 s); borderline once the first-sentence wait is counted (about 2.2–2.8 s).** Plan 3 should build in the short-first-sentence lever from the start and measure the real end-to-end time with the `jarvis` agent prompt.
 
 ## Spike 5 — on-screen control (Task 10)
 
