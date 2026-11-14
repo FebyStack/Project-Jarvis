@@ -41,6 +41,12 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(404, {"error": "not found"})
         auth = self.headers.get("Authorization", "").encode()
         if not hmac.compare_digest(auth, b"Bearer " + TOKEN):
+            # Log the header's shape only, never its value, so a bad paste can be diagnosed.
+            want = b"Bearer " + TOKEN
+            sys.stderr.write(f"401 shape: present={bool(auth)} bearer_prefix={auth.startswith(b'Bearer ')} "
+                             f"placeholder={b'PASTE_TOKEN_HERE' in auth} length={len(auth)}/{len(want)} "
+                             f"matches_if_whitespace_removed={b''.join(auth.split()) == b''.join(want.split())} "
+                             f"token_inside={TOKEN in auth}\n")
             return self.reply(401, {"error": "unauthorized"})
         try:
             n = int(self.headers.get("Content-Length", 0))
@@ -50,8 +56,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(400, {"error": "expected JSON {\"text\": \"...\"}"})
         if ask_first:
             ask_first = False
-            return self.reply(200, {"say": f"You said: {text}. Shall I go ahead?", "needs_reply": True})
-        return self.reply(200, {"say": f"You said: {text}", "needs_reply": False})
+            return self.reply(200, {"say": "Shall I go ahead?", "needs_reply": True, "loop": "yes"})
+        return self.reply(200, {"say": "Got it.", "needs_reply": False})  # never echo Febriel's words (spec §6.1); no "loop" key: the shortcut stops
 
     def log_message(self, fmt, *args):  # never log headers; path and status only
         sys.stderr.write(f"{self.log_date_time_string()} {self.command} {self.path} {args[1] if len(args) > 1 else ''}\n")

@@ -375,6 +375,21 @@ tailscale serve status
 
 Then press Ctrl-C on the server and run `lsof -i :8787`, which should show no listener.
 
+### Results with Tailscale (2026-11-14)
+Febriel created the Tailscale account (sign-in with GitHub), installed Tailscale 1.104.5 from the Mac App Store and on the iPhone, renamed the Mac to `jarvis-mac` inside Tailscale (the OS name contains his name), and enabled HTTPS. Tailnet: `tail80d4ef.ts.net`. Server run from this session (`server.py`, `127.0.0.1:8787`).
+
+| Step | Bar | Measured | Verdict |
+|---|---|---|---|
+| 3 `tailscale serve --bg --https=443 http://127.0.0.1:8787` | Reachable on the tailnet only | `serve status`: `https://jarvis-mac.tail80d4ef.ts.net (tailnet only)`; Funnel off. With token: 200 in 1.08 s (the very first request waited ~30 s for the certificate). No token / wrong token: 401. Public DNS (1.1.1.1): no answer. Mac's LAN address :8787: refused. With `tailscale down`: name does not resolve (curl exit 6); after `up`: 200 | **Pass** |
+| 4 Shortcut | Built; token pasted by Febriel | Febriel could not find the Jarvis tile after building by hand, so Claude generated the shortcut as a signed file (`spikes/06-phone/make_shortcut.py` → `shortcuts/Jarvis.shortcut`, placeholder instead of the token). Import dropped the If step's comparison value, so the loop rule changed: the server sends `"loop": "yes"` only when it wants an answer, and the If tests "does not have any value" (set by clicking). Febriel pasted the token on the Mac (a first paste missed the field; the server's 401 log showed the placeholder) and AirDropped the shortcut to the iPhone (iCloud did not sync it) | Done |
+| 5 Mobile data, Wi-Fi off | < 4 s to spoken answer; reply loop hands-free; 401 without token | Febriel: **under 4 s**. Reply loop: two requests 8 s apart (16:50:26 and 16:50:34), the second taken hands-free. 401 without the token verified over the tailnet from the Mac. First try failed with "A server with the specified hostname could not be found": Tailscale on the iPhone was off (offline 1 h); fixed by connecting it (VPN On Demand recommended) | **Pass** |
+| 5 "Hey Siri, Jarvis" | Starts the shortcut | **Did not start it.** Febriel chose **Back Tap** (double-tap the back of the iPhone) instead; it works (runs at 16:55:49 and 16:56:03) | **Fail → Back Tap** |
+
+Other findings:
+- **Febriel's reply rules (spec amended 2026-11-14):** Jarvis never repeats back what he said, and once a task is clarified it does not repeat those clarifications unless the task changes. The spike server's "You said: …" echo was removed for the same reason.
+- The tailnet name and `jarvis-mac` are in the public Certificate Transparency log (expected; no personal name).
+- A 401 on the server now logs only the header's shape (present, `Bearer ` prefix, placeholder, length), never its value; that is how the missed paste was found without anyone seeing the token.
+
 ### Waiting on Febriel, in order
 1. Create a Tailscale account (he does this; Jarvis creates no accounts).
 2. Install Tailscale on the Mac and sign in. Install the CLI from the app's settings.
