@@ -394,7 +394,7 @@ Settles §10 risk 1 and decides Plan 2's bridge. Most important spike; do it fir
 
 ### Task 12: Spike 7 — staying awake 👤
 
-- [ ] **Step 1 (first run started 2026-11-13 23:38 against an internet host, before Tailscale; repeat with the tailnet check later):** 👤 Plugged in, lid open: run `caffeinate -i` overnight with a script that logs a timestamp and a tailnet reachability check every 5 min. **Bar:** no gap over 6 min in the log; `pmset -g log` shows no system sleep.
+- [ ] **Step 1 (first run 2026-11-13 23:38 → 09:13 inconclusive: other apps kept the Mac awake and the log was lost; repeat on a clean night, with the tailnet check once Tailscale exists):** 👤 Plugged in, lid open: run `caffeinate -i` overnight with a script that logs a timestamp and a tailnet reachability check every 5 min. **Bar:** no gap over 6 min in the log; `pmset -g log` shows no system sleep.
 - [ ] **Step 2:** 👤 On battery for 2 h, same script. **Bar:** same. Record battery drop per hour.
 - [ ] **Step 3:** Confirm the display slept during both runs. Write findings. Commit.
 

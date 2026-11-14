@@ -324,7 +324,7 @@ Then press Ctrl-C on the server and run `lsof -i :8787`, which should show no li
 
 ## Spike 7 — staying awake (Task 12): dry run
 
-Run 2026-11-13. Scripts: `spikes/07-awake/awake_log.py` and `report.py` (standard library only, Python 3.14.7). The overnight run started 2026-11-13 23:38 (see the change note below); the battery run has not started.
+Run 2026-11-13. Scripts: `spikes/07-awake/awake_log.py` and `report.py` (standard library only, Python 3.14.7). The first overnight run (2026-11-13 23:38 → 2026-11-14 09:13) is **inconclusive** (see below); the battery run has not started.
 
 ### What the scripts do
 - `awake_log.py HOST [HOST ...] [--interval S]` (default 300 s) appends one line per tick to `spikes/07-awake/tmp/awake.log` (git-ignored): ISO timestamp, power source and battery percent from `pmset -g batt`, and `ping -c 1 -t 5` to each host. Example: `2026-11-13T23:32:00 power=Battery batt=66 reach=1.1.1.1:ok:58.934ms,192.0.2.1:FAIL`.
@@ -373,12 +373,12 @@ Febriel said "Yes, tonight": run Step 1 now, before Tailscale exists.
 - **Deviation:** reachability is checked against `1.1.1.1` (a plain internet host), not a tailnet address. Tailnet reachability is re-checked in a later run once Tailscale is installed.
 - **The bar applies to the stretch on AC.** The Mac was on battery (64–67 %) when this was set up, and every log line carries `power=AC` or `power=Battery`. `report.py` now also prints `gap AC`, the largest gap between two consecutive lines that were both on AC.
 - **Safety rule (added to `awake_log.py`):** if it is on battery and below 20 %, it writes a `STOP on battery at N% …` line and exits. `caffeinate` then ends and the Mac can sleep instead of draining flat. `report.py` prints that line if it is there. Tested with a faked 15 % reading: the logger wrote the STOP line and exited 0.
-- **Started 2026-11-13 23:38:41 (+0800) by the conductor session** with the command below, after Febriel plugged in (first line: `power=AC batt=62 reach=1.1.1.1:ok`). The worker session's own attempt was refused by its permission check (auto mode: "unauthorized persistence"). `caffeinate` holds `PreventUserIdleSystemSleep` for the logger. Result: pending the morning report.
+- **Started 2026-11-13 23:38:41 (+0800) by the conductor session** with the command below, after Febriel plugged in (first line: `power=AC batt=62 reach=1.1.1.1:ok`). The worker session's own attempt was refused by its permission check (auto mode: "unauthorized persistence"). `caffeinate` holds `PreventUserIdleSystemSleep` for the logger. Result: see "First overnight run" below.
 
-**Start (as run; plugged in, lid open):**
+**Start (plugged in, lid open).** Changed 2026-11-14: it no longer deletes an earlier log (it renames it) and refuses to start while a run is alive.
 
 ```bash
-cd ~/Developer/"Project Jarvis" && mkdir -p spikes/07-awake/tmp && rm -f spikes/07-awake/tmp/awake.log && date '+%Y-%m-%dT%H:%M:%S%z' > spikes/07-awake/tmp/run.start; nohup caffeinate -i python3 spikes/07-awake/awake_log.py 1.1.1.1 > spikes/07-awake/tmp/run.out 2>&1 &
+cd ~/Developer/"Project Jarvis" && mkdir -p spikes/07-awake/tmp && if pgrep -f spikes/07-awake/awake_log.py >/dev/null; then echo "already running; stop it first"; else s=$(date +%Y%m%d-%H%M%S); for f in awake.log run.out; do [ -f spikes/07-awake/tmp/$f ] && mv spikes/07-awake/tmp/$f spikes/07-awake/tmp/$s-$f; done; date '+%Y-%m-%dT%H:%M:%S%z' > spikes/07-awake/tmp/run.start; nohup caffeinate -i python3 spikes/07-awake/awake_log.py 1.1.1.1 > spikes/07-awake/tmp/run.out 2>&1 & fi
 ```
 
 Check that it is alive. Expect one `caffeinate -i python3 …` line and a first log line with `power=AC`. Terminal.app can then be closed, because `nohup` keeps the run going.
@@ -399,8 +399,27 @@ cd ~/Developer/"Project Jarvis" && python3 spikes/07-awake/report.py
 
 Read `gap AC` against the 6-min bar (plain `gap` also counts any battery stretch before he plugged in), along with `sleep` (must be 0) and `display` (must show it turned off at least once).
 
+### First overnight run: 2026-11-13 23:38 → 2026-11-14 09:13 — inconclusive
+
+| Check | Bar | What the night shows | Verdict |
+|---|---|---|---|
+| System sleep | none in `pmset -g log` | No `Sleep`, `Wake` or `DarkWake` entry between 23:38 and 09:13 | Met, but **not attributable to `caffeinate`** (below) |
+| Gap in the logger's lines | none over 6 min | **Log lost.** The start command was run again from Terminal at 09:11:03, and it began with `rm -f …/awake.log` and overwrote `run.out`. Only indirect evidence is left: the original logger (PID 25662, started 23:38:41) was still alive and ticked at 09:13:55, which is 115 ticks of 300.1 s after its first line, so it was never suspended | **Not shown** |
+| Display slept (Step 3) | yes | Off 00:12–00:25 and 00:56–00:57 only; on from 00:57 to 09:13 | **Fail** for this night |
+| On AC | whole run | On battery at 23:43 (61 %), 100 % and on AC by 09:11; the time he plugged in is not recorded (the log is gone) | Unknown |
+
+Why it proves nothing about `caffeinate -i`:
+- The Claude app held a `NoDisplaySleepAssertion` named "Capturing" from 01:40 to 09:12 (25,445 creations; another 23 from `chrome-headless-shell`). Other Claude sessions were working overnight. With the display held on, `powerd` holds its own "Prevent sleep while display is on" system assertion (8 h 15 min at 09:13).
+- `coreaudiod` also held `PreventUserIdleSystemSleep` for the built-in speaker and an audio tap for most of the night (9 h 45 min and 10 h 57 min at 09:13).
+- So the Mac would have stayed awake without `caffeinate`. Keyboard and mouse activity stopped after 01:xx and resumed at 09:xx.
+
+What it means:
+- The bar needs a clean night: no Claude session working, no audio playing, plugged in from the start. Then `caffeinate -i` is the only thing between the Mac and idle sleep, and the display is free to sleep.
+- **Design note for Plan 4:** a working Claude session keeps the display on ("Capturing"). When Jarvis itself is working overnight the display will not sleep; spec §6.6's "let the display sleep" only holds while Jarvis is idle.
+- The start command's `rm -f` cost the night's log. Fixed in the command above. Both loggers were writing to one file from 09:11; the original was stopped at 09:14, the one started from Terminal at 09:11 was left running.
+
 ### Waiting on Febriel, in order
-1. In the morning: stop the run and run `report.py` (commands above).
+1. Repeat the overnight run on a clean night: plugged in from the start, no Claude session left working, nothing playing audio. Then stop it and run `report.py`.
 2. Tailscale on the Mac and iPhone (Spike 6 steps 1–3), so there is a tailnet address to check.
 3. Later overnight run with the tailnet check: plugged in, lid open, screen left to sleep on its own. Bar: no gap over 6 min, no system sleep in `pmset -g log`.
 4. Run `report.py`. Keep the output, then clear the log.
