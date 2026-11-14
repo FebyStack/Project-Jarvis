@@ -202,6 +202,8 @@ A request for a yes is spoken on the Mac or sent to the phone, whichever channel
 
 Jarvis's own `.claude/` folder, its settings, and the gate's rule files are outside the free-write areas, so Jarvis cannot loosen its own gate without a yes.
 
+*(amended 2026-11-14, Claude's call, from the Plan 2 security pass; Febriel to confirm)* A write into any `.git`, `.claude`, `.obsidian` or `.vscode` folder, or to a `.envrc` file, wherever it is (free-write areas included, letter case ignored, symlinks followed), asks every time and can never be remembered with "yes, always": files there run code later without Jarvis running anything.
+
 **When code cannot tell what an action does — strict, with remembered approvals (Claude's call; Febriel to confirm).** The gate uses fixed rules only; no model sits inside it.
 
 - *Shell:* a list of known read-only commands runs freely; known state-changing commands are judged by the paths they touch; anything unrecognised asks.

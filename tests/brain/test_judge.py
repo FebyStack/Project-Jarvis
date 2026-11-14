@@ -147,3 +147,11 @@ def test_config_follows_env_set_after_import(monkeypatch, tmp_path):
     monkeypatch.delenv("JARVIS_HOME"); monkeypatch.setenv("JARVIS_VAULT", "")
     assert config.HOME_DIR == Path.home() / ".jarvis"
     assert config.VAULT == Path("/Users/febrielotud/Obsidian/Jarvis")
+
+
+@pytest.mark.parametrize("rel", [".claude/settings.json", ".obsidian/plugins/x/main.js", ".vscode/tasks.json", ".envrc"])
+def test_write_tool_into_run_later_paths_asks_unremembered(cfg, rel):
+    for root in (cfg.free_write[0] / "repo", cfg.free_write[1]):
+        for name in ("Write", "Edit", "MultiEdit"):
+            d = v(name, {"file_path": str(root / rel)}, cfg)
+            assert d.verdict == "ask" and d.pattern == "", (name, root, rel)

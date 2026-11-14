@@ -218,3 +218,55 @@ def test_listed_subcommands_keep_their_pattern(cmd, pattern, cfg):
 def test_cd_after_a_keyword_still_poisons_relative_paths(cfg):
     assert classify_shell("{ cd ~/Documents; } && rm a.txt", DEV, cfg).verdict == "ask"
     assert classify_shell("if true; then cd ~/Documents; fi; rm a.txt", DEV, cfg).verdict == "ask"
+
+
+# ── Task 4b: folders whose files run code later (Claude Code hooks, Obsidian plugins, VS Code tasks, direnv) ──
+_RUN_LATER = [".claude/settings.json", ".obsidian/plugins/x/main.js", ".vscode/tasks.json", ".envrc",
+              ".CLAUDE/settings.local.json", ".Obsidian/community-plugins.json", ".VSCode/settings.json", ".ENVRC",
+              ".claude"]  # a file merely named .claude asks too: it holds the name a folder needs, and mv/mkdir make one
+
+
+@pytest.mark.parametrize("rel", _RUN_LATER)
+def test_run_later_paths_ask_in_developer_and_vault(rel, cfg):
+    from jarvis.brain.gate import classify_path_write
+    for root in (DEV / "repo", cfg.free_write[1]):
+        d = classify_path_write(root / rel, cfg)
+        assert d.verdict == "ask" and d.pattern == "", (root, rel)
+
+
+@pytest.mark.parametrize("cmd", ["echo x > ~/Developer/repo/.claude/settings.json", "cp evil ~/Developer/repo/.vscode/tasks.json",
+                                 "mv x ~/Developer/repo/.envrc", "tee ~/Developer/repo/.Obsidian/app.json",
+                                 "mkdir ~/Developer/repo/.claude", "cp -R hooks ~/Developer/repo/.claude",
+                                 "mv ~/Developer/repo/claude ~/Developer/repo/.claude"])
+def test_shell_writes_into_run_later_paths_ask(cmd, cfg):
+    d = classify_shell(cmd, DEV, cfg)
+    assert d.verdict == "ask" and d.pattern == ""
+
+
+def test_a_yes_always_does_not_unlock_run_later_paths(cfg):
+    from jarvis.brain.gate import classify_path_write
+    for rel in (".claude", ".obsidian", ".vscode"):
+        cfg.trusted.add(f"write:{DEV / 'repo' / rel}")
+    cfg.trusted.add(f"write:{DEV / 'repo'}")
+    for rel in (".claude/settings.json", ".obsidian/app.json", ".vscode/tasks.json", ".envrc"):
+        assert classify_path_write(DEV / "repo" / rel, cfg).verdict == "ask"
+
+
+def test_symlink_into_a_run_later_folder_is_caught(tmp_path, cfg_for):
+    from jarvis.brain.gate import classify_path_write
+    free = tmp_path / "free"
+    (free / "repo" / ".vscode").mkdir(parents=True)
+    (free / "link").symlink_to(free / "repo" / ".vscode")
+    (free / "env").symlink_to(free / "repo" / ".envrc")  # dangling: the .envrc does not exist yet
+    c = cfg_for(free)
+    for p in (free / "link" / "tasks.json", free / "env"):
+        d = classify_path_write(p, c)
+        assert d.verdict == "ask" and d.pattern == "", p
+    assert classify_shell(f"cp x {free / 'link' / 'tasks.json'}", free, c).verdict == "ask"
+
+
+@pytest.mark.parametrize("rel", [".clauderc", "claude/settings.json", "my.vscode.md", ".envrc.example", "notes/obsidian.md",
+                                 "docs/.claude.md"])
+def test_run_later_neighbours_stay_free(rel, cfg):
+    from jarvis.brain.gate import classify_path_write
+    assert classify_path_write(DEV / "repo" / rel, cfg).verdict == "allow"

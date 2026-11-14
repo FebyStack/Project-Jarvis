@@ -56,12 +56,18 @@ def _inside(real: Path, roots: list[Path]) -> bool:
     return any(real.is_relative_to(Path(r).expanduser().resolve()) for r in roots)
 
 
+# Files here run code later without Jarvis running anything: git config and hooks (they make later "read-only" git
+# commands run programs), Claude Code settings and hooks, Obsidian plugins, VS Code tasks, direnv. A path with one of
+# these names anywhere (the name itself too, so mv/mkdir cannot make one) is protected.
+_RUN_LATER = {".git", ".claude", ".obsidian", ".vscode", ".envrc"}
+
+
 def _protects(real: Path, cfg: GateConfig) -> bool:
     """A protected path, anything inside one, a folder that holds one (moving or deleting it moves the gate),
-    or anything inside a .git folder.
+    or a path through a _RUN_LATER name.
     Compared case-folded: the Mac's disk ignores letter case."""
     r = Path(str(real).casefold())
-    if ".git" in r.parts:  # repo config and hooks make later "read-only" git commands run programs
+    if _RUN_LATER & set(r.parts):
         return True
     for p in cfg.protected:
         pr = Path(str(Path(p).expanduser().resolve()).casefold())
