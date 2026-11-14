@@ -118,7 +118,9 @@ class Vault:
         if not (self.root / "CLAUDE.md").exists():
             (self.root / "CLAUDE.md").write_text(MAP, encoding="utf-8")
         (self.root / "wiki").mkdir(exist_ok=True)
-        (self.root / "wiki" / "index.md").touch(exist_ok=True)
+        index = self.root / "wiki" / "index.md"
+        if not index.exists():  # touching an existing file would change its time on every start
+            index.touch()
 
     def wiki_notes(self) -> list[str]:
         wiki = self.root / "wiki"

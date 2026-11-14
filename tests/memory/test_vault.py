@@ -84,3 +84,9 @@ def test_wiki_notes_and_memory_map(tmp_path):
     (tmp_path / "wiki" / "prefs.md").write_text("x"); (tmp_path / "wiki" / "index.md").write_text("- [[prefs]]")
     assert v.wiki_notes() == ["wiki/prefs.md"]
     assert v.memory_map() == (tmp_path / "CLAUDE.md").read_text() + "\n\n- [[prefs]]"
+
+
+def test_ensure_map_leaves_an_existing_index_alone(tmp_path):
+    import os
+    v = Vault(tmp_path); v.ensure_map(); index = tmp_path / "wiki" / "index.md"
+    os.utime(index, (1, 1)); v.ensure_map(); assert index.stat().st_mtime == 1
