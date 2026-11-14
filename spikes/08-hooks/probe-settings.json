@@ -1,0 +1,10 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {"matcher": "*", "hooks": [{"type": "command", "command": "python3 '/Users/febrielotud/Developer/Project Jarvis/spikes/08-hooks/hook.py'", "timeout": 660}]}
+    ],
+    "PermissionRequest": [
+      {"matcher": "*", "hooks": [{"type": "command", "command": "python3 '/Users/febrielotud/Developer/Project Jarvis/spikes/08-hooks/hook.py'", "timeout": 660}]}
+    ]
+  }
+}
