@@ -192,6 +192,12 @@ _READ_ONLY = {"ls", "cat", "head", "tail", "grep", "rg", "pwd", "echo", "date", 
 # sed, ffmpeg and the like are left out: their scripts and inputs name files in ways the gate cannot follow.
 _REMEMBER = {"ln", "chmod", "defaults", "say"}
 _SECURITY_CMDS = {"spctl", "csrutil", "fdesetup"}
+# Spec §6.5 "without asking": open an app, set the volume, a timer; only these exact forms (the system skill teaches them).
+# An app opens only by its full path in the system's app folders: by bare name macOS may pick a planted copy.
+_APP_DIRS = (Path("/Applications"), Path("/Applications/Utilities"), Path("/System/Applications"),
+             Path("/System/Applications/Utilities"))
+_OSASCRIPT = (re.compile(r"set volume output volume (100|[1-9]?\d)"), re.compile(r"set volume output muted (true|false)"),
+              re.compile(r'display notification "[^"\\]*"(?: with title "[^"\\]*")?'))
 _SECURITY_KEYS = ("quarantine", "com.apple.security", "gatekeeper", "askforpassword", "com.apple.screensaver",
                   "com.apple.alf", "loginwindow")
 # zsh and bash syntax the parser cannot model exactly: $'…' and $"…" quoting, ${…} (it can assign), arithmetic,
@@ -321,6 +327,13 @@ def _classify_part(tokens: list[str], cwd: Path | None, cfg: GateConfig) -> Deci
         return Decision("ask", f"cannot tell what command {word!r} runs")
     if "/" in word and os.path.dirname(word) not in _SYSTEM_BINS:
         return Decision("ask", f"program outside the system folders: {word}")
+    if cmd == "open" and len(args) == 2 and args[0] == "-a" and args[1].endswith(".app") \
+            and Path(args[1]).parent in _APP_DIRS and Path(args[1]).exists():
+        return Decision("allow", f"opens {Path(args[1]).stem}")
+    if cmd == "osascript" and len(args) == 2 and args[0] == "-e" and any(r.fullmatch(args[1]) for r in _OSASCRIPT):
+        return Decision("allow", "sets the volume or shows a notification")
+    if cmd == "sleep" and len(args) == 1 and args[0].isdigit():
+        return Decision("allow", "waits")
     if cmd in _RUNNERS or re.fullmatch(r"(python|perl|ruby|php|node|lua)[\d.]*", cmd):
         return Decision("ask", f"{cmd} runs other commands")
     if cmd in _NAV:

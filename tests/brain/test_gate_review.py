@@ -177,3 +177,28 @@ def test_a_symlink_inside_the_project_counts_as_the_project(cfg):
     assert asks_unremembered("rm ~/Developer/Project\\ Jarvis/.venv/bin/python", cfg)
     cfg.trusted.add("shell:ln")
     assert classify_shell("ln -s /tmp/evil new.pth", PROJ, cfg).verdict == "ask"      # a new file in the project
+
+
+# ── daemon finding 10: the system skill's small Mac jobs run without asking, in their narrow forms only ──
+
+SKILL = PROJ / ".claude" / "skills" / "system" / "SKILL.md"
+
+
+def test_every_command_the_system_skill_teaches_runs_without_asking(cfg):
+    import re
+    commands = re.findall(r"`((?:open|osascript|sleep) [^`]+)`", SKILL.read_text())
+    assert len(commands) >= 4
+    for c in commands:
+        c = (c.replace("/System/Applications/NAME.app", "/System/Applications/Notes.app")
+              .replace("/Applications/NAME.app", "/Applications/Safari.app").replace("WHAT", "Tea is ready")
+              .replace(" N ", " 30 ").replace(" N'", " 30'"))
+        assert classify_shell(c, DEV, cfg).verdict == "allow", c
+
+
+@pytest.mark.parametrize("cmd", ["open -a Notes", "open -a ~/Developer/x/Notes.app", "open /Applications/Safari.app ~/x",
+                                 "open -a /Applications/Safari.app --args --evil", "open https://example.com",
+                                 "osascript -e 'do shell script \"rm x\"'", "osascript -e 'set volume output volume 300'",
+                                 "osascript -e 'display notification \"a\\\" & (do shell script \\\"x\\\") & \\\"\"'",
+                                 "osascript script.scpt", "sleep 1; rm ~/Documents/a"])
+def test_anything_wider_still_asks(cmd, cfg):
+    assert classify_shell(cmd, DEV, cfg).verdict == "ask"
