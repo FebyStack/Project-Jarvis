@@ -384,13 +384,13 @@ Settles §10 risk 1 and decides Plan 2's bridge. Most important spike; do it fir
 
 ### Task 11: Spike 6 — phone round trip 👤
 
-- [ ] **Step 1:** 👤 Febriel creates a Tailscale account, installs it on the Mac and iPhone, and signs in on both. (Jarvis does not create accounts.)
+- [x] **Step 1 (done 2026-11-14: account via GitHub sign-in, Mac and iPhone on tailnet `tail80d4ef.ts.net`):** 👤 Febriel creates a Tailscale account, installs it on the Mac and iPhone, and signs in on both. (Jarvis does not create accounts.)
 - [x] **Step 2:** Spike server on `127.0.0.1:8787`: `POST /ask` with header `Authorization: Bearer <token>` and JSON `{"text": "..."}` returns `{"say": "...", "needs_reply": false}`; a wrong or missing token returns 401. The token is generated into `~/.jarvis/token` (mode 600) and never printed in chat.
-- [ ] **Step 3:** `tailscale serve` it over HTTPS to the tailnet. Verify from the Mac that it is not reachable without Tailscale.
-- [ ] **Step 4:** 👤 Febriel builds the Shortcut from `shortcuts/README.md` (written in this step): Dictate Text → Get Contents of URL → Speak Text → repeat while `needs_reply` is true. Febriel pastes the token in personally.
-- [ ] **Step 5:** 👤 Test on mobile data with Wi-Fi off, by icon and by "Hey Siri, Jarvis". Make the server answer the first request with `needs_reply: true`. **Bar:** request to spoken answer under 4 s; the reply loop works hands-free; 401 without the token.
-- [ ] **Step 6:** Send an iMessage to Febriel's own Apple ID from the Mac with `osascript`. 👤 Febriel confirms it arrives as a notification. Record whether macOS prompted for Automation permission.
-- [ ] **Step 7:** Stop the server and `tailscale serve reset`. Write findings. Commit.
+- [x] **Step 3 (done 2026-11-14: pass, tailnet only, 401 without token, unreachable with Tailscale down):** `tailscale serve` it over HTTPS to the tailnet. Verify from the Mac that it is not reachable without Tailscale.
+- [x] **Step 4 (done 2026-11-14: generated as a signed file, token pasted by Febriel, AirDropped to the iPhone):** 👤 Febriel builds the Shortcut from `shortcuts/README.md` (written in this step): Dictate Text → Get Contents of URL → Speak Text → repeat while `needs_reply` is true. Febriel pastes the token in personally.
+- [x] **Step 5 (done 2026-11-14: under 4 s, reply loop hands-free; "Hey Siri, Jarvis" failed, Back Tap chosen):** 👤 Test on mobile data with Wi-Fi off, by icon and by "Hey Siri, Jarvis". Make the server answer the first request with `needs_reply: true`. **Bar:** request to spoken answer under 4 s; the reply loop works hands-free; 401 without the token.
+- [x] **Step 6 (done 2026-11-14: fail, a message to self shows on the Mac but does not notify the iPhone; decision for Febriel):** Send an iMessage to Febriel's own Apple ID from the Mac with `osascript`. 👤 Febriel confirms it arrives as a notification. Record whether macOS prompted for Automation permission.
+- [x] **Step 7 (done 2026-11-14):** Stop the server and `tailscale serve reset`. Write findings. Commit.
 
 ### Task 12: Spike 7 — staying awake 👤
 
