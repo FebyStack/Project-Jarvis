@@ -202,3 +202,11 @@ async def test_text_from_the_daemon_is_never_markup(hud, pilot, fake):
     assert "[/x] [bold]note.md" in screen_text(hud)
     fake.push({"type": "health", "brain": "online", "vault": "ok", "checklist": ["grant [/mic] access"]}); await pilot.pause()
     assert "grant [/mic] access" in screen_text(hud)
+
+
+async def test_y_answers_right_after_typing_a_request(hud, pilot, fake):
+    """Task 15 row 10: after Enter the box kept focus, so the y went to Jarvis as text and the question timed out."""
+    await pilot.click("#ask"); await pilot.press(*"make a file", "enter")
+    fake.push(QUEUE_WITH_NEEDS_YOU); await pilot.pause()
+    await pilot.press("y"); assert fake.answers == [("yes", "k1")] and fake.asked == ["make a file"]
+    await pilot.press("h", "i"); assert hud.query_one("#ask").value == "hi"      # with no answer due, a key starts typing

@@ -139,7 +139,7 @@ class Hud(App):
             yield Static(id="memory", classes="panel")
         yield Static(id="notice")
         yield OptionList(id="skills")
-        yield Input(placeholder="Type to Jarvis…   / skills   esc cancel", id="ask")
+        yield Input(placeholder="Type to Jarvis…   / skills   esc cancel", id="ask", select_on_focus=False)
         yield Static(id="footer")
 
     def on_mount(self) -> None:
@@ -252,6 +252,7 @@ class Hud(App):
         if text := event.value.strip():
             self._send(self.client.ask(text))
         event.input.value = ""
+        self.set_focus(None)  # so a y/n/a that follows answers a question; any other key starts typing again
 
     def on_key(self, event) -> None:
         """With nothing focused, a printable key starts a typed request."""
