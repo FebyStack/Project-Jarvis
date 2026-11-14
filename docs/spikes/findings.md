@@ -65,6 +65,41 @@ Run 2026-11-13. openWakeWord 0.6.0 (`hey_jarvis_v0.1`, ONNX), onnxruntime 1.32.0
 - Diagnostic, pretrained `hey_jarvis` on his recorded takes: clear takes (peak ≥ 5× background) 7/17 over 0.5 (scores up to 1.00); faint takes 0/12. So the pretrained model catches about half his clear takes and none of the far ones.
 - What it means: about 30 usable positives and 12 synthetic voices are far too little data; openWakeWord's own recipe uses thousands of synthetic speakers (Piper) and 2,000 h of negatives. Distance on the laptop mic also matters: at 2–3 m or turned away his speech is barely above the room.
 
+## Spike 3 — speech-to-text, end of speech, and wake by transcription (Task 8)
+
+Run 2026-11-13/14. Engines attached with `uv run --with parakeet-mlx --with faster-whisper` (no change to `pyproject.toml`). Models: Parakeet `mlx-community/parakeet-tdt-0.6b-v2` (English, 2.47 GB, MLX) and faster-whisper `small.en` (486 MB, `compute_type="int8"`, CPU). End of speech: Silero VAD (shipped with openWakeWord), 30 ms frames, 0.8 s of silence. Scripts: `spikes/03-stt/`. Recordings kept in `spikes/03-stt/tmp/` (git-ignored) until the spike ends.
+
+### Steps 2–3: ten spoken requests, both engines
+Febriel read ten typical requests, each starting with "Jarvis", about 1–2 m from the MacBook Air mic, TV off. The test harness captured 8 of the 10. The first three chimes timed out before he began, requests 1 and 2 ran together into one utterance, and the list ran out before requests 9–10. Results are lined up by what he said:
+
+| Request (as said) | Parakeet | faster-whisper small.en int8 |
+|---|---|---|
+| what time is it / open the captions repo in VS Code | "Jervis, what time is it? Please. Open the captions **report** in Viscode." | "Jarvis, what time is it, please? Open the **caption triple** in VSCODE." |
+| set a timer for twelve minutes | correct | correct |
+| how much free space is on my disk | correct | "much free spaces on my disc" (meaning kept) |
+| find the PDF about taxes I downloaded yesterday | correct | correct |
+| turn the volume down to thirty percent | correct | correct ("30%") |
+| run the tests in Project Jarvis and tell me what fails | "…tell me what that fails" (meaning kept) | "…tell me what that **feels**" |
+| what's on my calendar tomorrow morning | correct | "Jarvis **was** on my calendar tomorrow morning" |
+
+| Bar | Parakeet | faster-whisper |
+|---|---|---|
+| Median transcription < 0.7 s (utterances ≤ 5 s; these were 2.3–5.4 s) | **0.17 s** (max 0.41 s) | 1.02 s (max 1.22 s); 2.7 s median and one 26.9 s runaway on the Spike 2 recording |
+| ≤ 1 meaning-changing error in 10 | **1 of 8** ("captions repo" → "captions report") | 3 of 8 |
+| Silence produces no text | `""` (and the VAD never passes silence on) | "You" on 2 s of silence |
+| Verdict | **Pass — winner** | Fail (speed, errors) |
+
+- End of speech → transcript, measured live with Parakeet: median **0.97 s**, of which 0.8 s is the silence wait.
+- Whisper.cpp was not needed (Parakeet passed).
+
+### Wake by transcription (Febriel's choice after Spike 2)
+How it works: the VAD cuts utterances; Parakeet transcribes each; it wakes if one of the first three words is within 0.75 similarity of "jarvis" (`difflib`), so "Jervis" and "Jarvis's" count and "Travis", "service" and "hey there" do not. The rest of the utterance is the request, so "Jarvis, set a timer…" works in one breath.
+- Parakeet consistently hears his "Jarvis" as **"Jervis"**, which is why exact-word matching would fail and the fuzzy match is needed.
+- Live (ten requests): woke on 3 of 3 utterances whose start was recorded intact. In four more, the start was cut by the test harness itself (the script dropped audio recorded while the chime played, and Febriel had started speaking on the chime), so these say nothing about waking.
+- On the Spike 2 recording: the "clear" takes included sentences Febriel did not say ("More money", "I'm going to take a look at it"): **there was background speech (a TV or another person) during that session**, which confounds the Spike 2 wake-word numbers. His "talk normally" part was him reading Claude's message aloud, which contains "Jarvis", so its one "false wake" was a real "Jarvis" (and the custom-training negatives were contaminated with the wake word).
+- Wake latency is no longer "wake word → listening in 0.3 s": the wake and the request arrive together about 1 s after he stops speaking (0.8 s silence + ~0.2 s transcription). For "Jarvis" said alone, Jarvis starts listening ~1 s later.
+- Still to run (👤): a clean live wake test without the chime harness, and the 30-minute false-trigger run with a video or music playing (Spike 2 Step 3, moved here).
+
 ## Spike 4 — spoken replies (Task 9), Steps 1–2
 
 - Installed into the `spike` group: `mlx-audio` 0.6.5 and `misaki[en]` 0.9.4 (Kokoro's text-to-phoneme step; mlx-audio no longer pulls it in). `misaki[en]` drags in `torch` and `spacy`, and the first run downloads `en_core_web_sm` (12 MB) outside the lockfile. Model: `mlx-community/Kokoro-82M-bf16`, `lang_code="b"`. `.venv` is now 1.3 GB. `kokoro-onnx` not installed yet (needed for Step 3's race).
