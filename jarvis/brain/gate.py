@@ -132,7 +132,7 @@ def _judge_targets(cmd: str, targets: list[str], cwd: Path | None, cfg: GateConf
 
 # ── shell ────────────────────────────────────────────────────────────────────
 
-_READ_ONLY = {"ls", "cat", "head", "tail", "grep", "rg", "pwd", "echo", "date", "which", "wc", "stat", "file", "du", "df", "ps"}
+_READ_ONLY = {"ls", "cat", "head", "tail", "grep", "rg", "pwd", "echo", "printf", "date", "which", "wc", "stat", "file", "du", "df", "ps"}
 _GIT_READ = {"status", "log", "diff", "show", "branch"}
 _BRANCH_LIST_FLAGS = {"-a", "-r", "-v", "-vv", "--all", "--remotes", "--list", "--show-current"}
 _PATH_CMDS = {"rm", "mv", "cp", "mkdir", "touch", "tee"}
