@@ -4,6 +4,8 @@ Date: 2026-11-10 · Owner: Febriel · Status: approved by Febriel 2026-11-10, as
 
 Amended 2026-11-13: hold-to-talk (§6.1, Febriel's request); second reference folded in at Febriel's request (§1, §2, §3, §6, §6.1–6.3, §7, §9, §14). The second-reference amendments were written by Claude and approved by Febriel on 2026-11-13.
 
+Amended 2026-11-14 at the Plan 1 checkpoint (Task 13), from the spike findings in `docs/spikes/findings.md`: §5, §6, §6.1, §6.2, §6.4, §6.5, §6.6, §9, §10, §11, §12, §13, §14, §15. Decisions Febriel made the same day are marked as his: wake by transcription, no parroting, settled clarifications, Back Tap, the Reminder nudge, on-screen control only while unlocked. Spike 7 (staying awake overnight and on battery) is still to run.
+
 Anything marked **(Claude's call)** was proposed by Claude and accepted with the approval, including "Hey Jarvis" for v1 and the strict gate.
 
 ## 1. Intent
@@ -52,8 +54,8 @@ These make Jarvis a failure even if it works:
 
 ## 5. Constraints
 
-- Mac: Apple M4 laptop, macOS 26.4. Claude Code 2.1.312, logged in with a claude.ai subscription.
-- Present: node, python3, ffmpeg, Homebrew. Missing today: Tailscale, agent-desktop, and all speech components.
+- Mac: Apple M4 laptop, macOS 26.4. Claude Code 2.1.322 (it updates itself). The command-line `claude` needs its own login: the desktop app's sign-in does not carry over to processes `jarvisd` starts. Febriel signed the CLI in on 2026-11-13 (claude.ai, Max plan). *(amended 2026-11-14, Spike 1)*
+- Present: node, python3, ffmpeg, Homebrew, `uv`. Installed during Plan 1: Tailscale 1.104.5 (Mac App Store) on the Mac and the iPhone (tailnet `tail80d4ef.ts.net`, the Mac named `jarvis-mac` inside it), agent-desktop 1.3.0, and the speech stack in the `spike` dependency group (Parakeet, Silero voice detection, `mlx-audio` with Kokoro). *(amended 2026-11-14)*
 - Wi-Fi required. English only. Personal and local: one user, one Mac, one iPhone.
 - Vault: `/Users/febrielotud/Obsidian/Jarvis` with `raw/`, `wiki/`, `outputs/`, `Home.md`. Separate from the Astro vault. Already created.
 - Code: `/Users/febrielotud/Developer/Project Jarvis`.
@@ -61,7 +63,7 @@ These make Jarvis a failure even if it works:
 ## 6. How it works
 
 ```
- Mac microphone ─ wake word ─ speech-to-text ─┐
+ Mac mic ─ speech detect ─ speech-to-text ────┐
                                               ├─► jarvisd ─┬─ fixed phrase: answered by code, no model
  iPhone Shortcut ─ private network ─ HTTP ────┘      │     └─► Claude Code (front door, Sonnet)
                                                      │              ├─ small task: does it itself
@@ -76,11 +78,11 @@ One background process, `jarvisd`, owns everything: the microphone loop, the Cla
 
 States: `IDLE → LISTENING → THINKING → SPEAKING → (follow-up window) → IDLE`.
 
-- **Wake word:** openWakeWord running locally. It ships a ready-made "hey jarvis" model. Its pretrained models are licensed for non-commercial use, which fits a personal tool.
-- **Open point — "Jarvis" vs "Hey Jarvis".** Febriel asked for "Jarvis". Only "Hey Jarvis" exists ready-made. Bare "Jarvis" needs a custom-trained model and, being one short word, will false-trigger more. **(Claude's call)** ship v1 on "Hey Jarvis" and train bare "Jarvis" as a follow-up. Febriel to confirm.
-- **End of speech:** detected by silence (voice activity detection), about 0.8 s.
-- **Speech-to-text:** Parakeet on Apple's MLX runtime (`parakeet-mlx`). Benchmarks on an M4 put it at roughly half a second for a short utterance and it returns blanks on silence rather than inventing words. **(Claude's call)**. `faster-whisper` (the second reference's choice) is measured beside it in Spike 3 and the better one on Febriel's own speech wins; whisper.cpp is the last resort. *(amended 2026-11-13)*
-- **Text-to-speech:** Kokoro, spoken sentence by sentence as text streams in, in a British male voice. Two ways of running it are measured in Spike 4, `mlx-audio` and `kokoro-onnx` (the second reference's choice), and the faster to first sound wins. The exact voice preset is unverified and is a spike item. Fallback: macOS built-in `say -v Daniel`. *(amended 2026-11-13)*
+- **Wake by transcription (amended 2026-11-14, Spikes 2–3; Febriel's choice):** no wake-word model. A voice-activity detector (Silero) cuts the mic stream into utterances, Parakeet transcribes each one on the Mac, and Jarvis wakes if one of the first three words is close to "Jarvis" (fuzzy match; Parakeet usually hears his "Jarvis" as "Jervis"). Both "Jarvis" and "Hey Jarvis" wake it, and "Jarvis, set a timer for ten minutes" works in one breath: the words after the name are the request. Measured on Febriel's voice: about 88 % of utterances woke it (misses heard as "Jovis", "Pervis", "Agries"), 0 false wakes in 29 minutes of video, music and other people talking, 2–4 % of one core. Plan 3 tunes the match (about 0.7 similarity takes "Jovis" and still rejects "Travis") against a recorded set. openWakeWord is dropped: its pretrained "hey jarvis" caught 3 of 10 of Febriel's tries, and a quick model trained on his voice failed for lack of data.
+- **"Jarvis" vs "Hey Jarvis": settled 2026-11-14.** Both work with wake by transcription, so bare "Jarvis", which Febriel asked for, is in v1.
+- **End of speech:** detected by silence (voice activity detection), about 0.8 s. Measured: end of speech to transcript about 1 s, of which 0.8 s is the silence wait. *(amended 2026-11-14)*
+- **Speech-to-text:** Parakeet (`mlx-community/parakeet-tdt-0.6b-v2`, English, through `parakeet-mlx`). Measured on Febriel's speech (Spike 3): 0.17 s median per request, 1 meaning-changing error in 8 ("captions repo" heard as "captions report"), nothing on silence. `faster-whisper` `small.en` int8 took 1.02 s, made 3 errors in 8 and turned silence into "You", so Parakeet is the engine; whisper.cpp was not needed. *(amended 2026-11-14)*
+- **Text-to-speech:** Kokoro through `mlx-audio` (`mlx-community/Kokoro-82M-bf16`, British English, with `misaki[en]`), voice **`bm_daniel`**, picked by Febriel by ear, spoken sentence by sentence as text streams in. Measured (Spike 4): first audio 0.19 s, no gaps between sentences. `kokoro-onnx` missed the 0.5 s first-audio bar. The first synthesis after loading takes 4–6 s, so `jarvisd` loads the model and speaks a throwaway sentence at start-up, never on the first reply. Fallback: macOS built-in `say -v Daniel`. *(amended 2026-11-14)*
 - **Follow-up window:** for about 6 s after Jarvis finishes speaking, Febriel can reply without the wake word. This is what makes confirmations and clarifying questions usable by voice.
 - **Mic gating:** the microphone is ignored while Jarvis is speaking, so it cannot hear and obey itself.
 - **Mute:** "Jarvis, stop listening" and a key in the HUD turn the mic off; the HUD shows mic state at all times.
@@ -89,10 +91,13 @@ States: `IDLE → LISTENING → THINKING → SPEAKING → (follow-up window) →
 - **Cancel (added 2026-11-13, from the second reference):** Escape in the HUD, or saying "cancel" or "never mind", drops what Jarvis is hearing, stops it speaking, and abandons the current small exchange. It does not stop background workers or spawned sessions; those are stopped from the queue. The state machine gains a `CANCEL` event that returns `LISTENING`, `THINKING`, `SPEAKING`, and the follow-up window to `IDLE`.
 - Spoken replies are short. Long output goes to the HUD and the vault, and Jarvis says where it put it.
 - **No parroting (amended 2026-11-14, Febriel):** Jarvis never repeats back what Febriel just said ("You said: …"). It answers or acts.
+- **Speech without the wake name (amended 2026-11-14):** waking by transcription means everything said near the Mac is transcribed, including other people. The text never leaves the Mac, and an utterance without the wake name is discarded at once: never logged, never shown, never written to the vault.
 
 ### 6.2 The brain
 
 `jarvisd` keeps one long-lived Claude Code process warm, started as `claude -p --agent jarvis --model sonnet --input-format stream-json --output-format stream-json --verbose`, so there is no start-up cost per utterance. It is never started with `--bare`, because bare mode does not use the subscription login.
+
+Measured and required (amended 2026-11-14, Spike 1): the process runs on the subscription (`apiKeySource: none`), remembers across messages, runs `triage` on `claude-opus-5-5` and workers on the per-call tier, and reaches the first text token in 0.79 s median when warm. It must start with a **scrubbed environment** (no `CLAUDE_*` or `ANTHROPIC_*` variables: a Claude session's environment carries `CLAUDE_CODE_SIMPLE=1`, which is what `--bare` sets, and inheriting it broke the login) and with **only Jarvis's own configuration**: `--setting-sources project --settings <Jarvis's settings> --strict-mcp-config --mcp-config <Jarvis's MCP list>`. Otherwise Febriel's personal allow rules (for example `Bash(cp *)`) and plugins load into Jarvis and get around the gate.
 
 **Routing**
 
@@ -143,7 +148,7 @@ Guide for triage: Haiku for lookups and mechanical edits; Sonnet for ordinary mu
 
 **Staying conversational (Claude's call).** The front door never waits on a worker. Workers run in the background (background subagents, or a spawned session for long jobs), and the front door stays free to talk, take new requests, and relay questions. There is one front door and one conversation, shared by the Mac and the phone; requests are taken in arrival order. Conversation context carries across exchanges and is reset after 30 minutes of silence, when a fresh Claude Code session starts and the memory index is injected again.
 
-**Spawning sessions.** A job triage expects to run long is started as its own background Claude Code session in the right project folder, so it survives Jarvis restarting and can be opened and steered on its own. Jarvis tracks it in the HUD queue and announces when it finishes. The exact mechanism (`claude --bg` versus a detached `claude -p` with `--resume`) is left to the builder after a spike.
+**Spawning sessions.** A job triage expects to run long is started as its own background Claude Code session in the right project folder, so it survives Jarvis restarting and can be opened and steered on its own. Jarvis tracks it in the HUD queue and announces when it finishes. Mechanism (settled 2026-11-14, Spike 1): a detached `claude -p` started in its own process group, continued later with `--resume <session-id>`. It outlives its parent and needs no folder trust. `claude --bg` refuses any folder not yet trusted in interactive `claude`, so it is not used.
 
 Spawned sessions run under the same gate as Jarvis itself **(Claude's call)**: `jarvisd` launches them with Jarvis's settings file passed explicitly, so the rules and the permission hook travel with the session and nothing is installed at user level — Febriel's ordinary Claude Code sessions are untouched. If `jarvisd` is not running when a spawned session needs a yes, the answer is no and the job pauses until Jarvis is back (fail closed). A yes that Febriel gives personally in the Claude app's Remote Control counts.
 
@@ -170,14 +175,14 @@ Terms: an **exchange** is one request and its answer, from wake word back to idl
 
 ### 6.4 iPhone remote
 
-- **Private network:** Tailscale on the Mac and the iPhone. `jarvisd` listens only on `127.0.0.1`; `tailscale serve` publishes it to Febriel's own devices over HTTPS. Tailscale Funnel (public exposure) is never used.
+- **Private network:** Tailscale on the Mac and the iPhone. `jarvisd` listens only on `127.0.0.1`; `tailscale serve` publishes it to Febriel's own devices over HTTPS. Tailscale Funnel (public exposure) is never used. Measured (amended 2026-11-14, Spike 6): under 4 s from the end of his request to the spoken answer on mobile data; 401 without the token; not reachable with Tailscale off, and public DNS does not know the name. Tailscale on the iPhone must stay connected (turn on its VPN On Demand), or the Shortcut reports that the server cannot be found. The very first request after HTTPS is enabled waits about 30 s for the certificate.
 - **Second lock:** every request carries a secret token generated on the Mac. Febriel pastes it into the Shortcut once. A request without it is refused even from inside the private network.
-- **Shortcut "Jarvis":** triggered by **Back Tap** (double-tap the back of the iPhone) or its tile/home-screen icon. **(Amended 2026-11-14:** "Hey Siri, Jarvis" did not start it in testing; Febriel chose Back Tap.) It dictates the request, sends the text, and speaks the answer. If Jarvis needs a yes or has a clarifying question, the reply says so and the Shortcut listens again, in a loop, until the exchange is done.
+- **Shortcut "Jarvis":** triggered by **Back Tap** (double-tap the back of the iPhone) or its tile/home-screen icon. **(Amended 2026-11-14:** "Hey Siri, Jarvis" did not start it in testing; Febriel chose Back Tap.) It dictates the request, sends the text, and speaks the answer. If Jarvis needs a yes or has a clarifying question, the reply says so and the Shortcut listens again, in a loop, until the exchange is done. The reply carries `"loop": "yes"` while Jarvis wants an answer and leaves `loop` out when the exchange is done; the Shortcut stops when `loop` has no value (Shortcuts cannot reliably compare true/false values). The Shortcut is generated as a signed file without the token (`shortcuts/`), Febriel pastes the token, and it reaches the iPhone by AirDrop. *(amended 2026-11-14)*
 - **Long jobs:** the Shortcut gets "started, I'll message you" straight away. When the job finishes or needs approval, Jarvis notifies the phone. the notification is **an iCloud Reminder with an alert** that Jarvis adds on the Mac; it syncs to the iPhone and notifies there, with no extra account or app. **(Amended 2026-11-14, Febriel's choice:** the earlier iMessage to his own Apple ID was tested and does not notify the iPhone, because a message to yourself counts as sent by you.)
 - **Fallback, no build needed:** Claude Code's own Remote Control in the Claude iOS app can still open and steer any spawned session for a full view.
 - Speech-to-text on the phone is Apple's dictation, not Jarvis's local model. The phone hears typed-quality text back and reads it aloud.
 
-Febriel must do these parts personally: create the Tailscale account, install and sign in on both devices, and paste the token into the Shortcut.
+Febriel must do these parts personally: create the Tailscale account, install and sign in on both devices, and paste the token into the Shortcut. All done 2026-11-14, with Back Tap set up.
 
 ### 6.5 Asking
 
@@ -193,14 +198,14 @@ Two separate behaviours.
 | Read-only shell commands | Any other shell command that changes state outside the free-write areas | Anything needing `sudo` — Jarvis explains the command and Febriel runs it |
 | | On-screen clicks that submit, send, pay, or delete | |
 
-A request for a yes is spoken on the Mac or sent to the phone, whichever channel the request came from, and shown in the HUD queue as `NEEDS YOU`. On the phone the yes is given through the Shortcut; the Reminder is only a nudge and nothing done to it is read as an answer. No answer within 60 s on the Mac (10 min on the phone) counts as no. Implemented with Claude Code permission rules plus a permission hook that hands the question to `jarvisd`.
+A request for a yes is spoken on the Mac or sent to the phone, whichever channel the request came from, and shown in the HUD queue as `NEEDS YOU`. On the phone the yes is given through the Shortcut; the Reminder is only a nudge and nothing done to it is read as an answer. No answer within 60 s on the Mac (10 min on the phone) counts as no. Implemented with a `PreToolUse` hook that runs the gate on every tool call, and a `PermissionRequest` hook that hands a yes/no to `jarvisd`. *(amended 2026-11-14, Spike 1: `PermissionRequest` alone fires only when Claude Code itself would ask, so it would miss calls Claude Code already allows. Tested: the hook holds the call until it is answered, deny blocks it, allow runs it, and the hook travels to spawned sessions through `--settings`.)*
 
 Jarvis's own `.claude/` folder, its settings, and the gate's rule files are outside the free-write areas, so Jarvis cannot loosen its own gate without a yes.
 
 **When code cannot tell what an action does — strict, with remembered approvals (Claude's call; Febriel to confirm).** The gate uses fixed rules only; no model sits inside it.
 
 - *Shell:* a list of known read-only commands runs freely; known state-changing commands are judged by the paths they touch; anything unrecognised asks.
-- *On screen:* judged from the target's role and label in the accessibility snapshot. Moving around, opening, scrolling, and typing into fields are free. Activating a control whose label matches a fixed word list (send, submit, post, publish, pay, buy, delete, remove, confirm, sign) asks, and so does pressing Return in an app that is not on the trusted list. A click on a control with no readable label asks every time and cannot be remembered with "yes, always", except on passive targets where a click only places focus, scrolls or selects (agent-desktop roles `textfield`, `scrollarea`, `scrollbar`, `list`, `outline`, `cell`), which stay free. *(amended 2026-11-13, from Spike 5)*
+- *On screen:* judged from the target's role and label in the accessibility snapshot. Moving around, opening, scrolling, and typing into fields are free. Activating a control whose label matches a fixed word list (send, submit, post, publish, pay, buy, delete, remove, confirm, sign) asks, and so does pressing Return in an app that is not on the trusted list. A click on a control with no readable label asks every time and cannot be remembered with "yes, always", except on passive targets where a click only places focus, scrolls or selects (agent-desktop roles `textfield`, `scrollarea`, `scrollbar`, `list`, `outline`, `cell`), which stay free. *(amended 2026-11-13, from Spike 5)* On-screen control works only while the Mac is unlocked (§6.6).
 - *Connector tools:* read tools are free; tools that write or send ask.
 - *Remembered approvals:* when Febriel answers "yes, always", that exact pattern (command shape, or app plus control) joins a trusted list and stops asking. The list is a plain file Febriel can read and edit.
 
@@ -212,11 +217,10 @@ The cost of strict: early on, remote on-screen work will ask often, and gets qui
 
 ### 6.6 Staying awake
 
-- While `jarvisd` runs it holds a `caffeinate -i` assertion, which stops idle sleep on power and on battery and still lets the display turn off. It needs no admin rights and changes no system setting.
+- While `jarvisd` runs it holds a `caffeinate -i` assertion, which stops idle sleep on power and on battery and still lets the display turn off. It needs no admin rights and changes no system setting. Overnight and battery runs are still to measure (Spike 7). Found so far: while any Claude session is working, the Claude app keeps the display on, so the display sleeps only while Jarvis is idle. *(amended 2026-11-14)*
 - Closing the lid sleeps the Mac and Jarvis goes offline until it is opened. Accepted.
 - **Battery (Claude's call):** stay awake on battery down to 20%, then warn on the phone and let the Mac sleep.
-- **Unlocked with display off** is Febriel's choice so on-screen control works remotely. That means anyone who touches the Mac is in. Febriel sets the lock-screen timing in System Settings personally; Jarvis does not change security settings.
-- Whether accessibility-tree actions and screenshots behave with the display asleep is a spike item.
+- **On-screen control needs the Mac unlocked (amended 2026-11-14, Spike 5; Febriel's decision).** The screen lock is set to "immediately", so when the display sleeps the Mac also locks, and agent-desktop cannot see app windows while it is locked (tested: nothing could be clicked, typed or dragged). Febriel keeps the lock as it is. When the Mac is locked, Jarvis says that on-screen work needs it unlocked and holds or refuses those steps; files, the terminal and everything else keep working. Jarvis never changes the lock setting.
 
 ## 7. The face
 
@@ -282,7 +286,7 @@ State lives in three places only: the in-memory state machine in `jarvisd`, Clau
 ## 9. Trade-offs behind the big decisions
 
 - **Avoid sleep rather than wake from it.** Remote wake over the internet does not exist for a Mac. Cost: battery drain when unplugged, and no lid-closed use.
-- **Tailscale + Shortcut rather than the official app alone.** Gives "Hey Siri, Jarvis" hands-free and spoken answers. Cost: an account to create, a network service to keep private, and a token to guard. The official app remains as a free fallback.
+- **Tailscale + Shortcut rather than the official app alone.** Gives a one-gesture start (Back Tap; "Hey Siri, Jarvis" did not work in testing) and spoken answers. Cost: an account to create, a network service to keep private, and a token to guard. The official app remains as a free fallback.
 - **One daemon with thin clients rather than a terminal app that does everything.** Needed so Jarvis works with no terminal open. Cost: a background process that needs microphone permission, which macOS grants awkwardly to background processes (risk 2 below).
 - **A fixed phrase list rather than a router model.** Instant and free for the few things it covers, and nothing outside the Claude subscription. Cost: it only catches exact phrases; everything else still takes a Sonnet turn.
 - **Sonnet front door rather than Opus on every utterance.** Seconds faster on small tasks and far lighter on limits. Cost: Sonnet may occasionally keep a task it should have escalated.
@@ -292,43 +296,45 @@ State lives in three places only: the in-memory state machine in `jarvisd`, Clau
 
 ## 10. Risks, and the spikes that settle them first
 
-1. **Subscription login in non-interactive mode.** Works today without `--bare`, but the docs say bare mode "will become the default for `-p` in a future release", which would require an API key. Spike: confirm the long-lived stream-json process, subagents, hooks, and the permission bridge all work on the subscription. Keep an explicit non-bare setting and have a fallback of driving an interactive session.
-2. **Microphone permission for a background process.** If the login agent cannot get mic access, `jarvisd` is started from a Terminal login item instead.
-3. **Wake word on Apple Silicon** and its false-trigger rate in Febriel's room, with speakers playing.
-4. **Voice quality and latency.** Target: first spoken word within about 2.5 s of Febriel finishing a small request.
-5. **agent-desktop:** `drag` exists but its syntax is undocumented; behaviour with the display asleep is unknown.
-6. **Phone round trip:** Shortcut → Tailscale → Mac → spoken answer, including the confirm loop, on mobile data.
-7. **Overnight keep-awake** on power and on battery, with Wi-Fi staying connected.
+1. **Subscription login in non-interactive mode.** Works today without `--bare`, but the docs say bare mode "will become the default for `-p` in a future release", which would require an API key. Spike: confirm the long-lived stream-json process, subagents, hooks, and the permission bridge all work on the subscription. Keep an explicit non-bare setting and have a fallback of driving an interactive session. **Settled 2026-11-14: all pass (Spike 1); the risk of a future default change remains.**
+2. **Microphone permission for a background process.** If the login agent cannot get mic access, `jarvisd` is started from a Terminal login item instead. **Settled 2026-11-14: a `launchd` user agent opened the mic without a prompt (Spike 2).**
+3. **Wake word on Apple Silicon** and its false-trigger rate in Febriel's room, with speakers playing. **Settled 2026-11-14 by wake by transcription: about 88 % on his voice, 0 false wakes in 29 minutes (Spikes 2–3).**
+4. **Voice quality and latency.** Target: first spoken word within about 2.5 s of Febriel finishing a small request. **Measured 2026-11-14: 1.95 s on the sum of the parts; about 2.2–2.8 s once the first sentence has to finish arriving (Spike 4). Borderline; see §11.**
+5. **agent-desktop:** `drag` exists but its syntax is undocumented; behaviour with the display asleep is unknown. **Settled 2026-11-14: drag works with slow timing (`--duration 1000 --drop-delay 1000`); nothing works while the Mac is locked (Spike 5).**
+6. **Phone round trip:** Shortcut → Tailscale → Mac → spoken answer, including the confirm loop, on mobile data. **Settled 2026-11-14: under 4 s, loop hands-free (Spike 6).**
+7. **Overnight keep-awake** on power and on battery, with Wi-Fi staying connected. **Open: the first night was inconclusive (other apps held the Mac awake); a clean night and a 2-hour battery run are still to do (Spike 7).**
 8. **Unlocked and remote** is a real exposure. The gate in §6.5 is the main protection; a spoken command from a video or another person in the room is caught only for risky actions.
 
 ## 11. Performance targets
 
-- Wake word to `LISTENING`: under 0.3 s.
-- End of speech to first spoken word, small task: about 2.5 s.
+- Wake: the wake and the request arrive together about 1 s after Febriel stops speaking (0.8 s silence + about 0.2 s transcription). *(amended 2026-11-14; replaces "wake word to LISTENING under 0.3 s", which assumed a wake-word model)*
+- End of speech to first spoken word, small task: about 2.5 s. Measured: 1.95 s on the sum of the parts, about 2.2–2.8 s with the first-sentence wait. Plan 3 has the `jarvis` agent open with a very short first sentence and measures the real end-to-end time. *(amended 2026-11-14)*
 - Anything expected to take over 5 s gets a short spoken acknowledgement first.
-- Idle CPU with the mic open: a few percent of one core.
+- Idle CPU with the mic open: a few percent of one core. Measured: 2 % in a quiet room, about 4 % with video playing. *(amended 2026-11-14)*
 
 ## 12. Privacy
 
 - Mac audio is processed on the Mac and discarded. Request text goes to Anthropic through Claude Code, like any session.
 - Phone speech is transcribed by Apple's dictation.
+- Speech near the Mac that does not contain the wake name, Febriel's or anyone else's, is transcribed locally and discarded at once (§6.1). *(amended 2026-11-14)*
 - Session text is kept in the vault indefinitely unless Febriel deletes it.
 - A local log file records timings and errors for debugging; no analytics leave the machine.
 
 ## 13. Setup Febriel does personally
 
-- Grant Microphone, Accessibility, and Input Monitoring (for hold-to-talk) permissions when macOS asks.
-- Create the Tailscale account; install and sign in on Mac and iPhone.
-- Build the Shortcut from the steps in `shortcuts/` and paste in the token.
-- Set lock-screen timing in System Settings.
+- Grant Microphone, Accessibility, and Input Monitoring (for hold-to-talk) permissions when macOS asks. *(2026-11-14: Microphone, Accessibility and Screen Recording were granted to the Claude app during the spikes; `jarvisd` will need its own grants. Input Monitoring is still to do.)*
+- Create the Tailscale account; install and sign in on Mac and iPhone. *(Done 2026-11-14.)*
+- Build the Shortcut from the steps in `shortcuts/` and paste in the token; set up Back Tap. *(Done 2026-11-14.)*
+- Allow Claude to control Reminders when macOS asks (for the phone nudge). *(Done 2026-11-14.)*
+- Set lock-screen timing in System Settings. *(Kept at "immediately", 2026-11-14; see §6.6.)*
 - Open `/Users/febrielotud/Obsidian/Jarvis` in Obsidian once ("Open folder as vault").
 
-Installs the build will do, each named before it runs: Tailscale, agent-desktop, the speech libraries and models, and the humanizer, ponytail, and grill-me skills.
+Installs the build will do, each named before it runs: Tailscale, agent-desktop, the speech libraries and models, and the humanizer, ponytail, and grill-me skills. *(Tailscale, agent-desktop and the speech stack were installed during Plan 1.)*
 
 ## 14. Later, not v1
 
-Bare "Jarvis" wake word (if not in v1), interrupting Jarvis mid-sentence by voice, talking to Jarvis from inside Obsidian (a plugin as a second front door), the vault drawn as a star map on the idle HUD, voice-print lock, proactive alerts, "what's on my screen", clipboard and file hand-off with the phone, a HUD page on the phone, routines, and a weekly tidy of `wiki/`.
+Interrupting Jarvis mid-sentence by voice, talking to Jarvis from inside Obsidian (a plugin as a second front door), the vault drawn as a star map on the idle HUD, voice-print lock, proactive alerts, "what's on my screen", clipboard and file hand-off with the phone, a HUD page on the phone, routines, and a weekly tidy of `wiki/`.
 
 ## 15. Left to the builder
 
-Library versions, the exact agent prompts, the event names, the HTTP routes, the session-spawning mechanism (after spike 1), test layout, and the order of work after the spikes. Build order should put the spikes in §10 first, since each can change the design.
+Library versions, the exact agent prompts, the event names, the HTTP routes, test layout, and the order of work after the spikes. Build order should put the spikes in §10 first, since each can change the design.
