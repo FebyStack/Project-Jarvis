@@ -1,3 +1,5 @@
+import pytest
+
 from jarvis.daemon.state import FOLLOW_UP_SECONDS, Event, State
 
 HAPPY = (Event.WAKE, Event.SPEECH_END, Event.REPLY_START, Event.REPLY_END)
@@ -71,3 +73,15 @@ def test_muted_reply_end_goes_idle_not_follow_up(sm):
 def test_reply_end_without_speaking_leaves_thinking(sm):
     reach(sm, State.THINKING)
     assert sm.on(Event.REPLY_END) == State.IDLE
+
+
+@pytest.mark.parametrize("start", [State.LISTENING, State.THINKING, State.SPEAKING, State.FOLLOW_UP])
+def test_cancel_returns_to_idle(sm, start):
+    reach(sm, start)
+    assert sm.on(Event.CANCEL) is State.IDLE
+
+
+def test_cancel_in_idle_and_while_muted(sm):
+    assert sm.on(Event.CANCEL) is State.IDLE
+    sm.on(Event.MUTE); sm.on(Event.CANCEL)
+    assert sm.muted is True

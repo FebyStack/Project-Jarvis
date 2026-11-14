@@ -22,6 +22,7 @@ class Event(Enum):
     TICK = auto()
     MUTE = auto()
     UNMUTE = auto()
+    CANCEL = auto()
 
 
 # WAKE is accepted only in IDLE, so Jarvis cannot wake itself while thinking or speaking.
@@ -32,6 +33,10 @@ _TRANSITIONS = {
     (State.THINKING, Event.REPLY_END): State.IDLE,  # the reply ended without speech (empty or failed)
     (State.SPEAKING, Event.REPLY_END): State.FOLLOW_UP,
     (State.FOLLOW_UP, Event.SPEECH_START): State.LISTENING,
+    (State.LISTENING, Event.CANCEL): State.IDLE,
+    (State.THINKING, Event.CANCEL): State.IDLE,
+    (State.SPEAKING, Event.CANCEL): State.IDLE,
+    (State.FOLLOW_UP, Event.CANCEL): State.IDLE,
 }
 
 
