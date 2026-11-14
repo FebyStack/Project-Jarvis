@@ -76,7 +76,7 @@ async def test_typing_a_request(hud, pilot, fake):
 
 async def test_answering_a_question_with_keys(hud, pilot, fake):
     fake.push(QUEUE_WITH_NEEDS_YOU); await pilot.pause(); assert "NEEDS YOU" in screen_text(hud)
-    await pilot.press("y"); assert fake.answers == [("yes", "k1")]
+    await pilot.press("y"); await pilot.pause(0.6); assert fake.answers == [("yes", "k1")]
     await pilot.click("#ask"); await pilot.press("y"); assert fake.answers == [("yes", "k1")]      # typing a "y" is not an answer
 
 
@@ -107,7 +107,7 @@ async def test_keys_do_nothing_without_a_question(hud, pilot, fake):
 
 
 async def test_always_answers_the_oldest_question(hud, pilot, fake):
-    fake.push(QUEUE_WITH_NEEDS_YOU); await pilot.pause(); await pilot.press("a")
+    fake.push(QUEUE_WITH_NEEDS_YOU); await pilot.pause(); await pilot.press("a"); await pilot.pause(0.6)
     assert fake.answers == [("always", "k1")] and "Delete 14 files? Yes or no?" in screen_text(hud)
 
 
@@ -208,5 +208,32 @@ async def test_y_answers_right_after_typing_a_request(hud, pilot, fake):
     """Task 15 row 10: after Enter the box kept focus, so the y went to Jarvis as text and the question timed out."""
     await pilot.click("#ask"); await pilot.press(*"make a file", "enter")
     fake.push(QUEUE_WITH_NEEDS_YOU); await pilot.pause()
-    await pilot.press("y"); assert fake.answers == [("yes", "k1")] and fake.asked == ["make a file"]
+    await pilot.press("y"); await pilot.pause(0.6)
+    assert fake.answers == [("yes", "k1")] and fake.asked == ["make a file"]
     await pilot.press("h", "i"); assert hud.query_one("#ask").value == "hi"      # with no answer due, a key starts typing
+
+
+# ── Plan 2 review pass, daemon findings 6 and 7 ──
+
+LONG_QUESTION = ("rm outside the free-write areas: /Users/febrielotud/Documents/Projects/2026/report-final-version.pdf. "
+                 "Yes or no?")
+
+
+async def test_a_word_that_starts_with_an_answer_letter_is_typed_not_answered(hud, pilot, fake):
+    fake.push(QUEUE_WITH_NEEDS_YOU); await pilot.pause()
+    await pilot.press("a", "d", "d"); await pilot.pause(0.6)
+    assert fake.answers == [] and hud.query_one("#ask").value == "add"
+
+
+async def test_the_whole_question_and_its_keys_show_at_80_by_24(hud, pilot, fake):
+    fake.push({"type": "queue", "items": [{"id": "b", "title": "delete a report", "status": "needs_you",
+                                           "question": LONG_QUESTION, "ask_id": "k1"}]}); await pilot.pause()
+    text = screen_text(hud)
+    assert all(word in text for word in LONG_QUESTION.split()) and "y yes · n no · a always" in text
+    q = hud.query_one("#question"); assert q.region.bottom <= 24 and q.region.height >= 2
+
+
+async def test_answer_keys_do_nothing_on_a_notice_screen(hud, pilot, fake):
+    fake.push(QUEUE_WITH_NEEDS_YOU); fake.push({"type": "health", "brain": "online", "vault": "missing", "checklist": []})
+    await pilot.pause(); await pilot.press("y"); await pilot.pause(0.6)
+    assert fake.answers == []

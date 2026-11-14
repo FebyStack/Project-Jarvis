@@ -12,6 +12,8 @@ Screen { background: black; color: #D4AF37; }
 
 #notice { height: 1fr; border: heavy #FFD700; padding: 1 2; color: #FFD700; text-style: bold; display: none; }
 
+#question { height: auto; padding: 0 1; display: none; }
+
 #skills { height: auto; max-height: 8; background: black; border: heavy #FFD700; display: none; }
 #skills > .option-list--option-highlighted { background: #8A7424; color: black; }
 

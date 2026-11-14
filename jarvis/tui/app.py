@@ -32,6 +32,9 @@ NOTICES = {
 }
 
 
+ANSWER_DELAY = 0.4  # seconds a lone y/n/a waits for a second letter before it counts as an answer
+
+
 class Client:
     """jarvisd's local API (Task 11) on the `mac` channel. Errors mean the daemon is away; the HUD shows that."""
 
@@ -126,6 +129,7 @@ class Hud(App):
         super().__init__()
         self.client, self.skills_dir, self.now = client, skills_dir, now
         self.view = View.empty()
+        self._answer = None  # (reply, ask_id, timer) while a lone answer key waits out ANSWER_DELAY
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="header"):
@@ -138,6 +142,7 @@ class Hud(App):
             yield Static(id="queue", classes="panel")
             yield Static(id="memory", classes="panel")
         yield Static(id="notice")
+        yield Static(id="question")
         yield OptionList(id="skills")
         yield Input(placeholder="Type to Jarvis…   / skills   esc cancel", id="ask", select_on_focus=False)
         yield Static(id="footer")
@@ -183,9 +188,12 @@ class Hud(App):
         for q in v.queue:
             mark, word, style = MARKS.get(q.status, ("◦", q.status, IDLE))
             queue.add_row(Text(f"{mark} {q.title}", style=style), Text(word, style=style))
-        if ask := needs_you(v):
-            queue = Group(queue, Text(ask.question or "", style=ACTIVE), Text("y yes · n no · a always", style=IDLE))
         self.query_one("#queue", Static).update(queue)
+        question = self.query_one("#question", Static)  # full width, so the whole question shows at 80×24
+        ask = needs_you(v)
+        question.display = bool(ask) and v.screen == "main"
+        if ask:
+            question.update(Group(Text(ask.question or "", style=ACTIVE), Text("y yes · n no · a always", style=IDLE)))
 
         self.query_one("#memory", Static).update(Text("\n".join(f"{op} {path}" for op, path in v.memory)))
 
@@ -218,14 +226,32 @@ class Hud(App):
     def check_action(self, action: str, parameters: tuple) -> bool | None:
         box, menu = self._ask_box(), self.query_one("#skills", OptionList)
         if action == "answer":
-            return not box.has_focus and not box.value and not menu.display and needs_you(self.view) is not None
+            return (self.view.screen == "main" and not box.has_focus and not box.value and not menu.display
+                    and needs_you(self.view) is not None)
         if action == "skills":
             return not box.value and not menu.display
         return True
 
     def action_answer(self, reply: str) -> None:
+        """A lone y, n or a answers once ANSWER_DELAY passes with no other letter: "add…" is typing, not "always"."""
         if ask := needs_you(self.view):
-            self._send(self.client.answer(reply, ask.ask_id))
+            self._drop_answer()
+            self._answer = (reply, ask.ask_id, self.set_timer(ANSWER_DELAY, self._send_answer))
+
+    def _send_answer(self) -> None:
+        if self._answer:
+            reply, ask_id, _ = self._answer
+            self._answer = None
+            self._send(self.client.answer(reply, ask_id))
+
+    def _drop_answer(self) -> str:
+        """Cancels a waiting answer and returns its key, to be typed instead."""
+        if not self._answer:
+            return ""
+        reply, _, timer = self._answer
+        timer.stop()
+        self._answer = None
+        return {"yes": "y", "no": "n", "always": "a"}[reply]
 
     def action_skills(self) -> None:
         menu = self.query_one("#skills", OptionList)
@@ -259,7 +285,7 @@ class Hud(App):
         if self.focused is None and event.is_printable and event.character:
             box = self._ask_box()
             box.focus()
-            box.insert_text_at_cursor(event.character)
+            box.insert_text_at_cursor(self._drop_answer() + event.character)
             event.stop()
 
 
