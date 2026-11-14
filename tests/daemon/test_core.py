@@ -1,5 +1,6 @@
 import asyncio
 from datetime import datetime
+from unittest.mock import ANY
 
 import pytest
 
@@ -153,7 +154,7 @@ async def test_no_answer_in_time_is_no(jarvis_fast_timeouts, bridge, tmp_path):
     asyncio.create_task(jarvis_fast_timeouts.submit("make a file", "mac")); await bridge.got("make a file")
     call = outside_write(bridge, tmp_path) | {"hook_event_name": "PermissionRequest"}
     assert await jarvis_fast_timeouts.hook(call) == {"verdict": "deny", "reason": "No answer in time, so no."}
-    assert not (tmp_path / "outside.txt").exists()
+    assert jarvis_fast_timeouts.asks.history() == [("1", ANY, False)] and not jarvis_fast_timeouts.asks.pending()
 
 
 async def test_yes_with_nothing_pending_is_an_ordinary_request(jarvis, bridge):

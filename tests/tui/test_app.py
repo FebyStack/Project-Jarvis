@@ -96,8 +96,11 @@ async def test_notices(hud, pilot, fake, event, first_line):
 
 
 async def test_states_are_words_not_only_colour(hud, pilot, fake):
-    fake.push({"type": "state", "voice": "THINKING", "muted": True}); await pilot.pause()
-    assert "THINKING" in screen_text(hud) and "MIC ○ off" in screen_text(hud)
+    fake.push({"type": "health", "brain": "online", "vault": "ok", "checklist": [], "mic": "on"})
+    fake.push({"type": "state", "voice": "THINKING", "muted": False}); await pilot.pause()
+    assert "THINKING" in screen_text(hud) and "MIC ● on" in screen_text(hud)
+    fake.push({"type": "state", "voice": "IDLE", "muted": True}); await pilot.pause()
+    assert "IDLE" in screen_text(hud) and "MIC ○ off" in screen_text(hud)            # muted shows as a word too
 
 
 # Beyond the plan's list

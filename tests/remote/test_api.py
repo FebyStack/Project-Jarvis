@@ -119,8 +119,24 @@ def unused_port_taken(monkeypatch):
     s.close()
 
 
-async def test_binds_loopback_only_and_refuses_a_taken_port(unused_port_taken):
+async def test_refuses_a_taken_port(unused_port_taken):
     with pytest.raises(RuntimeError, match="is taken"): await serve(make_app(FakeJarvis(), "t"))
+
+
+async def test_binds_loopback_only(monkeypatch):
+    from aiohttp import web
+    hosts, real = [], web.TCPSite
+
+    def site(runner, host=None, port=None, **kw):
+        hosts.append(host); return real(runner, host, port, **kw)
+    port = unused_port(); monkeypatch.setattr(config, "PORT", port); monkeypatch.setattr(web, "TCPSite", site)
+    task = asyncio.create_task(serve(make_app(FakeJarvis(), "t")))
+    for _ in range(100):
+        if hosts:
+            break
+        await asyncio.sleep(0.01)
+    task.cancel(); await asyncio.gather(task, return_exceptions=True)
+    assert hosts == ["127.0.0.1"]
 
 
 async def test_stopping_closes_open_event_streams(monkeypatch, fake):
