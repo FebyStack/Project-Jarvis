@@ -31,6 +31,8 @@ class FakeBridge:
         self.on_event({"kind": "init", "session_id": self.session_id, "api_key_source": "none", "mcp_servers": []})
 
     async def send(self, text):
+        if not self.alive:
+            raise RuntimeError("the brain is not running")
         self.sent.append(text)
 
     async def interrupt(self):
@@ -406,3 +408,20 @@ async def test_the_idle_sweep_waits_for_real_quiet_and_a_scribe_that_worked(make
     assert len(procs) == 1                                                             # failed: not marked swept
     clock.advance(1300); await j.tick(); await j.tick()
     assert len(procs) == 2 and j.sweeper.due(clock(), 0, False) is None                # worked: marked
+
+
+
+async def test_a_request_queued_behind_a_dying_turn_waits_for_the_child_to_come_back(jarvis, bridge):   # re-run, row 9
+    a = asyncio.create_task(jarvis.submit("long thing", "mac")); b = asyncio.create_task(jarvis.submit("next", "mac"))
+    await bridge.got("long thing")
+    bridge.alive = False; bridge.emit({"kind": "exited"})               # dead; its supervisor resumes it in a second
+    assert "stopped" in (await a).say
+    await asyncio.sleep(0.05); assert "next" not in bridge.sent and not b.done()
+    bridge.alive = True; await jarvis.tick()
+    await bridge.got("next"); bridge.emit(turn("Done.")); assert (await b).say == "Done."
+
+
+async def test_a_request_the_brain_cannot_take_is_still_recorded(jarvis, bridge, vault):
+    bridge.alive = False; bridge.emit({"kind": "down", "reason": "claude keeps exiting"})
+    assert (await asyncio.wait_for(jarvis.submit("capital of Peru", "mac"), 1)).say == "Claude isn't running, so I can't do that now."
+    assert "capital of Peru" in day_log(vault)

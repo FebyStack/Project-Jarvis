@@ -147,6 +147,8 @@ class Jarvis:
             await self.bridge.reset()
             log.info("conversation reset after %.0f s idle", now - self._last_activity)
         self._sweep_step(now, quiet)
+        if self._waiting:  # e.g. the child came back after dying: nothing else would wake the queue
+            self._wake.set()
         full = now >= self._next_check
         if full:
             self._next_check = now + CHECK_EVERY
@@ -260,7 +262,8 @@ class Jarvis:
     async def _serve(self) -> None:
         """Serves requests one at a time, in arrival order, while the brain is usable."""
         while True:
-            while not self._waiting or self._turn_open or self._limits["status"] == "reached" or self._offline:
+            while (not self._waiting or self._turn_open or self._limits["status"] == "reached" or self._offline
+                   or (not self.bridge.alive and not self._down)):  # a dead child comes back in a second: wait for it
                 self._wake.clear()
                 await self._wake.wait()
             req = self._waiting.popleft()
@@ -283,7 +286,10 @@ class Jarvis:
         except RuntimeError:
             self._current = None
             self._resolve(req, NO_BRAIN, False)
-            return
+            req.answer = NO_BRAIN
+            req.tracker.abandon("Claude was not running")
+            self._pending.append(req)
+            return self._record_closed()
         await req.done.wait()
         ev = req.turn
         if ev["is_error"] and not ev["cancelled"]:
