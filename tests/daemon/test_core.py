@@ -213,3 +213,15 @@ async def test_reset_waits_for_background_workers(jarvis, bridge, clock, vault, 
 
 async def test_subscribers_get_a_snapshot_first(jarvis):
     first = await anext(jarvis.subscribe()); assert first["type"] == "snapshot" and first["health"]["mic"] == "off"
+
+
+async def test_yes_to_a_background_workers_question_answers_at_once(jarvis, bridge, tmp_path):
+    t = asyncio.create_task(jarvis.submit("fix the export bug", "mac")); await bridge.got("fix the export bug")
+    for e in (tool("Agent", {"subagent_type": "triage"}), tool_result(GOOD_VERDICT), agent_start("t1", "coder", background=True), turn("Started.")):
+        bridge.emit(e)
+    await t
+    h = asyncio.create_task(jarvis.hook(outside_write(bridge, tmp_path) | {"agent_id": "t1"}))
+    await until(lambda: jarvis.asks.pending())
+    assert jarvis.asks.pending()[0].request_id == "1"
+    assert (await asyncio.wait_for(jarvis.submit("yes", "mac"), 1)).say == "Okay."
+    assert (await h)["verdict"] == "allow"

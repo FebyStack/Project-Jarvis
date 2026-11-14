@@ -185,8 +185,8 @@ class Jarvis:
                 say = self._status_sentence()
             case _:  # yes, no, always
                 ask = self.asks.answer(action, channel=channel)
-                req = self._find(ask.request_id) if ask else None
-                if req is None:
+                req = self._current if ask and self._current and ask.request_id == self._current.id else None
+                if req is None:  # no turn will follow: a background worker's or another session's question
                     return self._reply(channel, "Okay.", False)
                 fut = asyncio.get_running_loop().create_future()
                 req.waiters.append(fut)
@@ -277,6 +277,7 @@ class Jarvis:
         kind = ev.get("kind")
         if kind == "init":
             self._init_seen, self._down = True, None
+            log.info("brain online; %d MCP servers", len(ev.get("mcp_servers") or []))
         elif kind == "down":
             self._down = ev.get("reason")
             log.error("brain down: %s", self._down)
