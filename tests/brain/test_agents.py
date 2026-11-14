@@ -45,6 +45,12 @@ def test_jarvis_carries_its_skills_inline():
     assert "# Humanizer" in vendored and "design tree" in vendored  # humanizer, and grill-me's grilling body
 
 
+def test_making_files_is_never_small():
+    _, body = frontmatter(ROOT / ".claude" / "agents" / "jarvis.md")
+    small = body.split("## Small things")[1].split("##")[0]
+    assert "Making or changing a file is never small" in small    # Task 15 row 3: a poem went to a file without triage
+
+
 def test_every_named_skill_exists():
     for name in ("vault", "system", "humanizer", "grill-me", "grilling", "ponytail"):
         assert frontmatter(ROOT / ".claude" / "skills" / name / "SKILL.md")[0]["name"] == name
