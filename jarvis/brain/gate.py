@@ -277,7 +277,7 @@ def _check_args(cmd: str, args: list[str], cwd: Path | None, cfg: GateConfig) ->
                         or any(ch in c for ch in "@#\\"):
                     return Decision("ask", f"{cmd}: cannot tell what {c!r} reaches")
                 host = parts.hostname
-            elif "/" in c and ":" in c.split("/")[0]:  # file:/x, concat:/a|/b, host:path: a prefix that hides the path
+            elif ":" in c.split("/")[0]:  # file:/x, concat:/a|/b, host:path, [user@]host:path: a prefix that hides where
                 return Decision("ask", f"{cmd}: cannot tell what {c!r} reaches")
             else:
                 host = m.group(1).strip("[]") if (m := _HOSTISH.fullmatch(c)) else None
