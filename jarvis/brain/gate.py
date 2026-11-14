@@ -150,7 +150,10 @@ _RUNNERS = {"sh", "bash", "zsh", "dash", "fish", "ksh", "csh", "tcsh", "env", "x
             "caffeinate", "sandbox-exec", "arch", "login", "screen", "tmux", "expect", "make", "just",
             # builtins that change how later commands resolve
             "export", "set", "unset", "hash", "declare", "typeset", "readonly", "local", "enable", "shopt",
-            "setopt", "ulimit", "umask", "printf", "read", "mapfile", "readarray"}
+            "setopt", "ulimit", "umask", "printf", "read", "mapfile", "readarray",
+            # zsh: precommand modifiers that run the next word, history re-runs, and more variable setters
+            "noglob", "nocorrect", "-", "fc", "r", "print", "vared", "zparseopts", "getopts", "let", "autoload",
+            "zmodload", "emulate", "functions", "disable"}
 _OPTION = re.compile(r"-[A-Za-z]+|--[a-z][a-z-]*(=.*)?")
 _NAV = {"cd", "pushd", "popd"}
 _RESERVED = {"!", "if", "then", "else", "elif", "do", "while", "until", "case", "select", "{", "}", "coproc",
