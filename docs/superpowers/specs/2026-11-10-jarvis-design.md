@@ -110,6 +110,8 @@ Measured and required (amended 2026-11-14, Spike 1): the process runs on the sub
 
 Reading of Febriel's answer **(Claude's call)**: Sonnet decides what counts as small, so Opus is never spent on "what time is it". Everything else goes through Opus 5.5 triage, as originally asked.
 
+*(amended 2026-11-14, Plan 2 end-to-end run; Claude's call, Febriel to confirm)* Making or changing a file is never small, even when one command would do it: in the run, Sonnet wrote a requested poem to a file itself and skipped triage. In practice triage also runs in the background, so the front door's first reply is "triage is checking it" and the outcome arrives in later replies (shown in the HUD; a request through `POST /ask` gets only the first reply).
+
 **Instant answers (added 2026-11-13, from the second reference's "tier 1: rules, no AI"; Claude's call).** Febriel's answer was that small tasks go to Sonnet; this takes only the phrases below away from Sonnet, because code answers them at once and they cost nothing against the limits. The whole utterance must match after lower-casing, dropping punctuation, and dropping a leading "hey jarvis", "jarvis", or "please". A phrase with any extra words goes to Sonnet as before. No model is involved in the matching. Every instant answer is still written to the day's log.
 
 | Said | Jarvis does |
@@ -142,6 +144,7 @@ Guide for triage: Haiku for lookups and mechanical edits; Sonnet for ordinary mu
 - **humanizer** (blader/humanizer) is preloaded in the front door, so everything Jarvis says or writes to Febriel reads naturally. It is applied as writing rules in the same pass, not as a second rewrite, to keep replies fast.
 - **ponytail** (DietrichGebert/ponytail) is preloaded in `coder` only.
 - **grill-me** (mattpocock/skills) is preloaded in the front door for §6.5.
+- *(amended 2026-11-14, Plan 2 probes)* `skills:` in an agent's frontmatter does not load on the `--agent` main thread, so the humanizer and grill-me bodies are pasted into `jarvis.md` below a `<!-- vendored skills -->` line. Subagents keep `skills:`, which works. All three skills are vendored at pinned commits (`.claude/skills/VENDORED.md`), because `--setting-sources project` keeps Febriel's user-level plugins out of Jarvis.
 - Jarvis's own small skills live in the project's `.claude/skills/`, one per job, loaded only when needed: `vault` (how to read and write memory), `sessions` (spawn and check background sessions), `system` (apps, volume, windows, timers).
 - Honey stays as it is for Febriel's ordinary Claude Code sessions; it is not loaded inside Jarvis. **(Claude's call)**
 - **Skills from Febriel's own repeat work (added 2026-11-13, from the second reference).** Once, during Plan 2, the last 30 days of Febriel's Claude Code sessions and the vault are read for tasks he keeps repeating, and a shortlist is brought to him. He picks; only the picked ones become skills. Nothing is created automatically, and none of them run on a schedule.
@@ -169,7 +172,7 @@ Terms: an **exchange** is one request and its answer, from wake word back to idl
 
 - **Read before acting.** `wiki/index.md` is injected whenever a conversation starts, so Jarvis always has the memory map. For a task, the relevant notes must be opened before any worker starts; `jarvisd` refuses to dispatch otherwise. Small exchanges are not held up for a note read, so they stay inside the speed target. Every note read is logged and shown in the HUD.
 - **Write after acting.** Every exchange is logged by code, whatever the model does. Small exchanges are appended as a line to the day's log, `raw/YYYY-MM-DD.md`. Each task gets its own `raw/` note, linked from the day's log.
-- **Distilling.** `scribe` updates `wiki/` after each task, and sweeps the day's log once Jarvis has been idle for a while. It does not run after every small exchange, to spare the subscription limits.
+- **Distilling.** `scribe` updates `wiki/` after each task, and sweeps the day's log once Jarvis has been idle for a while. It does not run after every small exchange, to spare the subscription limits. *(amended 2026-11-14, Plan 2)* Each `scribe` run is its own one-shot `claude -p --agent scribe --model haiku` process under Jarvis's settings file, started detached by `jarvisd` once a task's note is written, or by the idle sweep after 20 minutes of quiet when the day's log has grown. Distilling never uses the front door's conversation or holds it up. It may decide there is nothing to keep and change nothing.
 - No audio is stored. Transcripts are stored as text.
 - No database. Files only.
 
@@ -200,7 +203,9 @@ Two separate behaviours.
 
 A request for a yes is spoken on the Mac or sent to the phone, whichever channel the request came from, and shown in the HUD queue as `NEEDS YOU`. On the phone the yes is given through the Shortcut; the Reminder is only a nudge and nothing done to it is read as an answer. No answer within 60 s on the Mac (10 min on the phone) counts as no. Implemented with a `PreToolUse` hook that runs the gate on every tool call, and a `PermissionRequest` hook that hands a yes/no to `jarvisd`. *(amended 2026-11-14, Spike 1: `PermissionRequest` alone fires only when Claude Code itself would ask, so it would miss calls Claude Code already allows. Tested: the hook holds the call until it is answered, deny blocks it, allow runs it, and the hook travels to spawned sessions through `--settings`.)*
 
-Jarvis's own `.claude/` folder, its settings, and the gate's rule files are outside the free-write areas, so Jarvis cannot loosen its own gate without a yes.
+*(amended 2026-11-14, Plan 2 probes)* In `-p` mode a `PreToolUse` answer of `ask` is a silent no and `PermissionRequest` never fires, so `jarvisd` holds the call inside `PreToolUse` until Febriel answers and then allows or denies it; the `PermissionRequest` hook stays registered as a net. If `jarvisd` cannot be reached, the hook answers no.
+
+Jarvis's own `.claude/` folder, its settings, and the gate's rule files are outside the free-write areas, so Jarvis cannot loosen its own gate without a yes. *(amended 2026-11-14, Plan 2)* The whole project folder `~/Developer/Project Jarvis` (the gate's code and the Python that runs it) and `~/.jarvis` (token, trusted list, log) are protected, although `~/Developer` is otherwise free-write: a write there asks every time and can never be remembered with "yes, always". A web fetch of `localhost`, a loopback, private or link-local address, or a `.local` or `.ts.net` name asks the same way, so Jarvis cannot reach its own API to answer its own question. Shell builtins that set variables or run the next word (`export`, `printf`, `read`, `mapfile`, and zsh's `noglob`, `print`, `vared` and similar) ask and are never remembered either.
 
 *(amended 2026-11-14, Claude's call, from the Plan 2 security pass; Febriel to confirm)* A write into any `.git`, `.claude`, `.obsidian` or `.vscode` folder, or to a `.envrc` file, wherever it is (free-write areas included, letter case ignored, symlinks followed), asks every time and can never be remembered with "yes, always": files there run code later without Jarvis running anything.
 
@@ -248,12 +253,12 @@ A full-screen terminal app, gold on black (`#D4AF37` text, brighter `#FFD700` fo
 
 - **VOICE:** state word, live waveform, last heard line.
 - **AGENTS:** who is running, on which model, doing what, for how long.
-- **QUEUE:** jobs and spawned sessions; `NEEDS YOU` rows can be answered with `y` / `n`. Enter on a spawned session opens it in a new terminal window to watch or steer *(added 2026-11-13)*.
+- **QUEUE:** jobs and spawned sessions; `NEEDS YOU` rows can be answered with `y` / `n` (and `a` for "yes, always") while the input line is empty and not being typed in. Enter on a spawned session opens it in a new terminal window to watch or steer *(added 2026-11-13)*.
 - **MEMORY:** vault reads (`r`), new notes (`+`), updates (`~`).
 - **Footer:** awake and power, phone link, mic, subscription limits. `LIMITS` shows the share of the weekly allowance used when Claude Code reports it, and otherwise `ok`, `near`, or `reached` *(amended 2026-11-13; whether the figure is available is checked in Plan 2)*.
 - **Keys** *(added 2026-11-13)*: Escape cancels (§6.1); `/` lists Jarvis's skills and runs the chosen one.
 - States are always shown as words as well as colour. It must be usable at 80×24. Typing a request is possible as a fallback to voice.
-- States to design: starting up, offline (no Wi-Fi), mic muted, limit reached, phone not linked, vault missing or not writable (Jarvis refuses tasks, since it cannot keep the memory rule), first run (a checklist of the permissions and installs still missing).
+- States to design: starting up, offline (no Wi-Fi), mic muted, limit reached, phone not linked, vault missing or not writable (Jarvis refuses tasks, since it cannot keep the memory rule), first run (a checklist of the permissions and installs still missing). *(amended 2026-11-14, Plan 2)* With the vault missing or not writable, Jarvis refuses **every** request, not only tasks: even a small exchange must be logged, and it cannot be.
 
 The panels differ from the reference HUD because routines and inbox/calendar are out of scope. **(Claude's call)**
 
@@ -275,13 +280,15 @@ Project Jarvis/
   .claude/
     agents/     jarvis, triage, coder, operator, reverser, researcher, scribe
     skills/     vault, sessions, system
-    settings.json   permission rules and hooks
+    jarvis-settings.json   hooks, passed with --settings (no settings.json)
   launchd/      login agent that starts jarvisd
   shortcuts/    build steps for the iOS Shortcut
   tests/
 ```
 
 Febriel's usual hybrid web layout (frontend/backend/ai/database) is not used: there is no web front end and no database. **(Claude's call)**
+
+*(amended 2026-11-14, Plan 2)* Jarvis's hooks and settings live in `.claude/jarvis-settings.json`, passed to every `claude` that `jarvisd` starts with `--settings`. There is no `.claude/settings.json`: a project settings file would load into every Claude Code session opened in this repo, putting Febriel's own development sessions behind Jarvis's gate (and refusing everything while `jarvisd` is down). Every path, port and timing is defined once, in `jarvis/config.py`. The command line is `jarvis daemon | hud | ask | doctor | shortlist` (`jarvis/cli.py`). `operator`, `reverser` and the `sessions` skill arrive with Plan 5.
 
 State lives in three places only: the in-memory state machine in `jarvisd`, Claude Code's own session transcripts, and the vault. `jarvisd` pushes events to clients over a local WebSocket; clients send requests over HTTP.
 
@@ -311,6 +318,7 @@ State lives in three places only: the in-memory state machine in `jarvisd`, Clau
 
 - Wake: the wake and the request arrive together about 1 s after Febriel stops speaking (0.8 s silence + about 0.2 s transcription). *(amended 2026-11-14; replaces "wake word to LISTENING under 0.3 s", which assumed a wake-word model)*
 - End of speech to first spoken word, small task: about 2.5 s. Measured: 1.95 s on the sum of the parts, about 2.2–2.8 s with the first-sentence wait. Plan 3 has the `jarvis` agent open with a very short first sentence and measures the real end-to-end time. *(amended 2026-11-14)*
+- *(Plan 2, 2026-11-14)* Through `jarvisd`, a small typed request's first token arrived 0.97–1.50 s after it was sent (1.12 s on a fresh process), against 0.79 s in Spike 1. That eats into the margin above; Plan 3 measures the spoken figure.
 - Anything expected to take over 5 s gets a short spoken acknowledgement first.
 - Idle CPU with the mic open: a few percent of one core. Measured: 2 % in a quiet room, about 4 % with video playing. *(amended 2026-11-14)*
 
@@ -340,3 +348,5 @@ Interrupting Jarvis mid-sentence by voice, talking to Jarvis from inside Obsidia
 ## 15. Left to the builder
 
 Library versions, the exact agent prompts, the event names, the HTTP routes, test layout, and the order of work after the spikes. Build order should put the spikes in §10 first, since each can change the design.
+
+*(amended 2026-11-14, Plan 2)* The HTTP routes and event names are now fixed. Routes, in `jarvis/remote/api.py`, on `127.0.0.1:8787`, every one behind the bearer token and a `Host` check: `POST /ask` (`{"text", "channel"?}` → `{"say", "loop"?: "yes"}`, Spike 6's contract), `POST /answer`, `POST /cancel`, `POST /hook`, `GET /health`, and the WebSocket `GET /events`. Events, in `jarvis/daemon/core.py`: `snapshot` first, then `state`, `heard`, `reply_delta`, `reply`, `agents`, `queue`, `memory`, `limits` and `health`.
