@@ -65,3 +65,22 @@ def test_long_title_is_capped(tmp_path):
 def test_exchange_logs_notes_read(tmp_path):
     p = Vault(tmp_path).log_exchange(Exchange(AT, "mac", "q", "a", ["wiki/preferences.md"]))
     assert p.read_text().splitlines()[-1] == "- 20:14 · mac · q → a · read [[preferences]]"
+
+
+def test_status_and_map(tmp_path):
+    assert Vault(tmp_path / "nope").status() == "missing"
+    v = Vault(tmp_path); assert v.status() == "ok"
+    v.ensure_map(); first = (tmp_path / "CLAUDE.md").read_text()
+    assert first.startswith("# Jarvis vault map") and (tmp_path / "wiki" / "index.md").exists()
+    (tmp_path / "CLAUDE.md").write_text("mine"); v.ensure_map(); assert (tmp_path / "CLAUDE.md").read_text() == "mine"
+    (tmp_path / "raw").mkdir(exist_ok=True); (tmp_path / "raw").chmod(0o500)
+    try: assert v.status() == "read-only"
+    finally: (tmp_path / "raw").chmod(0o700)
+    Vault(tmp_path / "nope").ensure_map(); assert not (tmp_path / "nope").exists()
+
+
+def test_wiki_notes_and_memory_map(tmp_path):
+    v = Vault(tmp_path); v.ensure_map(); assert v.wiki_notes() == []
+    (tmp_path / "wiki" / "prefs.md").write_text("x"); (tmp_path / "wiki" / "index.md").write_text("- [[prefs]]")
+    assert v.wiki_notes() == ["wiki/prefs.md"]
+    assert v.memory_map() == (tmp_path / "CLAUDE.md").read_text() + "\n\n- [[prefs]]"

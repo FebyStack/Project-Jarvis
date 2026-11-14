@@ -98,15 +98,15 @@ The probes are in `docs/spikes/findings.md`, "Plan 2 probes". They change these 
 
 Throwaway scripts in `spikes/08-hooks/`, same rules as Plan 1's spikes (no tests, never imported, scrubbed environment from `spikes/01-brain/clean.py`). Each check ends as a row in a new "Plan 2 probes" section of `docs/spikes/findings.md`: what ran, what was seen, verdict.
 
-- [ ] **Step 1:** `PreToolUse` hook on a `Bash` call. Record the stdin payload's field names. Reply `{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "probe"}}`, then `"allow"`. **Bar:** deny stops the command and the model sees the reason; allow runs it with no `PermissionRequest`.
-- [ ] **Step 2:** Reply `"permissionDecision": "ask"` with a `PermissionRequest` hook also configured. **Bar:** the `PermissionRequest` hook fires in `-p` mode and its allow/deny decides. **If not:** set `HOLD_IN_PRETOOL = True` in Task 10 and record it; the plan continues.
-- [ ] **Step 3:** The same hooks while a subagent runs a `Bash` call, foreground and with `run_in_background: true`. Record which payload fields name the agent. **Bar:** both hooks fire for both. **If the bar fails, stop the plan and bring it to Febriel:** the gate would not cover workers.
-- [ ] **Step 4:** Hold a decision 90 s with `"timeout": 660` in the hook entry, then allow. **Bar:** the call runs after the hold. **If capped:** record the cap; the phone ask timeout in `jarvis/config.py` becomes the cap minus 60 s.
-- [ ] **Step 5:** `--append-system-prompt "The code word is MARMALADE."` with `--agent jarvis`. **Bar:** asked for the code word, it answers MARMALADE.
-- [ ] **Step 6:** A dummy project skill whose body holds a code word, listed under `skills:` in an agent's frontmatter. Try it on the `--agent` main thread and on a subagent. **Bar:** each knows the word without calling the Skill tool. **If the main thread fails:** Task 8 pastes the skill bodies into `jarvis.md` instead and records why.
-- [ ] **Step 7:** Start with `--setting-sources project --strict-mcp-config` and no `--mcp-config`. **Bar:** `system/init` lists no MCP servers and none of Febriel's plugin commands.
-- [ ] **Step 8:** While a long reply streams, write `{"type": "control_request", "request_id": "<uuid>", "request": {"subtype": "interrupt"}}` to stdin. **Bar:** the turn ends within 2 s, the process stays up and still remembers the conversation. **If not:** `Bridge.interrupt()` in Task 7 kills the child and restarts it with `--resume <session_id>`; record that.
-- [ ] **Step 9:** Write the findings section. Commit: `spike: hook and stream probes for Plan 2`.
+- [x] **Step 1:** `PreToolUse` hook on a `Bash` call. Record the stdin payload's field names. Reply `{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "probe"}}`, then `"allow"`. **Bar:** deny stops the command and the model sees the reason; allow runs it with no `PermissionRequest`.
+- [x] **Step 2:** Reply `"permissionDecision": "ask"` with a `PermissionRequest` hook also configured. **Bar:** the `PermissionRequest` hook fires in `-p` mode and its allow/deny decides. **If not:** set `HOLD_IN_PRETOOL = True` in Task 10 and record it; the plan continues.
+- [x] **Step 3:** The same hooks while a subagent runs a `Bash` call, foreground and with `run_in_background: true`. Record which payload fields name the agent. **Bar:** both hooks fire for both. **If the bar fails, stop the plan and bring it to Febriel:** the gate would not cover workers.
+- [x] **Step 4:** Hold a decision 90 s with `"timeout": 660` in the hook entry, then allow. **Bar:** the call runs after the hold. **If capped:** record the cap; the phone ask timeout in `jarvis/config.py` becomes the cap minus 60 s.
+- [x] **Step 5:** `--append-system-prompt "The code word is MARMALADE."` with `--agent jarvis`. **Bar:** asked for the code word, it answers MARMALADE.
+- [x] **Step 6:** A dummy project skill whose body holds a code word, listed under `skills:` in an agent's frontmatter. Try it on the `--agent` main thread and on a subagent. **Bar:** each knows the word without calling the Skill tool. **If the main thread fails:** Task 8 pastes the skill bodies into `jarvis.md` instead and records why.
+- [x] **Step 7:** Start with `--setting-sources project --strict-mcp-config` and no `--mcp-config`. **Bar:** `system/init` lists no MCP servers and none of Febriel's plugin commands.
+- [x] **Step 8:** While a long reply streams, write `{"type": "control_request", "request_id": "<uuid>", "request": {"subtype": "interrupt"}}` to stdin. **Bar:** the turn ends within 2 s, the process stays up and still remembers the conversation. **If not:** `Bridge.interrupt()` in Task 7 kills the child and restarts it with `--resume <session_id>`; record that.
+- [x] **Step 9:** Write the findings section. Commit: `spike: hook and stream probes for Plan 2`.
 
 ### Task 2: `CANCEL` in the state machine
 
@@ -114,7 +114,7 @@ Throwaway scripts in `spikes/08-hooks/`, same rules as Plan 1's spikes (no tests
 
 **Interfaces:** Produces `Event.CANCEL`: from `LISTENING`, `THINKING`, `SPEAKING` and `FOLLOW_UP` the state becomes `IDLE`; in `IDLE` nothing changes; `muted` is untouched.
 
-- [ ] **Step 1: Failing tests** (`reach(sm, state)` already exists in this file)
+- [x] **Step 1: Failing tests** (`reach(sm, state)` already exists in this file)
 
 ```python
 @pytest.mark.parametrize("start", [State.LISTENING, State.THINKING, State.SPEAKING, State.FOLLOW_UP])
@@ -128,10 +128,10 @@ def test_cancel_in_idle_and_while_muted(sm):
     assert sm.muted is True
 ```
 
-- [ ] **Step 2:** `uv run pytest tests/daemon -q` fails on `Event.CANCEL`.
-- [ ] **Step 3:** Add the event and its four transitions.
-- [ ] **Step 4:** `uv run pytest -q` passes (199).
-- [ ] **Step 5:** Commit: `feat: CANCEL returns the voice state machine to idle`.
+- [x] **Step 2:** `uv run pytest tests/daemon -q` fails on `Event.CANCEL`.
+- [x] **Step 3:** Add the event and its four transitions.
+- [x] **Step 4:** `uv run pytest -q` passes (199).
+- [x] **Step 5:** Commit: `feat: CANCEL returns the voice state machine to idle`.
 
 ### Task 3: Instant answers
 
@@ -142,7 +142,7 @@ def test_cancel_in_idle_and_while_muted(sm):
 - `match(utterance: str, pending: bool) -> Action | None` — spec §6.2's table. Normalise: lower-case, drop everything but letters, digits, apostrophes and spaces, collapse spaces, then strip any leading run of `hey jarvis`, `jarvis`, `please`. The whole remainder must equal a phrase. `yes`, `no` and `yes always` match only when `pending` is true.
 - `say_time(now: datetime) -> str`, `say_date(now: datetime) -> str`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```python
 @pytest.mark.parametrize("said,action", [
@@ -168,10 +168,10 @@ def test_sentences():
     assert say_date(at) == "Saturday, 14 November."
 ```
 
-- [ ] **Step 2:** Run `uv run pytest tests/daemon/test_instant.py -q`; fails on import.
-- [ ] **Step 3:** Implement to the Interfaces block; the phrase table is one dict from phrase to action.
-- [ ] **Step 4:** Run; passes.
-- [ ] **Step 5:** Commit: `feat: instant answers for the fixed phrase list`.
+- [x] **Step 2:** Run `uv run pytest tests/daemon/test_instant.py -q`; fails on import.
+- [x] **Step 3:** Implement to the Interfaces block; the phrase table is one dict from phrase to action.
+- [x] **Step 4:** Run; passes.
+- [x] **Step 5:** Commit: `feat: instant answers for the fixed phrase list`.
 
 ### Task 4: Judging a tool call
 
@@ -192,7 +192,7 @@ def test_sentences():
 | `mcp__*` | `classify_tool(name, cfg)` |
 | anything else | ask, pattern `tool:<name>` (through the trusted list) |
 
-- [ ] **Step 1: Failing tests** (`cfg` is a `GateConfig` over `tmp_path` shaped like `load_config()`: `free=tmp_path/"Developer"`, `project=free/"Project Jarvis"`, `home=tmp_path/".jarvis"`)
+- [x] **Step 1: Failing tests** (`cfg` is a `GateConfig` over `tmp_path` shaped like `load_config()`: `free=tmp_path/"Developer"`, `project=free/"Project Jarvis"`, `home=tmp_path/".jarvis"`)
 
 ```python
 def v(name, inp, cfg, cwd=None): return judge(name, inp, cwd or cfg.free_write[0], cfg)
@@ -243,10 +243,10 @@ def test_load_config_protects_the_project_and_state_dir(monkeypatch, tmp_path):
     assert cfg.free_write == [Path.home() / "Developer", tmp_path / "v"]
 ```
 
-- [ ] **Step 2:** Run `uv run pytest tests/brain/test_judge.py -q`; fails on import.
-- [ ] **Step 3:** Implement. `jarvis/config.py` reads the two env vars at call time (functions or module `__getattr__`), so tests can redirect them. Host classification uses `ipaddress`.
-- [ ] **Step 4:** Run `uv run pytest -q`; all pass.
-- [ ] **Step 5:** Commit: `feat: judge every tool call against the gate`.
+- [x] **Step 2:** Run `uv run pytest tests/brain/test_judge.py -q`; fails on import.
+- [x] **Step 3:** Implement. `jarvis/config.py` reads the two env vars at call time (functions or module `__getattr__`), so tests can redirect them. Host classification uses `ipaddress`.
+- [x] **Step 4:** Run `uv run pytest -q`; all pass.
+- [x] **Step 5:** Commit: `feat: judge every tool call against the gate`.
 
 ### Task 5: Pending questions
 
@@ -261,7 +261,7 @@ def test_load_config_protects_the_project_and_state_dir(monkeypatch, tmp_path):
   - `pending(channel: Channel | None = None) -> list[Ask]`, oldest first.
   - `history() -> list[tuple[str, str, bool]]` — `(request_id, question, answered_yes)` for every closed ask, timeouts included as `False`.
 
-- [ ] **Step 1: Failing tests** (`asyncio_mode = "auto"`; timeouts passed as `{"mac": 0.05, "phone": 0.2}`)
+- [x] **Step 1: Failing tests** (`asyncio_mode = "auto"`; timeouts passed as `{"mac": 0.05, "phone": 0.2}`)
 
 ```python
 ASK = Decision("ask", "rm outside the free areas: ~/Documents/a.txt", "shell:rm:~/Documents")
@@ -291,10 +291,10 @@ async def test_always_is_remembered_unless_the_pattern_is_empty(asks, trusted):
     assert trusted._patterns() == {"shell:rm:~/Documents"}
 ```
 
-- [ ] **Step 2:** Name the install (`pytest-asyncio`, dev group), `uv add --group dev pytest-asyncio`, set `asyncio_mode = "auto"` under `[tool.pytest.ini_options]`. Run; fails on import.
-- [ ] **Step 3:** Implement with one `asyncio.Future` per ask and `asyncio.wait_for`.
-- [ ] **Step 4:** Run `uv run pytest -q`; all pass.
-- [ ] **Step 5:** Commit: `feat: pending questions with timeouts and "yes, always"`.
+- [x] **Step 2:** Name the install (`pytest-asyncio`, dev group), `uv add --group dev pytest-asyncio`, set `asyncio_mode = "auto"` under `[tool.pytest.ini_options]`. Run; fails on import.
+- [x] **Step 3:** Implement with one `asyncio.Future` per ask and `asyncio.wait_for`.
+- [x] **Step 4:** Run `uv run pytest -q`; all pass.
+- [x] **Step 5:** Commit: `feat: pending questions with timeouts and "yes, always"`.
 
 ### Task 6: The hook client and the settings file
 
@@ -308,7 +308,7 @@ async def test_always_is_remembered_unless_the_pattern_is_empty(asks, trusted):
 - `main(stdin, stdout) -> int` — reads the payload, `POST http://127.0.0.1:8787/hook` with the bearer token and a `HOOK_TIMEOUT - 10` s timeout, prints `render(...)` from the reply `{"verdict", "reason"}`, returns 0. Any failure (no token, connection refused, timeout, bad reply) prints a deny whose reason is `Jarvis is not running, so the answer is no.` and returns 0.
 - `.claude/jarvis-settings.json`: `PreToolUse` and `PermissionRequest`, matcher `*`, one command hook each, `"timeout": 660`, command `'/Users/febrielotud/Developer/Project Jarvis/.venv/bin/python' -m jarvis.brain.hook`.
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```python
 def test_render_shapes():
@@ -346,10 +346,10 @@ def test_settings_file_hooks_everything():
 ```
 
   `run_main(payload, port, timeout=None)` is a test helper: it points `PORT` (and the timeout) at the stub, feeds the payload to `main` and returns the parsed stdout. `home` is a `JARVIS_HOME` under `tmp_path` holding a token file.
-- [ ] **Step 2:** Run; fails on import.
-- [ ] **Step 3:** Implement with `urllib.request` and `json` only (this file starts once per tool call, so it imports nothing from `aiohttp`, `textual` or the gate).
-- [ ] **Step 4:** Run `uv run pytest -q`; all pass. Time it: `time .venv/bin/python -m jarvis.brain.hook < /dev/null` under 0.1 s.
-- [ ] **Step 5:** Commit: `feat: hook client that fails closed, and Jarvis's settings file`.
+- [x] **Step 2:** Run; fails on import.
+- [x] **Step 3:** Implement with `urllib.request` and `json` only (this file starts once per tool call, so it imports nothing from `aiohttp`, `textual` or the gate).
+- [x] **Step 4:** Run `uv run pytest -q`; all pass. Time it: `time .venv/bin/python -m jarvis.brain.hook < /dev/null` under 0.1 s.
+- [x] **Step 5:** Commit: `feat: hook client that fails closed, and Jarvis's settings file`.
 
 ### Task 7: The Claude Code bridge
 
@@ -375,8 +375,8 @@ def test_settings_file_hooks_everything():
   Anything else returns `[]`.
 - `Bridge(on_event: Callable[[dict], None], memory_map: Callable[[], str])` with `async start()`, `async send(text: str)`, `async interrupt()` (as Task 1 Step 8 settled), `async reset()` (stop, start fresh, new memory map), `async stop()`, `session_id: str | None`, `alive: bool`. A child that exits on its own is restarted with `--resume <session_id>` after 1 s, at most 3 times a minute; after that it emits `{"kind": "down", "reason": ...}`. An `init` whose `api_key_source` is not `none` stops the child and emits `down` with reason `api key in use`.
 
-- [ ] **Step 1:** Build the fixtures: copy one line of each type the table names from `spikes/01-brain/tmp/step2.jsonl` and `step5.jsonl` into `tests/brain/fixtures/stream.jsonl`, and record the partial-message lines by running the real CLI once with the argv above and the prompt `Say hello in five words.` into `tests/brain/fixtures/partial.jsonl`. Remove nothing but hook-output noise.
-- [ ] **Step 2: Failing tests**
+- [x] **Step 1:** Build the fixtures: copy one line of each type the table names from `spikes/01-brain/tmp/step2.jsonl` and `step5.jsonl` into `tests/brain/fixtures/stream.jsonl`, and record the partial-message lines by running the real CLI once with the argv above and the prompt `Say hello in five words.` into `tests/brain/fixtures/partial.jsonl`. Remove nothing but hook-output noise.
+- [x] **Step 2: Failing tests**
 
 ```python
 def test_env_is_scrubbed(monkeypatch):
@@ -418,10 +418,10 @@ async def test_api_key_source_stops_the_brain(fake_claude):
 ```
 
   `fake_claude.py` prints an `init` line, then for each stdin line a `result` line echoing it; it writes its argv to a file the fixture reads.
-- [ ] **Step 3:** Run; fails on import.
-- [ ] **Step 4:** Implement with `asyncio.create_subprocess_exec`, cwd `PROJECT`, `start_new_session=True`. A user message is `{"type": "user", "message": {"role": "user", "content": text}}` plus a newline.
-- [ ] **Step 5:** Run `uv run pytest -q`; all pass.
-- [ ] **Step 6:** Commit: `feat: Claude Code bridge with a scrubbed environment and stream parsing`.
+- [x] **Step 3:** Run; fails on import.
+- [x] **Step 4:** Implement with `asyncio.create_subprocess_exec`, cwd `PROJECT`, `start_new_session=True`. A user message is `{"type": "user", "message": {"role": "user", "content": text}}` plus a newline.
+- [x] **Step 5:** Run `uv run pytest -q`; all pass.
+- [x] **Step 6:** Commit: `feat: Claude Code bridge with a scrubbed environment and stream parsing`.
 
 ### Task 8: Agents and skills
 
@@ -457,8 +457,8 @@ title: <three to six words>
   - `scribe`: given a raw note or a day log, update or create one topic per note under `wiki/` with `[[wiki-links]]`, keep `wiki/index.md` listing every note with a one-line hook, write nowhere else.
 - `vault` skill: the layout and naming rules of spec §6.3. `system` skill: opening apps (`open -a`), volume (`osascript -e 'set volume output volume N'`), timers (a background `sleep N && osascript -e 'display notification …'`), and that anything else on screen waits for Plan 5.
 
-- [ ] **Step 1:** Name the three skill copies to Febriel. Fetch `blader/humanizer`, `mattpocock/skills` (the `grill-me` skill only) and `DietrichGebert/ponytail` at their current default-branch commits; check each licence allows copying; copy only the skill folders into `.claude/skills/`; record source, commit and licence in `VENDORED.md`. If a licence does not allow it, stop and bring it to Febriel.
-- [ ] **Step 2: Failing tests**
+- [x] **Step 1:** Name the three skill copies to Febriel. Fetch `blader/humanizer`, `mattpocock/skills` (the `grill-me` skill only) and `DietrichGebert/ponytail` at their current default-branch commits; check each licence allows copying; copy only the skill folders into `.claude/skills/`; record source, commit and licence in `VENDORED.md`. If a licence does not allow it, stop and bring it to Febriel.
+- [x] **Step 2: Failing tests**
 
 ```python
 EXPECT = {"jarvis": ("sonnet", None, ["humanizer", "grill-me"]), "triage": ("claude-opus-5-5", ["Read", "Glob", "Grep"], []),
@@ -489,9 +489,9 @@ def test_verdict_parses():
         assert parse_verdict(bad) is None
 ```
 
-- [ ] **Step 3:** Run; fails. Write the five agent files, the two skills and `verdict.py`. If Task 1 Step 6 failed for the main thread, paste the two skill bodies into `jarvis.md` and drop its `skills` key (and change `EXPECT` to match, with a comment naming the probe).
-- [ ] **Step 4:** Run `uv run pytest -q`; all pass.
-- [ ] **Step 5:** Commit: `feat: Jarvis's agents, skills and the triage verdict format`.
+- [x] **Step 3:** Run; fails. Write the five agent files, the two skills and `verdict.py`. If Task 1 Step 6 failed for the main thread, paste the two skill bodies into `jarvis.md` and drop its `skills` key (and change `EXPECT` to match, with a comment naming the probe).
+- [x] **Step 4:** Run `uv run pytest -q`; all pass.
+- [x] **Step 5:** Commit: `feat: Jarvis's agents, skills and the triage verdict format`.
 
 ### Task 9: Memory: vault health, the map, and exchange records
 
@@ -522,7 +522,7 @@ Rule: read the relevant `wiki/` notes before acting on a task, and leave what yo
 - `run(vault: Vault, target: Path) -> None` — starts that argv detached (`start_new_session=True`, scrubbed environment, cwd `PROJECT`, output discarded) and returns at once.
 - `Sweeper(vault, home: Path)`: `due(now: float, last_request: float, busy: bool) -> Path | None` — the day log to sweep when `now - last_request >= SWEEP_IDLE_SECONDS`, nothing is running, and that file has grown since the size recorded in `home / "scribe.json"`; `mark(path)` records its size.
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```python
 def test_status_and_map(tmp_path):
@@ -576,9 +576,9 @@ def test_scribe_argv(vault):
     assert "--input-format" not in a and a[-1].startswith("Distil this note into wiki/: ")
 ```
 
-- [ ] **Step 2:** Run; fails. Implement.
-- [ ] **Step 3:** Run `uv run pytest -q`; all pass.
-- [ ] **Step 4:** Commit: `feat: vault health and map, exchange tracker, scribe runs`.
+- [x] **Step 2:** Run; fails. Implement.
+- [x] **Step 3:** Run `uv run pytest -q`; all pass.
+- [x] **Step 4:** Commit: `feat: vault health and map, exchange tracker, scribe runs`.
 
 ### Task 10: The daemon core
 
@@ -788,7 +788,7 @@ def test_plist_runs_the_daemon_with_no_secrets():
 - `needs_you(view) -> QueueRow | None` — the oldest `needs_you` row.
 - `elapsed(since: float, now: float) -> str` — `04:12`.
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```python
 def test_snapshot_then_events():
@@ -820,9 +820,9 @@ def test_small_helpers():
     assert reduce(v, {"type": "link", "state": "no daemon"}).screen == "no-daemon"
 ```
 
-- [ ] **Step 2:** Run; fails. Implement.
-- [ ] **Step 3:** Run `uv run pytest -q`; all pass.
-- [ ] **Step 4:** Commit: `feat: HUD view state`.
+- [x] **Step 2:** Run; fails. Implement.
+- [x] **Step 3:** Run `uv run pytest -q`; all pass.
+- [x] **Step 4:** Commit: `feat: HUD view state`.
 
 ### Task 14: The HUD
 
@@ -836,8 +836,8 @@ def test_small_helpers():
 - Full-screen notices, exact first lines: `starting` → `STARTING UP`; `offline` → `OFFLINE: no connection to Claude`; `vault` → `VAULT MISSING: Jarvis is refusing requests until the vault is back`; `limit` → `LIMIT REACHED: resumes at <HH:MM>`; `first-run` → `FIRST RUN: still to do` followed by the checklist lines; `no-daemon` → `NO DAEMON: start it with: jarvis daemon`. The client retries the WebSocket every 2 s.
 - Theme: background black; text `#D4AF37`; the focused or running element `#FFD700`; idle and borders `#8A7424`; heavy box borders.
 
-- [ ] **Step 1:** Name the install (`textual`), `uv add textual`.
-- [ ] **Step 2: Failing tests** (`async with Hud(fake).run_test(size=(80, 24)) as pilot`)
+- [x] **Step 1:** Name the install (`textual`), `uv add textual`.
+- [x] **Step 2: Failing tests** (`async with Hud(fake).run_test(size=(80, 24)) as pilot`)
 
 ```python
 async def test_fits_80_by_24_with_every_panel(hud):
@@ -874,9 +874,9 @@ async def test_states_are_words_not_only_colour(hud, pilot, fake):
     assert "THINKING" in screen_text(hud) and "MIC ○ off" in screen_text(hud)
 ```
 
-- [ ] **Step 3:** Run; fails. Implement; `jarvis hud` builds the real `Client` from `PORT` and the token.
-- [ ] **Step 4:** Run `uv run pytest -q`; all pass.
-- [ ] **Step 5:** Commit: `feat: gold terminal HUD`.
+- [x] **Step 3:** Run; fails. Implement; `jarvis hud` builds the real `Client` from `PORT` and the token.
+- [x] **Step 4:** Run `uv run pytest -q`; all pass.
+- [x] **Step 5:** Commit: `feat: gold terminal HUD`.
 
 ### Task 15: End to end on the real subscription 👤
 

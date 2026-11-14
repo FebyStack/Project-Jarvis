@@ -8,6 +8,14 @@ from typing import Literal
 
 Channel = Literal["mac", "phone"]
 DEFAULT_ROOT = Path("/Users/febrielotud/Obsidian/Jarvis")
+MAP = """# Jarvis vault map
+
+- `raw/` — what happened. `YYYY-MM-DD.md` is the day's log, one line per exchange. `YYYY-MM-DD-HHMM-title.md` is one task. Written by jarvisd; do not edit.
+- `wiki/` — what is known. One topic per note, linked with [[wiki-links]]. `wiki/index.md` lists every note.
+- `outputs/` — what Jarvis made for Febriel: reports, plans, drafts.
+
+Rule: read the relevant `wiki/` notes before acting on a task, and leave what you learned in `wiki/` after it.
+"""
 
 
 @dataclass
@@ -90,6 +98,35 @@ class Vault:
     def read_index(self) -> str:
         index = self.root / "wiki" / "index.md"
         return index.read_text(encoding="utf-8") if index.exists() else ""
+
+    def status(self) -> Literal["ok", "missing", "read-only"]:
+        if not self.root.is_dir():
+            return "missing"
+        probe = self.raw / ".jarvis-probe"
+        try:
+            self.raw.mkdir(exist_ok=True)
+            probe.touch()
+            probe.unlink()
+        except OSError:
+            return "read-only"
+        return "ok"
+
+    def ensure_map(self) -> None:
+        """Writes `CLAUDE.md` and an empty `wiki/index.md` when absent; never creates the vault itself."""
+        if not self.root.is_dir():
+            return
+        if not (self.root / "CLAUDE.md").exists():
+            (self.root / "CLAUDE.md").write_text(MAP, encoding="utf-8")
+        (self.root / "wiki").mkdir(exist_ok=True)
+        (self.root / "wiki" / "index.md").touch(exist_ok=True)
+
+    def wiki_notes(self) -> list[str]:
+        wiki = self.root / "wiki"
+        return sorted(str(p.relative_to(self.root)) for p in wiki.rglob("*.md") if p != wiki / "index.md")
+
+    def memory_map(self) -> str:
+        claude_md = self.root / "CLAUDE.md"
+        return (claude_md.read_text(encoding="utf-8") if claude_md.exists() else MAP) + "\n\n" + self.read_index()
 
 
 def default_vault() -> Vault:
