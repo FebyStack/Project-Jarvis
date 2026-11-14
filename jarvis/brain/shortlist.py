@@ -71,7 +71,11 @@ def run(vault_root: Path, ask=input) -> int:
         print("Claude did not answer; nothing written.")
         return 1
     target = Path(vault_root) / "outputs" / "skill-shortlist.md"
-    target.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        target.parent.mkdir(exist_ok=True)  # never parents: a missing vault stays missing
+    except OSError:
+        print("The vault is missing or not writable; nothing written.")
+        return 1
     target.write_text(out.stdout.strip() + "\n", encoding="utf-8")
     print(f"Written to {target}.")
     return 0

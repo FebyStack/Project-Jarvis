@@ -90,3 +90,14 @@ def test_ensure_map_leaves_an_existing_index_alone(tmp_path):
     import os
     v = Vault(tmp_path); v.ensure_map(); index = tmp_path / "wiki" / "index.md"
     os.utime(index, (1, 1)); v.ensure_map(); assert index.stat().st_mtime == 1
+
+
+def test_a_write_never_recreates_a_missing_vault(tmp_path):
+    """Review finding 11: a recreated vault would make Jarvis stop refusing."""
+    import pytest
+    v = Vault(tmp_path / "gone")
+    with pytest.raises(OSError):
+        v.log_exchange(Exchange(AT, "mac", "q", "a", []))
+    with pytest.raises(OSError):
+        v.write_task_note(record())
+    assert not (tmp_path / "gone").exists()

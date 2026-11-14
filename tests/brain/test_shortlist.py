@@ -76,3 +76,14 @@ def test_harness_text_is_not_what_febriel_typed(tmp_path):
                   mtime=datetime(2026, 11, 1))
     assert digest(tmp_path, since=datetime(2026, 10, 15)).splitlines() == [
         "p: Edit the reel please", "p: /superpowers:writing-plans Plan this design", "p: do this"]
+
+
+def test_the_shortlist_never_recreates_a_missing_vault(tmp_path, monkeypatch, capsys):
+    import subprocess
+    from jarvis.brain import shortlist
+    write_session(tmp_path / ".claude" / "projects" / "p" / "a.jsonl", [user("Edit the reel")])
+    monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setattr("subprocess.run", lambda argv, **k: subprocess.CompletedProcess(argv, 0, "- one\n", ""))
+    assert shortlist.run(tmp_path / "gone", ask=lambda prompt: "y") == 1
+    assert not (tmp_path / "gone").exists() and "vault" in capsys.readouterr().out

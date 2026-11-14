@@ -58,7 +58,7 @@ class Vault:
         self.raw = self.root / "raw"
 
     def _append_day(self, at: datetime, line: str) -> Path:
-        self.raw.mkdir(parents=True, exist_ok=True)
+        self.raw.mkdir(exist_ok=True)  # never parents: a missing vault stays missing
         path = self.raw / f"{at:%Y-%m-%d}.md"
         with path.open("a", encoding="utf-8") as f:
             f.write(line + "\n")
@@ -71,7 +71,7 @@ class Vault:
         return self._append_day(ex.at, line)
 
     def write_task_note(self, rec: TaskRecord) -> Path:
-        self.raw.mkdir(parents=True, exist_ok=True)
+        self.raw.mkdir(exist_ok=True)  # never parents: a missing vault stays missing
         stem = f"{rec.at:%Y-%m-%d-%H%M}-{slugify(rec.title)}"
         body = "\n".join([
             "---", f"at: {rec.at:%Y-%m-%d %H:%M}", f"channel: {rec.channel}", "---",
