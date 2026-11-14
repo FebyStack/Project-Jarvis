@@ -47,3 +47,17 @@ def test_nothing_is_sent_without_a_yes(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr("subprocess.run", lambda *a, **k: (_ for _ in ()).throw(AssertionError("sent")))
     assert shortlist.run(tmp_path / "vault", ask=lambda prompt: "n") == 1
     assert "1 lines" in capsys.readouterr().out and not (tmp_path / "vault").exists()
+
+
+def test_the_shortlist_call_has_no_tools(tmp_path, monkeypatch):
+    """The digest is session text, so it may carry instructions; the model gets no tools to act on them."""
+    import subprocess
+    from jarvis.brain import shortlist
+    write_session(tmp_path / ".claude" / "projects" / "p" / "a.jsonl", [user("Edit the reel")])
+    monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    calls = []
+    monkeypatch.setattr("subprocess.run", lambda argv, **k: calls.append(argv) or subprocess.CompletedProcess(argv, 0, "- one\n", ""))
+    assert shortlist.run(tmp_path / "vault", ask=lambda prompt: "y") == 0
+    argv = calls[0]; assert argv[argv.index("--tools") + 1] == ""
+    assert (tmp_path / "vault" / "outputs" / "skill-shortlist.md").read_text() == "- one\n"

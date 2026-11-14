@@ -59,7 +59,7 @@ def run(vault_root: Path, ask=input) -> int:
     if not n or ask("Send it? [y/N] ").strip().lower() not in ("y", "yes"):
         print("Nothing sent.")
         return 1
-    out = subprocess.run(["claude", "-p", "--model", "sonnet", "--setting-sources", "project", "--settings",
+    out = subprocess.run(["claude", "-p", "--model", "sonnet", "--tools", "", "--setting-sources", "project", "--settings",
                           str(config.SETTINGS), "--strict-mcp-config", PROMPT + text], env=clean_env(),
                          cwd=config.PROJECT, capture_output=True, text=True, timeout=300)
     if out.returncode != 0 or not out.stdout.strip():
