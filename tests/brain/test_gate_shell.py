@@ -18,10 +18,8 @@ HOME = Path.home()
     ("sudo rm -rf /", "never"),
     ("ls && rm -rf ~/Documents", "ask"),
     ("echo hi > ~/Documents/a.txt", "ask"),
-    ("printf 'gold\\n' > ~/Developer/jarvis-e2e/poem.txt", "allow"),
-    ("printf hi > ~/Documents/a.txt", "ask"),
     ("printf -v PATH /tmp/x; ls", "ask"),               # -v sets a shell variable: PATH would change what ls runs
-    ("printf -- -v", "ask"),
+    ("printf {-v,PATH} /tmp/x; ls", "ask"),             # brace expansion reaches -v too, so printf is not read-only
     ("cat $(rm ~/Documents/a.txt)", "ask"),
     ("rm ~/Developer/../Documents/a.txt", "ask"),
     ("find ~/Developer -name '*.tmp' -delete", "ask"),

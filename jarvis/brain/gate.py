@@ -132,7 +132,7 @@ def _judge_targets(cmd: str, targets: list[str], cwd: Path | None, cfg: GateConf
 
 # ── shell ────────────────────────────────────────────────────────────────────
 
-_READ_ONLY = {"ls", "cat", "head", "tail", "grep", "rg", "pwd", "echo", "printf", "date", "which", "wc", "stat", "file", "du", "df", "ps"}
+_READ_ONLY = {"ls", "cat", "head", "tail", "grep", "rg", "pwd", "echo", "date", "which", "wc", "stat", "file", "du", "df", "ps"}
 _GIT_READ = {"status", "log", "diff", "show", "branch"}
 _BRANCH_LIST_FLAGS = {"-a", "-r", "-v", "-vv", "--all", "--remotes", "--list", "--show-current"}
 _PATH_CMDS = {"rm", "mv", "cp", "mkdir", "touch", "tee"}
@@ -216,8 +216,6 @@ def _classify_part(tokens: list[str], cwd: Path | None, cfg: GateConfig) -> Deci
             return Decision("ask", "rg --pre runs another program")
         if cmd == "file" and any(a.startswith("-C") or a == "--compile" for a in args):
             return Decision("ask", "file -C writes magic files")
-        if cmd == "printf" and args and args[0].startswith("-"):
-            return Decision("ask", "printf -v sets a shell variable")
         return Decision("allow", f"{cmd} is read-only")
     if cmd == "find":
         if any(a in _FIND_UNSAFE for a in args):
