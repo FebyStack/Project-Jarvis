@@ -1,0 +1,12 @@
+{
+  "autoMemoryEnabled": false,
+  "claudeMdExcludes": ["/Users/febrielotud/.claude/CLAUDE.md"],
+  "hooks": {
+    "PreToolUse": [
+      {"matcher": "*", "hooks": [{"type": "command", "command": "'/Users/febrielotud/Developer/Project Jarvis/.venv/bin/python' -m jarvis.brain.hook", "timeout": 660}]}
+    ],
+    "PermissionRequest": [
+      {"matcher": "*", "hooks": [{"type": "command", "command": "'/Users/febrielotud/Developer/Project Jarvis/.venv/bin/python' -m jarvis.brain.hook", "timeout": 660}]}
+    ]
+  }
+}
