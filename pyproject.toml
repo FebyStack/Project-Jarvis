@@ -2,10 +2,16 @@
 name = "jarvis"
 version = "0.0.0"
 requires-python = ">=3.12,<3.13"
-dependencies = []
+dependencies = [
+    "aiohttp>=3.14.5",
+    "textual>=8.2.8",
+]
 
 [dependency-groups]
-dev = ["pytest"]
+dev = [
+    "pytest",
+    "pytest-asyncio>=1.5.0",
+]
 spike = [
     "misaki[en]>=0.9.4",
     "mlx-audio>=0.6.5",
@@ -20,6 +26,7 @@ build-backend = "hatchling.build"
 
 [tool.pytest.ini_options]
 addopts = "--import-mode=importlib"
+asyncio_mode = "auto"
 
 [tool.uv]
 environments = ["sys_platform == 'darwin'"]  # Jarvis is Mac-only
