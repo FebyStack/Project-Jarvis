@@ -9,6 +9,7 @@ from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
+from typing import Protocol
 
 from jarvis import config
 from jarvis.brain.asks import Asks
@@ -31,6 +32,17 @@ SERVE_FAILED = "Something went wrong on my side while answering. Ask me again."
 STOPPING = "Jarvis is stopping, so this one wasn't answered. Ask again once it's back."
 OFFLINE = "I can't reach Claude right now. I'll answer when the connection is back."
 VAULT_TOOLS = {"Read": "file_path", "Write": "file_path", "Edit": "file_path", "MultiEdit": "file_path"}
+
+
+class Speaker(Protocol):
+    on_start: Callable[[], None]  # set by the core: the first sound of a run of speech is going out
+    on_done: Callable[[], None]  # set by the core: speech ran out (also when there was nothing to say)
+
+    def feed(self, delta: str) -> None: ...  # reply text as it streams
+    def say(self, text: str) -> None: ...  # a complete reply
+    def stop(self) -> None: ...  # silence now; forget what was queued
+    def hold(self, on: bool) -> None: ...  # while on, start no new sound
+    def cue(self) -> None: ...  # the listening tone
 
 
 @dataclass
@@ -64,9 +76,14 @@ class Jarvis:
     def __init__(self, vault: Vault, bridge_factory, clock: Callable[[], float], now: Callable[[], datetime],
                  ask_timeouts: dict[str, float] = config.ASK_TIMEOUT,
                  run_scribe: Callable[[Vault, Path], None] = scribe.run,
-                 checklist: Callable[[], list[str]] = list):
+                 checklist: Callable[[], list[str]] = list, speaker: Speaker | None = None):
         self.vault, self.clock, self.now, self.run_scribe, self.checklist = vault, clock, now, run_scribe, checklist
         self.sm = StateMachine(clock)
+        self.speaker = speaker
+        if speaker:
+            speaker.on_start, speaker.on_done = lambda: self._drive(Event.REPLY_START), self._spoke
+        self._mic = "off"
+        self._hearing: set[asyncio.Task] = set()  # requests started by heard(), kept so they are not collected
         self.gate = load_config()
         self.asks = Asks(self.gate.trusted, ask_timeouts, self._asks_changed)
         self.bridge = bridge_factory(self._on_event, vault.memory_map)
@@ -134,6 +151,7 @@ class Jarvis:
                 log.exception("tick failed")
 
     async def tick(self) -> None:
+        self._drive(Event.TICK)
         now = self.clock()
         resets_at = self._limits.get("resets_at")
         if self._limits["status"] == "reached" and resets_at is not None and now >= resets_at:
@@ -184,6 +202,8 @@ class Jarvis:
     async def submit(self, text: str, channel: Channel) -> Reply:
         self._last_heard = text
         self._publish("heard", text=text, channel=channel)
+        if channel == "mac":
+            self._drive(Event.REQUEST)
         status = self.vault.status()
         if status != "ok":
             self._publish_health(full=True)
@@ -218,8 +238,7 @@ class Jarvis:
             case "date":
                 say = instant.say_date(self.now())
             case "mute" | "unmute":
-                self.sm.on(Event.MUTE if action == "mute" else Event.UNMUTE)
-                self._publish_state()
+                self._drive(Event.MUTE if action == "mute" else Event.UNMUTE)
                 say = "Mic off." if action == "mute" else "Mic on."
             case "cancel":
                 await self.cancel()
@@ -246,8 +265,9 @@ class Jarvis:
 
     async def cancel(self) -> None:
         """Stops the turn that is running and any background worker; queued requests stay queued."""
-        self.sm.on(Event.CANCEL)
-        self._publish_state()
+        self._drive(Event.CANCEL)
+        if self.speaker:
+            self.speaker.stop()
         mine = {r.id for r in (self._current, *self._pending) if r}
         for a in self.asks.pending():
             if a.request_id in mine:
@@ -306,7 +326,7 @@ class Jarvis:
         self._agents = {k: a for k, a in self._agents.items() if a["background"]}
         self._current = None
         self._last_activity = self.clock()
-        self._resolve(req, text, text.rstrip().endswith("?"))
+        self._resolve(req, text, text.rstrip().endswith("?"), speak=not ev["cancelled"])  # cancel() said it already
         self._pending.append(req)
         self._record_closed()
         self._publish_queue()
@@ -319,16 +339,18 @@ class Jarvis:
         self._waiting.appendleft(req)
         self._resolve(req, say, False)
 
-    def _resolve(self, req: _Request, text: str, loop: bool) -> None:
-        self._reply(req.channel, text, loop)
+    def _resolve(self, req: _Request, text: str, loop: bool, speak: bool = True) -> None:
+        self._reply(req.channel, text, loop, speak)
         waiters, req.waiters = req.waiters, []
         for f in waiters:
             if not f.done():
                 f.set_result(Reply(text, loop))
 
-    def _reply(self, channel: Channel, text: str, loop: bool) -> Reply:
+    def _reply(self, channel: Channel, text: str, loop: bool, speak: bool = True) -> Reply:
         self._last_reply[channel] = text
         self._publish("reply", text=text, channel=channel, loop=loop)
+        if channel == "mac" and speak:
+            self.speaker.say(text) if self.speaker else self._spoke()  # no speaker: done at once
         return Reply(text, loop)
 
     def _record_closed(self) -> None:
@@ -350,6 +372,12 @@ class Jarvis:
         if self._current is not None:
             return self._current
         return self._find(self._unprompted_owner) if self._turn_open and self._unprompted_owner else None
+
+    def _turn_channel(self) -> Channel:
+        """The channel of the running turn: its request's, or for a turn nobody asked for, its owner's or mac."""
+        owner = self._find(self._unprompted_owner) if self._unprompted_owner else None
+        req = self._current if self._in_flight() else owner
+        return req.channel if req else "mac"
 
     def _in_flight(self) -> bool:
         return self._current is not None and not self._current.done.is_set()
@@ -384,6 +412,8 @@ class Jarvis:
                 self._first_token = True
                 log.info("first token %.2f s", self.clock() - self._sent_at)
             self._publish("reply_delta", text=ev["text"])
+            if self.speaker and self._turn_channel() == "mac":
+                self.speaker.feed(ev["text"])
         elif kind == "turn":
             if self._in_flight():
                 self._current.turn = ev
@@ -521,6 +551,60 @@ class Jarvis:
                 self._reply(a.channel, a.question, True)
         self._publish_queue()
 
+    # ---- voice -----------------------------------------------------------------------------------------------
+
+    def wake(self, key: bool = False) -> bool:
+        """The name (WAKE) or the talk key (PUSH, which also cuts speech short). True if now listening."""
+        if key and self.speaker and self.sm.state is State.SPEAKING:
+            self.speaker.stop()
+        self._drive(Event.PUSH if key else Event.WAKE)
+        return self.sm.state is State.LISTENING
+
+    def cue(self) -> None:
+        if self.speaker:
+            self.speaker.cue()
+
+    def speech_started(self) -> None:
+        self._drive(Event.SPEECH_START)
+
+    def heard(self, text: str) -> None:
+        """A spoken request; nothing heard leaves no trace. The reply is not awaited."""
+        if not text.strip():
+            return self.give_up()
+        self._drive(Event.SPEECH_END)
+        task = asyncio.create_task(self.submit(text, "mac"))
+        self._hearing.add(task)
+        task.add_done_callback(self._hearing.discard)
+
+    def give_up(self) -> None:
+        if self.sm.state is State.LISTENING:
+            self._drive(Event.CANCEL)
+
+    def level(self, rms: float) -> None:
+        self._publish("level", rms=rms)
+
+    def set_mic(self, word: str) -> None:
+        self._mic = word
+        self._publish_health()
+
+    def _spoke(self) -> None:
+        """Speech ran out: the turn goes on if a mac request is still running or about to be served."""
+        blocked = self._limits["status"] == "reached" or self._offline  # its wait may be hours: don't sit in THINKING
+        busy = [self._current] if self._current else []
+        busy += [] if blocked else list(self._waiting)
+        self._drive(Event.REPLY_PAUSE if any(r.channel == "mac" for r in busy) else Event.REPLY_END)
+
+    def _drive(self, event: Event) -> None:
+        """Feeds the state machine; a change publishes one state event and holds speech while listening."""
+        was = (self.sm.state, self.sm.muted)
+        self.sm.on(event)
+        if (self.sm.state, self.sm.muted) == was:
+            return
+        listening = self.sm.state is State.LISTENING
+        if self.speaker and listening != (was[0] is State.LISTENING):
+            self.speaker.hold(listening)
+        self._publish_state()
+
     # ---- events ----------------------------------------------------------------------------------------------
 
     async def subscribe(self) -> AsyncIterator[dict]:
@@ -559,12 +643,13 @@ class Jarvis:
         return "online" if self.bridge.alive else "starting"  # its first init comes only with the first message
 
     def _health_body(self) -> dict:
-        return {"brain": self._brain(), "vault": self.vault.status(), "mic": "off", "phone": "not linked",
+        return {"brain": self._brain(), "vault": self.vault.status(), "mic": self._mic, "phone": "not linked",
                 "awake": "n/a", "checklist": self.checklist()}
 
     def _publish_health(self, full: bool = False) -> None:
         """`full` re-reads the vault and the checklist (every CHECK_EVERY s); otherwise only the brain changes."""
-        body = self._health_body() if full or not self._health else self._health | {"brain": self._brain()}
+        body = self._health_body() if full or not self._health else self._health | {"brain": self._brain(),
+                                                                                       "mic": self._mic}
         if body != self._health:
             self._health = body
             self._publish("health", **body)
