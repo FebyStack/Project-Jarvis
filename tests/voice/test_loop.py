@@ -92,9 +92,24 @@ def mic():
     return FakeMic()
 
 
+class FakeKeys:
+    """`listen` for Voice: keeps the callback; never a real key listener."""
+    def __init__(self):
+        self.on_kind, self.stopped = None, False
+
+    def __call__(self, on_kind):
+        self.on_kind = on_kind
+        return lambda: setattr(self, "stopped", True)
+
+
 @pytest.fixture
-async def voice(jarvis, engines, mic):
-    v = Voice(jarvis, engines, mic, Segmenter(lambda f: 1.0 if f.any() else 0.0))
+def keys():
+    return FakeKeys()
+
+
+@pytest.fixture
+async def voice(jarvis, engines, mic, keys):
+    v = Voice(jarvis, engines, mic, Segmenter(lambda f: 1.0 if f.any() else 0.0), listen=keys)
     await v.start()
     yield v
     await v.stop()
@@ -190,9 +205,9 @@ async def test_muting_stops_the_mic_and_unmuting_starts_it(voice, jarvis, engine
 
 async def test_engines_that_will_not_load_leave_typed_jarvis_working(jarvis, engines, mic):
     engines.load_says = "no models"
-    v = Voice(jarvis, engines, mic, Segmenter(lambda f: 0.0))
+    v = Voice(jarvis, engines, mic, Segmenter(lambda f: 0.0), listen=(keys := FakeKeys()))
     await v.start()
-    assert mic.starts == 0 and jarvis.health()["mic"] == "no models"
+    assert mic.starts == 0 and keys.on_kind is None and jarvis.health()["mic"] == "no models"
     assert (await jarvis.submit("what time is it", "mac")).say == say_time(NOW)
     await v.stop()
 
@@ -213,3 +228,68 @@ async def test_the_log_has_timings_and_never_text(voice, jarvis, engines, bridge
     await bridge.got("open the secret plans 7731")
     assert "transcribe " in caplog.text and "for 1.5 s of speech" in caplog.text
     assert "7731" not in caplog.text and "secret" not in caplog.text
+
+
+# ---- the talk key ------------------------------------------------------------------------------------------------
+
+async def test_hold_sends_what_was_said_with_no_name_and_no_silence_wait(voice, jarvis, engines, bridge):
+    engines.hears("open Mail")
+    voice.key("down"); await feed(voice, SPEECH, 20)
+    voice.key("hold_end"); await bridge.got("open Mail")
+
+
+async def test_tap_listens_and_a_pause_sends(voice, jarvis, engines, speaker, bridge):
+    engines.hears("open Mail")
+    voice.key("down"); voice.key("tap")
+    assert jarvis.state is State.LISTENING and ("cue",) in speaker.calls
+    await feed(voice, SPEECH, 10); await feed(voice, SILENCE, 30); await bridge.got("open Mail")
+
+
+async def test_typing_with_the_key_does_nothing(voice, jarvis, speaker):   # Review Focus 5
+    await speaking(jarvis, speaker); speaker.calls.clear(); seen = collect(jarvis)
+    voice.key("down"); await feed(voice, SPEECH, 3); voice.key("chord")
+    await asyncio.sleep(0.25)  # past the grace
+    assert ("stop",) not in speaker.calls and [e for e in seen() if e["type"] in ("state", "level")] == []
+    assert jarvis.state is State.SPEAKING and voice.seg.buf == [] and not voice.seg.held
+
+
+async def test_a_chord_after_the_grace_gives_up_quietly(voice, jarvis, bridge):
+    voice.key("down"); await until(lambda: jarvis.state is State.LISTENING)
+    await feed(voice, SPEECH, 3); voice.key("chord")
+    assert jarvis.state is State.IDLE and voice.seg.buf == []
+    await asyncio.sleep(0.01); assert bridge.sent == []
+
+
+async def test_the_key_works_while_muted_and_the_mic_shuts_again(voice, jarvis, engines, speaker, bridge, mic):
+    await jarvis.submit("stop listening", "mac"); await until(lambda: not mic.running)
+    engines.hears("open Mail")
+    voice.key("down"); assert mic.running
+    await feed(voice, SPEECH, 20); voice.key("hold_end"); await bridge.got("open Mail")
+    bridge.emit(turn("Opened.")); await until(lambda: ("say", "Opened.") in speaker.calls)
+    speaker.on_start(); speaker.on_done(); assert jarvis.state is State.IDLE
+    await until(lambda: not mic.running); assert jarvis.health()["mic"] == "muted"
+
+
+async def test_the_key_stops_speech(voice, jarvis, speaker):
+    await speaking(jarvis, speaker)
+    voice.key("down"); await until(lambda: jarvis.state is State.LISTENING)
+    assert ("stop",) in speaker.calls
+
+
+async def test_holding_with_nothing_said_gives_up(voice, jarvis, engines, bridge):
+    engines.hears("")
+    voice.key("down"); await feed(voice, SILENCE, 20); voice.key("hold_end")
+    await until(lambda: engines.calls == 1 and jarvis.state is State.IDLE); assert bridge.sent == []
+
+
+async def test_without_a_listener_the_footer_says_so(jarvis, engines, mic):
+    v = Voice(jarvis, engines, mic, Segmenter(lambda f: 0.0), listen=lambda on_kind: None)
+    await v.start(); await asyncio.sleep(0.01)
+    assert jarvis.health()["mic"] == "on, no key"
+    await v.stop()
+
+
+async def test_a_key_gesture_hops_to_the_loop_and_stop_ends_the_listener(voice, jarvis, keys):
+    await asyncio.to_thread(keys.on_kind, "down")  # the listener calls back on its own thread
+    await until(lambda: voice.seg.held)
+    await voice.stop(); assert keys.stopped
