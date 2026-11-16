@@ -602,3 +602,26 @@ All 30 findings of the review pass (Obsidian, "Jarvis Plan 2 Review") were fixed
 | 9b (new) | Kill the child while it answers, with a second request queued behind it | First try: the request in flight ended 0.60 s after the kill ("Claude stopped while answering. Ask me again."). But the queued request was sent into the second the child was down and got "Claude isn't running", which also went unlogged. Fixed in `b8be83c` (the queue waits for the child to come back; a request the brain cannot take is still recorded). Second try: in flight ended 0.60 s after the kill; the queued request waited, then was answered 16.8 s after the kill, remembering a word given before the kill (Claude also re-answered the cut question in that reply). Health went `starting` → `online`. An empty turn of Claude's own after the restart was logged as "(worker finished) → ", fixed in `03f0fd2` | **Pass** after the fixes |
 
 Not re-run, and still Febriel's: row 10's live `y`/`n` and Escape in the HUD (the HUD now waits 0.4 s after a lone `y`/`n`/`a`, and shows the question on its own full-width line).
+
+## Plan 3 probes (Plan 3 Task 1)
+
+Run 2026-11-17 (P5–P7 with Febriel at the Mac, 00:30–00:36 on 2026-11-18). Packages: `parakeet-mlx` 0.7.0, `pyobjc-framework-quartz` 13.0, `en_core_web_sm` 3.8.0 added; the `spike` uv group is gone (everything in it is now a product dependency) and the re-lock changed no other version. Scripts: `spikes/09-voice/` (`_common.py` holds the shared Kokoro / resample / Parakeet helpers). No audio was written to disk.
+
+| # | Probe | Measured | Bar | Verdict |
+|---|---|---|---|---|
+| P1 | Parakeet and Kokoro, 20 alternating calls each on one worker thread of an asyncio process, a `sounddevice` input callback running | No crash, 541 callbacks. Parakeet median 0.135 s (max 0.217), Kokoro first sentence median 0.201 s (max 0.240) | Medians ≤ 0.255 / 0.285 s | **Pass** |
+| P2 | Load with `HF_HUB_OFFLINE=1` and a dead proxy (`HTTPS_PROXY=http://127.0.0.1:9`; stands in for Wi-Fi off) | Parakeet loads in 0.61 s, Kokoro in 0.27 s; first synthesis 4.87 s (cold pipeline and spaCy); `en_core_web_sm` from the venv; nothing downloaded | Loads, no download | **Pass** |
+| P3 | Parakeet on speech synthesized in memory (four Kokoro voices; Febriel's own voice comes in Tasks 14–15) | Capitals, `?` and `.` kept; small numbers spelled out ("10 minutes" → "ten minutes"); times keep digits ("3:30 p.m."); the comma after the name often dropped; the name heard as "Jervis", "Javis", "Jarvis". 15 s utterance 0.39 s, 60 s 1.53 s | 60 s under 2 s | **Pass** |
+| P4 | `sounddevice` output and input timings | `play` → first output callback 0.004–0.007 s; `OutputStream.abort()` 0.104–0.107 s; `InputStream.stop()` median 0.112 s; `start()` 0.054 s | Stop < 0.1 s; restart < 0.15 s | **Stop just over (0.11 s); restart pass.** See the amendment in the plan |
+| P5 | A Kokoro sentence through the Mac speakers, mic open | The voice detector fired during playback and not after the last output sample (0.00 s) | < 0.2 s keeps 0.3 s | **Pass**: `MIC_REOPEN_DELAY` stays 0.3 s |
+| P6 | Listen-only Quartz tap (`flagsChanged`, `keyDown`) from a temporary login agent run like `com.febriel.jarvisd` | First run: tap created, no events (no grant yet). Febriel switched on **"Python"** under Input Monitoring; second run: Right Option key code **61**, down flags `0x90140` (bit **`0x40`** set), up `0x10100` (bit clear), 7 downs and 7 ups; Option+E arrived as `keyDown` with Option held | Events arrive | **Pass** |
+| P7 | The mic read for 10 s from a temporary login agent | Real audio (room only, RMS ~135, peak 512); no prompt; System Settings > Microphone lists **"Python"** | Real audio | **Pass** |
+| P8 | 880 Hz, 80 ms tone at a quarter of full scale through the speakers, mic open (×5) | Voice detector max 0.081; Parakeet returned "" | Neither fires | **Pass**: the mic stays open for the tone |
+
+### What later tasks must do
+- **Task 8:** one `ThreadPoolExecutor(max_workers=1)` for both models is fine (P1). Warm both at load: the first synthesis takes ~4.9 s cold (P2).
+- **Task 2:** tests may keep the plan's inputs (`split` slices the text, digits or not), and add one in the form Parakeet really gives: no comma after the name, numbers spelled out ("Hey Javis set a timer for ten minutes").
+- **Tasks 8, 10, decision 6:** unchanged. Muting stops the input stream (restart 0.054 s is well under the 0.15 s bar, and a mute does not need to be fast); while Jarvis speaks the stream stays open and frames are dropped, as planned. Escape → silence costs ~0.105 s through `abort()`, inside row 10's 0.2 s.
+- **Task 11:** key code 61, flag bit `0x40` for Right Option; the up event clears the bit. A `keyDown` while it is held is the chord.
+- **Task 12:** the README names **"Python"** for both Input Monitoring and Microphone (it is the venv's interpreter that macOS sees, so a Python upgrade can drop both grants). `uv run` re-resolves the `en_core_web_sm` URL and fails with no network; the login agent runs `.venv/bin/jarvis` directly, so it is unaffected, but offline checks by hand use `.venv/bin/jarvis` or `uv run --frozen --no-sync`.
+- **Tasks 14–15:** P3 and P8 were on synthesized speech and this Mac's current volume; confirm on Febriel's voice.
