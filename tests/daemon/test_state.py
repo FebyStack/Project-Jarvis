@@ -85,3 +85,46 @@ def test_cancel_in_idle_and_while_muted(sm):
     assert sm.on(Event.CANCEL) is State.IDLE
     sm.on(Event.MUTE); sm.on(Event.CANCEL)
     assert sm.muted is True
+
+
+@pytest.mark.parametrize("state", [State.IDLE, State.THINKING, State.SPEAKING, State.FOLLOW_UP])
+def test_the_key_listens_from_every_state(sm, state):
+    reach(sm, state); assert sm.on(Event.PUSH) is State.LISTENING
+
+
+def test_the_key_listens_while_muted_and_only_then_is_the_mic_open(sm):
+    sm.on(Event.MUTE); assert not sm.mic_open
+    assert sm.on(Event.PUSH) is State.LISTENING and sm.mic_open
+    sm.on(Event.SPEECH_END); assert not sm.mic_open            # back to shut once the request is in
+
+
+def test_a_typed_request_thinks_then_speaks(sm):
+    assert [sm.on(e) for e in (Event.REQUEST, Event.REPLY_START, Event.REPLY_END)] == \
+        [State.THINKING, State.SPEAKING, State.FOLLOW_UP]
+
+
+def test_an_announcement_speaks_from_idle(sm):
+    assert sm.on(Event.REPLY_START) is State.SPEAKING and not sm.mic_open
+
+
+def test_speech_that_runs_out_mid_turn_goes_back_to_thinking(sm):
+    reach(sm, State.SPEAKING); assert sm.on(Event.REPLY_PAUSE) is State.THINKING
+
+
+def test_listening_gives_up_after_eight_seconds(sm, clock):
+    sm.on(Event.WAKE); clock.advance(7.9); assert sm.on(Event.TICK) is State.LISTENING
+    clock.advance(0.1); assert sm.on(Event.TICK) is State.IDLE
+
+
+def test_listening_does_not_give_up_mid_sentence(sm, clock):
+    sm.on(Event.WAKE); sm.on(Event.SPEECH_START); clock.advance(30); assert sm.on(Event.TICK) is State.LISTENING
+
+
+def test_a_name_still_wakes_only_from_idle(sm):
+    reach(sm, State.THINKING); assert sm.on(Event.WAKE) is State.THINKING
+
+
+def test_waking_again_while_listening_restarts_the_eight_seconds(sm, clock):
+    sm.on(Event.WAKE); sm.on(Event.SPEECH_START); clock.advance(5); sm.on(Event.WAKE)
+    clock.advance(7.9); assert sm.on(Event.TICK) is State.LISTENING
+    clock.advance(0.1); assert sm.on(Event.TICK) is State.IDLE
