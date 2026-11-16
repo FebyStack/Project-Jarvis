@@ -1,4 +1,4 @@
-"""`jarvis daemon | hud | ask | doctor | shortlist` (plan 2, Task 12)."""
+"""`jarvis daemon | hud | ask | doctor | shortlist | models` (plan 2, Task 12; plan 3, Task 12)."""
 import argparse
 import json
 import os
@@ -16,6 +16,14 @@ from jarvis.memory.vault import Vault
 AGENTS = ("jarvis", "triage", "coder", "researcher", "scribe")
 NOT_RUNNING = "jarvisd is not running. Start it with: jarvis daemon"
 LOGIN_TIMEOUT = 30
+ALLOW = "allow \"Python\" in System Settings > Privacy & Security > {}, then restart jarvisd (launchd/README.md)"
+VOICE_LINES = {
+    "no permission": "jarvisd cannot hear: " + ALLOW.format("Microphone"),
+    "on, no key": "the talk key is off: " + ALLOW.format("Input Monitoring"),
+    "no models": "the voice models are missing: run jarvis models",
+    "loading": "the voice models are still loading; ask again in a few seconds",
+    "off": f"the mic is off (no input device, or the voice did not start); see {config.HOME_DIR / 'jarvisd.log'}",
+}
 
 
 def checklist(slow: bool = True) -> list[str]:
@@ -82,6 +90,7 @@ def daemon() -> int:
     from jarvis.remote.token import load_token
 
     token = load_token(config.HOME_DIR)
+    os.environ["HF_HUB_OFFLINE"] = "1"  # the models load from the cache; only `jarvis models` downloads
     logging.basicConfig(filename=config.HOME_DIR / "jarvisd.log", level=logging.INFO,
                         format="%(asctime)s %(levelname)s %(name)s %(message)s")
     vault = Vault(config.VAULT)
@@ -97,7 +106,37 @@ def daemon() -> int:
     return 0
 
 
-async def _run(vault: Vault, token: str) -> None:
+def _build_voice():
+    """The speaker for the core, and a function that makes the `Voice` once the core exists."""
+    from jarvis.voice.audio import Mic, Player
+    from jarvis.voice.engines import Engines, vad
+    from jarvis.voice.loop import Voice
+    from jarvis.voice.segment import Segmenter
+    from jarvis.voice.speaker import VoiceSpeaker
+
+    engines = Engines()
+    return VoiceSpeaker(engines.synth, Player()), lambda jarvis: Voice(jarvis, engines, Mic(), Segmenter(vad()))
+
+
+async def _voice(jarvis, make_voice) -> None:
+    """Runs the voice until cancelled. One that fails to start is logged and leaves the rest of jarvisd running."""
+    import asyncio
+    import logging
+
+    voice = None
+    try:
+        voice = make_voice(jarvis)
+        await voice.start()  # loads the models, 4-14 s
+        await asyncio.Future()
+    except Exception:
+        logging.exception("voice did not start")
+        jarvis.set_mic("off")
+    finally:
+        if voice is not None:
+            await voice.stop()
+
+
+async def _run(vault: Vault, token: str, build_voice=_build_voice) -> None:
     import asyncio
     import signal
     import time
@@ -107,33 +146,41 @@ async def _run(vault: Vault, token: str) -> None:
     from jarvis.daemon.core import Jarvis
     from jarvis.remote.api import make_app, serve
 
-    jarvis = Jarvis(vault, Bridge, time.time, datetime.now, checklist=lambda: checklist(slow=False))
+    speaker, make_voice = build_voice()
+    jarvis = Jarvis(vault, Bridge, time.time, datetime.now, checklist=lambda: checklist(slow=False), speaker=speaker)
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(sig, stop.set)
     await jarvis.start()
     server = asyncio.create_task(serve(make_app(jarvis, token)))
+    voice = asyncio.create_task(_voice(jarvis, make_voice))  # in the background, so the API is up meanwhile
     try:
         await asyncio.wait([server, asyncio.create_task(stop.wait())], return_when=asyncio.FIRST_COMPLETED)
         if server.done():
             server.result()  # "port … is taken" surfaces here
     finally:
+        voice.cancel()  # the mic and the talk key stop before the core does
+        await asyncio.gather(voice, return_exceptions=True)
         await jarvis.stop()  # answers and records every open request first, then stops the claude child
         server.cancel()  # so the API's open requests have finished and its shutdown is quick
         await asyncio.gather(server, return_exceptions=True)
 
 
-def ask(text: str) -> int:
+def _call(path: str, body: dict | None = None) -> dict:
     from jarvis.remote.token import load_token
 
     req = urllib.request.Request(
-        f"http://127.0.0.1:{config.PORT}/ask", data=json.dumps({"text": text, "channel": "mac"}).encode(),
+        f"http://127.0.0.1:{config.PORT}{path}", data=body and json.dumps(body).encode(),
         headers={"Authorization": f"Bearer {load_token(config.HOME_DIR)}", "Content-Type": "application/json"})
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))  # the token goes to 127.0.0.1 only
+    with opener.open(req) as resp:
+        return json.loads(resp.read())
+
+
+def ask(text: str) -> int:
     try:
-        with opener.open(req) as resp:
-            print(json.loads(resp.read())["say"])
+        print(_call("/ask", {"text": text, "channel": "mac"})["say"])
     except urllib.error.HTTPError as e:
         print(f"jarvisd answered {e.code}", file=sys.stderr)
         return 1
@@ -143,8 +190,21 @@ def ask(text: str) -> int:
     return 0
 
 
+def voice_lines(mic: str) -> list[str]:
+    """What to do about the mic word jarvisd reports; empty when the voice works (or Febriel muted it)."""
+    if mic in ("on", "muted"):
+        return []
+    return [VOICE_LINES.get(mic, f"the voice did not load ({mic}); see {config.HOME_DIR / 'jarvisd.log'}")]
+
+
 def doctor() -> int:
     lines = checklist(slow=True)
+    try:
+        lines += voice_lines(_call("/health")["mic"])
+    except urllib.error.HTTPError as e:
+        lines.append(f"jarvisd answered {e.code} to /health")
+    except (urllib.error.URLError, ConnectionError):  # the grants belong to jarvisd's process, not this terminal
+        lines.append("jarvisd is not running, so the mic and the talk key cannot be checked. Start it, then ask again")
     print("\n".join(lines) or "Ready.")
     return 1 if lines else 0
 
@@ -157,6 +217,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("ask", help="ask jarvisd once").add_argument("text")
     sub.add_parser("doctor", help="what is still missing")
     sub.add_parser("shortlist", help="repeat tasks from your last 30 days")
+    sub.add_parser("models", help="download the speech models (once)")
     args = p.parse_args(argv)
     if args.cmd == "daemon":
         return daemon()
@@ -168,5 +229,10 @@ def main(argv: list[str] | None = None) -> int:
         return ask(args.text)
     if args.cmd == "doctor":
         return doctor()
+    if args.cmd == "models":
+        from jarvis.voice.engines import download
+        download()
+        print("Models ready.")
+        return 0
     from jarvis.brain.shortlist import run as shortlist
     return shortlist(config.VAULT)

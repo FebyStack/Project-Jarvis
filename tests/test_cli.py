@@ -98,7 +98,7 @@ async def test_stopping_with_a_request_in_flight_is_quick(monkeypatch, tmp_path)
     port = unused_port(); monkeypatch.setattr("jarvis.config.PORT", port)
     monkeypatch.setattr("jarvis.brain.bridge.Bridge", FakeBridge)                 # never the real claude
     token = load_token(tmp_path / "j")
-    run = asyncio.create_task(cli._run(Vault(tmp_path / "v"), token))
+    run = asyncio.create_task(cli._run(Vault(tmp_path / "v"), token, build_voice=no_voice))
     async with aiohttp.ClientSession(headers={"Authorization": f"Bearer {token}"}) as s:
         for _ in range(200):
             try:
@@ -111,3 +111,90 @@ async def test_stopping_with_a_request_in_flight_is_quick(monkeypatch, tmp_path)
         await asyncio.wait_for(run, 10)
         assert time.monotonic() - started < 5                                      # launchd waits 20 s, then kills
         assert (await (await asyncio.wait_for(ask, 2)).json())["say"].startswith("Jarvis is stopping")
+
+
+# ── Plan 3, Task 12: the voice in jarvisd ──
+
+class NoVoice:
+    async def start(self): pass
+    async def stop(self): pass
+
+
+def no_voice():
+    """A `build_voice` that builds nothing: no mic, model, speaker or key listener."""
+    return None, lambda jarvis: NoVoice()
+
+
+def test_voice_lines_say_what_to_do():
+    from jarvis.cli import voice_lines
+    assert voice_lines("on") == []
+    assert "Microphone" in voice_lines("no permission")[0]
+    assert "Input Monitoring" in voice_lines("on, no key")[0]
+    assert "jarvis models" in voice_lines("no models")[0]
+
+
+def test_models_is_a_command(monkeypatch):
+    calls = []
+    monkeypatch.setattr("jarvis.voice.engines.download", lambda: calls.append(1))
+    assert main(["models"]) == 0 and calls == [1]
+
+
+def test_the_daemon_never_downloads_at_start(monkeypatch, tmp_path):
+    import os
+    import jarvis.cli as cli
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False); monkeypatch.delenv("HF_HUB_OFFLINE", raising=False)
+    monkeypatch.setenv("JARVIS_HOME", str(tmp_path / "j")); monkeypatch.setenv("JARVIS_VAULT", str(tmp_path / "v"))
+    monkeypatch.setattr(cli, "_port_taken", lambda: False)
+    monkeypatch.setattr("jarvis.brain.desktop_skills.link", lambda dest: [])
+    seen = []
+
+    async def no_run(vault, token):
+        seen.append(os.environ.get("HF_HUB_OFFLINE"))
+    monkeypatch.setattr(cli, "_run", no_run)
+    assert cli.main(["daemon"]) == 0 and seen == ["1"]
+
+
+def test_cli_import_stays_light():
+    import subprocess, sys
+    code = ("import sys, jarvis.cli, jarvis.tui.app, jarvis.daemon.core; "
+            "print([m for m in ('mlx', 'sounddevice', 'Quartz', 'openwakeword') if m in sys.modules])")
+    out = subprocess.run([sys.executable, "-c", code], cwd=ROOT, capture_output=True, text=True, check=True)
+    assert out.stdout.strip() == "[]"
+
+
+async def test_a_voice_that_fails_to_start_does_not_stop_the_daemon(monkeypatch, tmp_path, caplog):
+    import os, signal
+    import aiohttp
+    from aiohttp.test_utils import unused_port
+    import jarvis.cli as cli
+    from jarvis.memory.vault import Vault
+    from jarvis.remote.token import load_token
+    from tests.daemon.test_core import FakeBridge
+    monkeypatch.setenv("JARVIS_HOME", str(tmp_path / "j")); monkeypatch.setenv("JARVIS_VAULT", str(tmp_path / "v"))
+    (tmp_path / "v").mkdir()
+    port = unused_port(); monkeypatch.setattr("jarvis.config.PORT", port)
+    monkeypatch.setattr("jarvis.brain.bridge.Bridge", FakeBridge)
+    stopped = []
+
+    class BrokenVoice:
+        def __init__(self, jarvis): self.jarvis = jarvis
+        async def start(self):
+            self.jarvis.set_mic("loading")
+            raise RuntimeError("no input device")
+        async def stop(self): stopped.append(1)
+
+    token = load_token(tmp_path / "j")
+    run = asyncio.create_task(cli._run(Vault(tmp_path / "v"), token, build_voice=lambda: (None, BrokenVoice)))
+    async with aiohttp.ClientSession(headers={"Authorization": f"Bearer {token}"}) as s:
+        for _ in range(200):
+            try:
+                health = await (await s.get(f"http://127.0.0.1:{port}/health")).json()
+                if health["mic"] == "off" and "voice did not start" in caplog.text:
+                    break
+            except aiohttp.ClientConnectionError:
+                pass
+            await asyncio.sleep(0.02)
+        assert health["mic"] == "off" and "no input device" in caplog.text
+    os.kill(os.getpid(), signal.SIGTERM)
+    await asyncio.wait_for(run, 10)
+    assert stopped == [1]

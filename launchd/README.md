@@ -15,3 +15,22 @@ launchctl bootout gui/$(id -u)/com.febriel.jarvisd && rm ~/Library/LaunchAgents/
 ```
 
 Stop any `jarvis daemon` you started by hand first: both want port 8787.
+
+## Permissions
+
+jarvisd needs two grants for the voice. macOS lists the program as **Python** (the interpreter behind `.venv/bin/jarvis`), not as jarvis or Terminal:
+
+- **Microphone**: System Settings > Privacy & Security > Microphone, switch on "Python". Without it the mic gives only silence and `jarvis doctor` says jarvisd cannot hear.
+- **Input Monitoring**: System Settings > Privacy & Security > Input Monitoring, switch on "Python". Without it the talk key (Right Option) is off and the HUD shows `MIC ● on, no key`; speaking the name still works.
+
+The grants belong to the jarvisd process, not to the terminal you type in, so restart jarvisd after changing either:
+
+```bash
+launchctl kickstart -k gui/$(id -u)/com.febriel.jarvisd
+```
+
+Then check with `jarvis doctor`. A Python upgrade (uv-managed CPython, or Homebrew's) gives a new interpreter, and macOS can reset both grants; switch "Python" on again in both lists and restart.
+
+## Speech models and offline use
+
+`jarvis models` downloads the speech models once. jarvisd never downloads: it starts with `HF_HUB_OFFLINE=1` and loads them from the cache, so the voice works with no network. The login agent runs `.venv/bin/jarvis` directly and is unaffected by `uv`. By hand with no network, run `.venv/bin/jarvis …` or `uv run --frozen --no-sync jarvis …`: plain `uv run` tries to fetch the `en_core_web_sm` wheel again and fails.
