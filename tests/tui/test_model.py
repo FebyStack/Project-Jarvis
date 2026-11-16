@@ -65,3 +65,16 @@ def test_limit_keeps_the_reset_time():
 def test_unknown_event_changes_nothing():
     v = reduce(View.empty(), SNAPSHOT)
     assert reduce(v, {"type": "phone_ring", "at": "x"}) is v
+
+
+# ── Plan 3, Task 13: the voice ──
+
+def test_levels_keep_the_last_28():
+    v = reduce(View.empty(), SNAPSHOT)
+    for i in range(40): v = reduce(v, {"type": "level", "rms": i / 100})
+    assert len(v.levels) == 28 and v.levels[-1] == 0.39 and v.levels[0] == 0.12
+
+
+def test_levels_clear_when_the_mic_goes_off():
+    v = reduce(reduce(View.empty(), SNAPSHOT), {"type": "level", "rms": 0.5}); assert v.levels == (0.5,)
+    assert reduce(v, {"type": "health", "mic": "muted"}).levels == ()

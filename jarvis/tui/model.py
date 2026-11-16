@@ -4,6 +4,8 @@ from dataclasses import dataclass, field, replace
 from typing import Literal
 
 MEMORY_ROWS = 50
+LEVELS = 28  # the waveform's width
+MIC_ON = ("on", "on, no key")
 
 
 @dataclass(frozen=True)
@@ -39,6 +41,7 @@ class View:
     health: dict
     screen: Literal["main", "starting", "offline", "vault", "limit", "first-run", "no-daemon"]
     resets_at: float | None = None  # for "LIMIT REACHED: resumes at HH:MM"
+    levels: tuple[float, ...] = ()  # the mic's last LEVELS levels, 0..1, newest last
     reply_done: bool = field(default=False, repr=False)  # the next reply_delta starts a new reply
 
     @classmethod
@@ -118,6 +121,10 @@ def reduce(view: View, event: dict) -> View:
             ch = _limits(event)
         case "health":
             ch = {"health": view.health | _fields(event)}
+            if event.get("mic", "on") not in MIC_ON:
+                ch["levels"] = ()
+        case "level":
+            ch = {"levels": (*view.levels, event["rms"])[-LEVELS:]}
         case _:
             return view
     v = replace(view, **ch)

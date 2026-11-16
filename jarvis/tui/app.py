@@ -17,12 +17,13 @@ from textual.widgets import Input, OptionList, Static
 from textual.widgets.option_list import Option
 
 from jarvis import config
-from jarvis.tui.model import View, elapsed, needs_you, reduce
+from jarvis.tui.model import LEVELS, MIC_ON, View, elapsed, needs_you, reduce
 
 SKILLS_DIR = Path(__file__).resolve().parents[2] / ".claude" / "skills"
 ACTIVE, IDLE = "#FFD700", "#8A7424"
 MARKS = {"running": ("▶", "running", ACTIVE), "waiting": ("◦", "waiting", IDLE), "needs_you": ("?", "NEEDS YOU", f"bold {ACTIVE}")}
 OFF_WORDS = {"", "off", "n/a", "not linked"}
+BARS = "▁▂▃▄▅▆▇█"
 NOTICES = {
     "starting": "STARTING UP",
     "offline": "OFFLINE: no connection to Claude",
@@ -122,6 +123,7 @@ class Hud(App):
         Binding("a", "answer('always')", show=False, priority=True),
         Binding("slash", "skills", show=False, priority=True),
         Binding("escape", "escape", show=False, priority=True),
+        Binding("ctrl+l", "mic", show=False, priority=True),
         Binding("ctrl+q", "quit", show=False, priority=True),
     ]
 
@@ -144,7 +146,7 @@ class Hud(App):
         yield Static(id="notice")
         yield Static(id="question")
         yield OptionList(id="skills")
-        yield Input(placeholder="Type to Jarvis…   / skills   esc cancel", id="ask", select_on_focus=False)
+        yield Input(placeholder="Type to Jarvis…   / skills   ^L mic   esc cancel", id="ask", select_on_focus=False)
         yield Static(id="footer")
 
     def on_mount(self) -> None:
@@ -171,7 +173,8 @@ class Hud(App):
         self.query_one("#link", Static).update(Text(f"{link}   {time.strftime('%H:%M', time.localtime(self.now()))}"))
 
         voice = Text(v.voice, style=IDLE if v.voice == "IDLE" else f"bold {ACTIVE}")
-        voice.append("\n" + "▁" * 28 + "\n", style=IDLE)
+        wave = "".join(BARS[round(level * (len(BARS) - 1))] for level in v.levels).rjust(LEVELS, BARS[0])
+        voice.append(f"\n{wave}\n", style=IDLE)
         if v.last_heard:
             voice.append(f'"{v.last_heard}"\n')
         voice.append(v.reply, style=ACTIVE)
@@ -197,9 +200,9 @@ class Hud(App):
 
         self.query_one("#memory", Static).update(Text("\n".join(f"{op} {path}" for op, path in v.memory)))
 
-        mic = "off" if v.muted else v.health.get("mic", "off")
+        mic = "muted" if v.muted else v.health.get("mic", "off")
         footer = [_status("AWAKE", v.health.get("awake", "n/a")), _status("PHONE", v.health.get("phone", "not linked")),
-                  _status("MIC", mic), v.limits or "LIMITS ○ unknown"]
+                  f"MIC {'●' if mic in MIC_ON else '○'} {mic}", v.limits or "LIMITS ○ unknown"]
         self.query_one("#footer", Static).update(Text("    ".join(footer)))
 
         main = v.screen == "main"
@@ -268,6 +271,9 @@ class Hud(App):
             self.set_focus(None)
         else:
             self._send(self.client.cancel())
+
+    def action_mic(self) -> None:
+        self._send(self.client.ask("start listening" if self.view.muted else "stop listening"))
 
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
         event.option_list.display = False

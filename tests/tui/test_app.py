@@ -100,7 +100,7 @@ async def test_states_are_words_not_only_colour(hud, pilot, fake):
     fake.push({"type": "state", "voice": "THINKING", "muted": False}); await pilot.pause()
     assert "THINKING" in screen_text(hud) and "MIC ● on" in screen_text(hud)
     fake.push({"type": "state", "voice": "IDLE", "muted": True}); await pilot.pause()
-    assert "IDLE" in screen_text(hud) and "MIC ○ off" in screen_text(hud)            # muted shows as a word too
+    assert "IDLE" in screen_text(hud) and "MIC ○ muted" in screen_text(hud)          # muted shows as a word too
 
 
 # Beyond the plan's list
@@ -240,3 +240,40 @@ async def test_answer_keys_do_nothing_on_a_notice_screen(hud, pilot, fake):
     fake.push(QUEUE_WITH_NEEDS_YOU); fake.push({"type": "health", "brain": "online", "vault": "missing", "checklist": []})
     await pilot.pause(); await pilot.press("y"); await pilot.pause(0.6)
     assert fake.answers == []
+
+
+# ── Plan 3, Task 13: the voice ──
+
+def voice_line(hud, n):
+    """Line n of the VOICE panel's text, without its border."""
+    r = hud.query_one("#voice").region
+    return screen_text(hud).splitlines()[r.y + 1 + n][r.x:r.right].strip("┃│ ")
+
+
+async def test_the_waveform_follows_the_levels(hud, pilot, fake):
+    assert voice_line(hud, 1) == "▁" * 28
+    for rms in (0.0, 0.5, 1.0): fake.push({"type": "level", "rms": rms})
+    await pilot.pause()
+    assert voice_line(hud, 1) == "▁" * 25 + "▁▅█"
+
+
+@pytest.mark.parametrize("mic,shown", [("on", "MIC ● on"), ("muted", "MIC ○ muted"), ("no permission", "MIC ○ no permission"),
+                                       ("no models", "MIC ○ no models"), ("loading", "MIC ○ loading"),
+                                       ("on, no key", "MIC ● on, no key")])
+async def test_the_mic_word_shows_in_the_footer(hud, pilot, fake, mic, shown):
+    fake.push({"type": "health", "mic": mic}); await pilot.pause()
+    assert shown in screen_text(hud)
+
+
+async def test_ctrl_l_turns_the_mic_off_and_on(hud, pilot, fake):
+    await pilot.press("ctrl+l"); await pilot.pause(); assert fake.asked == ["stop listening"]
+    fake.asked.clear(); fake.push({"type": "state", "voice": "IDLE", "muted": True}); await pilot.pause()
+    await pilot.press("ctrl+l"); await pilot.pause(); assert fake.asked == ["start listening"]
+
+
+async def test_still_fits_80_by_24(hud, pilot, fake):
+    fake.push({"type": "health", "mic": "on, no key"}); fake.push({"type": "limits", "status": "near", "weekly": 1.0})
+    await pilot.pause()
+    footer = next(l for l in screen_text(hud).splitlines() if "MIC ● on, no key" in l)
+    assert "LIMITS ● 100%" in footer and len(footer.rstrip()) <= 80
+    assert hud.query_one("#footer").region.right <= 80
