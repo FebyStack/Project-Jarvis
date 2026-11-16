@@ -89,9 +89,9 @@ class Voice:
                     self._open = False
                 return
             self._open = True
-            held, quiet = self.seg.held, not self.seg.speaking
+            held, quiet = self.seg.held, not (self.seg.speaking or self.seg.heard)
             utt = self.seg.feed(frame)
-            started = quiet and self.seg.speaking
+            started = quiet and (self.seg.speaking or self.seg.heard)
         self._frames += 1
         if self._frames % 3 == 0 and mic_open:  # not while the key waits out its grace: typing shows nothing
             rms = float(np.sqrt(np.mean(frame.astype(np.float32) ** 2)))
@@ -182,4 +182,7 @@ class Voice:
         if not self._engaged:
             self._engaged = True
             self.jarvis.wake(key=True)
-            self.jarvis.speech_started()  # the key is speech: no 8 s give-up while it holds or a tap's speech runs
+            with self._lock:
+                talking = self.seg.speaking or self.seg.heard
+            if talking:  # speech already under way: no 8 s give-up while it runs
+                self.jarvis.speech_started()

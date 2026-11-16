@@ -245,6 +245,26 @@ async def test_tap_listens_and_a_pause_sends(voice, jarvis, engines, speaker, br
     await feed(voice, SPEECH, 10); await feed(voice, SILENCE, 30); await bridge.got("open Mail")
 
 
+async def test_a_tap_then_a_pause_still_listens(voice, jarvis, engines, bridge):
+    engines.hears("open Mail")
+    voice.key("down"); await feed(voice, SILENCE, 3); voice.key("tap")
+    await feed(voice, SILENCE, 50)  # 1.5 s before Febriel starts talking
+    assert jarvis.state is State.LISTENING and engines.calls == 0 and bridge.sent == []
+    await feed(voice, SPEECH, 10); await feed(voice, SILENCE, 30); await bridge.got("open Mail")
+
+
+async def test_a_tap_with_nothing_said_gives_up_after_8_s(voice, jarvis, clock):
+    voice.key("down"); await feed(voice, SILENCE, 3); voice.key("tap")
+    await feed(voice, SILENCE, 30); assert jarvis.state is State.LISTENING
+    clock.advance(8.0); await jarvis.tick(); assert jarvis.state is State.IDLE
+
+
+async def test_a_long_hold_is_not_cut_by_the_listening_timeout(voice, jarvis, clock):
+    voice.key("down"); await until(lambda: jarvis.state is State.LISTENING)
+    await feed(voice, SPEECH, 10)
+    clock.advance(9.0); await jarvis.tick(); assert jarvis.state is State.LISTENING
+
+
 async def test_typing_with_the_key_does_nothing(voice, jarvis, speaker):   # Review Focus 5
     await speaking(jarvis, speaker); speaker.calls.clear(); seen = collect(jarvis)
     voice.key("down"); await feed(voice, SPEECH, 3); voice.key("chord")

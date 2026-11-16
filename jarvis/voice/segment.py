@@ -32,6 +32,7 @@ class Segmenter:
         self.buf: list[np.ndarray] = []
         self.speaking = False
         self.held = False
+        self.heard = False  # the detector found speech in the held frames
         self.quiet = 0
 
     def _take(self, keep: int, cut: bool) -> Utterance:
@@ -42,6 +43,7 @@ class Segmenter:
     def feed(self, frame: np.ndarray) -> Utterance | None:
         self.buf.append(frame)
         if self.held:
+            self.heard |= self.predict(frame) >= START
             return self._take(len(self.buf), True) if len(self.buf) >= MAX_HELD_FRAMES else None
         p = self.predict(frame)
         if not self.speaking:
@@ -57,7 +59,7 @@ class Segmenter:
         return None
 
     def hold(self) -> None:
-        self.held = True
+        self.held, self.heard = True, self.speaking
 
     def release(self) -> Utterance | None:
         if not (self.held and self.buf):
@@ -66,4 +68,10 @@ class Segmenter:
         return self._take(len(self.buf), False)
 
     def tap(self) -> None:
-        self.held, self.speaking, self.quiet = False, True, 0
+        """Speech in the held frames goes on as speech in progress; none (a tap, then the request): keep only the
+        pre-roll and let the detector find the start."""
+        self.held = False
+        if self.heard:
+            self.speaking, self.quiet = True, 0
+        else:
+            self.buf = self.buf[-PRE_ROLL:]
