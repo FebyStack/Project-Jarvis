@@ -65,6 +65,6 @@ async def test_a_failed_load_names_the_error():
 def test_importing_the_voice_modules_loads_no_audio_or_model_package():
     import subprocess
     import sys
-    code = ("import sys, jarvis.voice.engines, jarvis.voice.audio; "
+    code = ("import sys, jarvis.voice.engines, jarvis.voice.audio, jarvis.voice.speaker; "
             "print([m for m in ('mlx', 'mlx_audio', 'parakeet_mlx', 'sounddevice', 'openwakeword') if m in sys.modules])")
     assert subprocess.run([sys.executable, "-c", code], capture_output=True, text=True).stdout.strip() == "[]"
