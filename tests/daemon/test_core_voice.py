@@ -122,3 +122,14 @@ async def test_a_request_parked_by_the_limit_does_not_keep_jarvis_thinking(make,
     b.emit({"kind": "limits", "status": "reached", "weekly": 1.0, "resets_at": clock() + 3600})
     r = await j.submit("fix it", "mac"); assert sp.calls[-1] == ("say", r.say)
     sp.on_start(); sp.on_done(); assert j.state is State.FOLLOW_UP    # its wait may be hours: the name must work
+
+
+async def test_a_spoken_question_opens_the_follow_up_window_so_yes_needs_no_name(make, bridge_of, tmp_path):
+    j = await make(speaker=(sp := FakeSpeaker())); b = bridge_of(j)
+    t = asyncio.create_task(j.submit("make a file", "mac")); await b.got("make a file")
+    h = asyncio.create_task(j.hook(outside_write(b, tmp_path)))
+    r = await t; assert r.loop and sp.calls[-1] == ("say", r.say)
+    sp.on_start(); sp.on_done(); assert j.state is State.FOLLOW_UP   # the turn still runs, but the question waits on you
+    j.speech_started(); assert j.state is State.LISTENING
+    j.heard("yes"); assert (await asyncio.wait_for(h, 1))["verdict"] == "allow"
+    b.emit(turn("Done.")); await until(lambda: ("say", "Done.") in sp.calls)

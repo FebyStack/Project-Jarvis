@@ -588,11 +588,13 @@ class Jarvis:
         self._publish_health()
 
     def _spoke(self) -> None:
-        """Speech ran out: the turn goes on if a mac request is still running or about to be served."""
+        """Speech ran out: the turn goes on if a mac request is still running or about to be served, unless it waits
+        on a spoken yes/no, which opens the follow-up window so "yes" needs no name."""
         blocked = self._limits["status"] == "reached" or self._offline  # its wait may be hours: don't sit in THINKING
         busy = [self._current] if self._current else []
         busy += [] if blocked else list(self._waiting)
-        self._drive(Event.REPLY_PAUSE if any(r.channel == "mac" for r in busy) else Event.REPLY_END)
+        go_on = any(r.channel == "mac" for r in busy) and not self.asks.pending("mac")
+        self._drive(Event.REPLY_PAUSE if go_on else Event.REPLY_END)
 
     def _drive(self, event: Event) -> None:
         """Feeds the state machine; a change publishes one state event and holds speech while listening."""
