@@ -23,6 +23,27 @@ RESET_IDLE_SECONDS = 1800
 SWEEP_IDLE_SECONDS = 1200
 SHUTDOWN_TIMEOUT = 3.0  # seconds the API waits for open requests on stop; launchd kills after 20
 
+# Voice (plan 3)
+SAMPLE_RATE = 16000
+FRAME = 480  # 30 ms
+END_SILENCE_SECONDS = 0.8
+MAX_UTTERANCE_SECONDS = 15.0
+MAX_HELD_SECONDS = 60.0
+WAKE_SIMILARITY = 0.70
+WAKE_STRICT = 0.80
+WAKE_ALSO: frozenset[str] = frozenset()  # extra spellings of the name that always wake
+WAKE_WORDS = 3  # the name must be among the first this many words
+LISTEN_SECONDS = 8.0
+TALK_KEYCODE = 61  # Right Option
+TAP_SECONDS = 0.3
+KEY_GRACE_SECONDS = 0.15
+MIC_REOPEN_DELAY = 0.3
+FIRST_CHUNK_CHARS = 60
+STT_MODEL = "mlx-community/parakeet-tdt-0.6b-v2"
+TTS_MODEL = "mlx-community/Kokoro-82M-bf16"
+TTS_VOICE = "bm_daniel"
+TTS_LANG = "b"
+
 _FROM_ENV = {"HOME_DIR": ("JARVIS_HOME", DEFAULT_HOME_DIR), "VAULT": ("JARVIS_VAULT", DEFAULT_VAULT)}
 
 
