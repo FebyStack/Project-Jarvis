@@ -165,19 +165,37 @@ async def test_a_late_start_from_before_a_stop_is_ignored(rig):
     assert rig.events == ["done"]
 
 
-async def test_say_daniel_is_killed_by_stop(rig, monkeypatch):
-    proc = SimpleNamespace(args=None, killed=False, done=asyncio.Event())
-    proc.wait = proc.done.wait
+def fake_say(monkeypatch):
+    """`say` that runs until killed: records its argv and what it read on stdin."""
+    proc = SimpleNamespace(args=None, stdin=None, killed=False, done=asyncio.Event())
     proc.kill = lambda: setattr(proc, "killed", True)
 
-    async def exec_(*args):
+    async def communicate(data):
+        proc.stdin = data
+        await proc.done.wait()
+    proc.communicate = communicate
+
+    async def exec_(*args, **kwargs):
         proc.args = args
         return proc
     monkeypatch.setattr(speaker_mod.asyncio, "create_subprocess_exec", exec_)
+    return proc
+
+
+async def test_say_daniel_is_killed_by_stop(rig, monkeypatch):
+    proc = fake_say(monkeypatch)
     sp = VoiceSpeaker(rig.synth, FakePlayer())
     rig.synth.fail = True
     sp.say("Hi."); await idle(sp)
-    assert proc.args == ("say", "-v", "Daniel", "Hi.") and not proc.killed
+    assert proc.args == ("say", "-v", "Daniel", "-f", "-") and proc.stdin == b"Hi." and not proc.killed
     sp.stop(); await idle(sp)
     assert proc.killed
     sp._task.cancel()
+
+
+async def test_a_reply_cannot_pass_say_an_option(monkeypatch):
+    proc = fake_say(monkeypatch)
+    task = asyncio.create_task(speaker_mod.say_daniel("-o x Hello."))
+    await idle(None)
+    assert proc.args == ("say", "-v", "Daniel", "-f", "-") and proc.stdin == b"-o x Hello."
+    task.cancel()

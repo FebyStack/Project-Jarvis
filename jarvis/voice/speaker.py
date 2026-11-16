@@ -14,9 +14,10 @@ TONE = (0.25 * np.sin(2 * np.pi * 880 * np.arange(round(0.08 * RATE_OUT)) / RATE
 
 
 async def say_daniel(text: str) -> None:
-    proc = await asyncio.create_subprocess_exec("say", "-v", "Daniel", text)
+    # The text goes on stdin: as an argument, a reply starting with "-" would be read as an option (`-o` writes a file).
+    proc = await asyncio.create_subprocess_exec("say", "-v", "Daniel", "-f", "-", stdin=asyncio.subprocess.PIPE)
     try:
-        await proc.wait()
+        await proc.communicate(text.encode())
     except asyncio.CancelledError:
         proc.kill()
         raise
