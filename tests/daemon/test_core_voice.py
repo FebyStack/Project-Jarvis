@@ -90,6 +90,13 @@ async def test_jarvis_does_not_talk_over_a_listening_mic(make, bridge_of):
     await b.got("thanks Jarvis")
 
 
+async def test_a_workers_announcement_that_asks_opens_the_follow_up_window(make, bridge_of):
+    j = await make(speaker=(sp := FakeSpeaker())); b = bridge_of(j)
+    b.emit({"kind": "turn_start"}); b.emit(turn("Is the Desktop one the file to delete?"))
+    await until(lambda: ("say", "Is the Desktop one the file to delete?") in sp.calls)
+    sp.on_start(); sp.on_done(); assert j.state is State.FOLLOW_UP
+
+
 async def test_an_empty_hearing_gives_up_quietly(make, vault):
     j = await make(speaker=FakeSpeaker()); events = j.subscribe(); await anext(events)
     j.wake(); j.heard("")
