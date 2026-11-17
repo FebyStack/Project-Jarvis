@@ -39,7 +39,17 @@ async def test_the_state_follows_one_spoken_exchange(make, bridge_of):
     assert j.wake(); j.heard("capital of Australia"); await b.got("capital of Australia")
     sp.on_start(); b.emit(turn("Canberra.")); await until(lambda: ("say", "Canberra.") in sp.calls)
     sp.on_done()
-    assert seen() == ["LISTENING", "THINKING", "SPEAKING", "FOLLOW_UP"]
+    assert seen() == ["LISTENING", "THINKING", "SPEAKING", "IDLE"]   # a plain answer: the name is needed again
+
+
+async def test_only_a_reply_that_asks_opens_the_follow_up_window(make, bridge_of):
+    j = await make(speaker=(sp := FakeSpeaker())); b = bridge_of(j)
+    t = asyncio.create_task(j.submit("remind me", "mac")); await b.got("remind me")
+    b.emit(turn("For when?")); await t
+    sp.on_start(); sp.on_done(); assert j.state is State.FOLLOW_UP
+    t = asyncio.create_task(j.submit("at five", "mac")); await b.got("at five")
+    b.emit(turn("Done.")); await t
+    sp.on_start(); sp.on_done(); assert j.state is State.IDLE
 
 
 async def test_speech_that_runs_out_mid_turn_goes_back_to_thinking(make, bridge_of):
@@ -121,7 +131,7 @@ async def test_a_request_parked_by_the_limit_does_not_keep_jarvis_thinking(make,
     j = await make(speaker=(sp := FakeSpeaker())); b = bridge_of(j)
     b.emit({"kind": "limits", "status": "reached", "weekly": 1.0, "resets_at": clock() + 3600})
     r = await j.submit("fix it", "mac"); assert sp.calls[-1] == ("say", r.say)
-    sp.on_start(); sp.on_done(); assert j.state is State.FOLLOW_UP    # its wait may be hours: the name must work
+    sp.on_start(); sp.on_done(); assert j.state is State.IDLE    # its wait may be hours: the name must work
 
 
 async def test_a_spoken_question_opens_the_follow_up_window_so_yes_needs_no_name(make, bridge_of, tmp_path):

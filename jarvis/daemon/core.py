@@ -107,6 +107,7 @@ class Jarvis:
         self._next_check = 0.0
         self._health: dict = {}
         self._last_reply: dict[str, str] = {}
+        self._asked = False  # the last mac reply asked something
         self._last_heard = ""
         self._announced: set[str] = set()
         self._tasks: list[asyncio.Task] = []
@@ -348,6 +349,8 @@ class Jarvis:
 
     def _reply(self, channel: Channel, text: str, loop: bool, speak: bool = True) -> Reply:
         self._last_reply[channel] = text
+        if channel == "mac":
+            self._asked = loop  # a reply that asks something opens the follow-up window
         self._publish("reply", text=text, channel=channel, loop=loop)
         if channel == "mac" and speak:
             self.speaker.say(text) if self.speaker else self._spoke()  # no speaker: done at once
@@ -589,12 +592,16 @@ class Jarvis:
 
     def _spoke(self) -> None:
         """Speech ran out: the turn goes on if a mac request is still running or about to be served, unless it waits
-        on a spoken yes/no, which opens the follow-up window so "yes" needs no name."""
+        on a spoken yes/no. The follow-up window (no name needed) opens only after a reply that asks something or
+        while a yes/no waits; after a plain answer the name or the key is needed again (Febriel, 2026-11-17)."""
         blocked = self._limits["status"] == "reached" or self._offline  # its wait may be hours: don't sit in THINKING
         busy = [self._current] if self._current else []
         busy += [] if blocked else list(self._waiting)
         go_on = any(r.channel == "mac" for r in busy) and not self.asks.pending("mac")
-        self._drive(Event.REPLY_PAUSE if go_on else Event.REPLY_END)
+        if go_on:
+            self._drive(Event.REPLY_PAUSE)
+        else:  # CANCEL here only means "straight back to IDLE": nothing was asked
+            self._drive(Event.REPLY_END if self._asked or self.asks.pending("mac") else Event.CANCEL)
 
     def _drive(self, event: Event) -> None:
         """Feeds the state machine; a change publishes one state event and holds speech while listening."""

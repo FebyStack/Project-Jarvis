@@ -121,6 +121,13 @@ async def speaking(jarvis, speaker):
     assert jarvis.state is State.SPEAKING
 
 
+async def asking(jarvis, speaker, bridge):
+    """Jarvis answers a typed request with a question and is speaking it: the follow-up window comes next."""
+    t = asyncio.create_task(jarvis.submit("remind me", "mac")); await bridge.got("remind me")
+    bridge.emit(turn("For when?")); await t; speaker.on_start()
+    assert jarvis.state is State.SPEAKING
+
+
 async def test_speech_without_the_name_leaves_no_trace(voice, jarvis, engines, vault, caplog):
     caplog.set_level(logging.DEBUG)
     seen = collect(jarvis); engines.hears("I told Travis the door code is 4417")
@@ -150,24 +157,24 @@ async def test_the_name_alone_listens_and_the_next_utterance_is_the_request(voic
 
 
 async def test_the_follow_up_window_needs_no_name(voice, jarvis, engines, speaker, bridge):
-    await speaking(jarvis, speaker); speaker.on_done(); assert jarvis.state is State.FOLLOW_UP
+    await asking(jarvis, speaker, bridge); speaker.on_done(); assert jarvis.state is State.FOLLOW_UP
     await feed(voice, SPEECH, 1); assert jarvis.state is State.LISTENING
     engines.hears("yes"); await voice.on_utterance(utt()); await bridge.got("yes")
 
 
 async def test_noise_in_the_follow_up_window_goes_back_to_idle(voice, jarvis, engines, speaker, bridge):
-    await speaking(jarvis, speaker); speaker.on_done()
+    await asking(jarvis, speaker, bridge); speaker.on_done()
     await feed(voice, SPEECH, 1); assert jarvis.state is State.LISTENING
     engines.hears(""); await voice.on_utterance(utt())
-    assert jarvis.state is State.IDLE and bridge.sent == []
+    assert jarvis.state is State.IDLE and bridge.sent == ["remind me"]
 
 
 @pytest.mark.parametrize("ack", ["Okay.", "Huh?", "Thanks!", "got it", "Cool"])
 async def test_a_bare_ack_in_the_follow_up_window_ends_it_quietly(voice, jarvis, engines, speaker, bridge, ack):
-    await speaking(jarvis, speaker); speaker.on_done()
+    await asking(jarvis, speaker, bridge); speaker.on_done()
     await feed(voice, SPEECH, 1); assert jarvis.state is State.LISTENING
     engines.hears(ack); await voice.on_utterance(utt())
-    assert jarvis.state is State.IDLE and bridge.sent == []
+    assert jarvis.state is State.IDLE and bridge.sent == ["remind me"]
     engines.hears("okay so open Mail"); await voice.on_utterance(utt())   # longer than an ack: no name, IDLE → dropped
     engines.hears("Jarvis, okay"); await voice.on_utterance(utt())         # said with the name: a request
     await bridge.got("okay")
@@ -197,9 +204,9 @@ async def test_a_cut_request_continues_into_the_next_utterance(voice, jarvis, en
     await bridge.got("write an email to the accountant about Friday"); assert len(bridge.sent) == 1
 
 
-async def test_frames_while_speaking_are_dropped_and_the_cutter_reset(voice, jarvis, engines, speaker):
+async def test_frames_while_speaking_are_dropped_and_the_cutter_reset(voice, jarvis, engines, speaker, bridge):
     await feed(voice, SPEECH, 10)  # speech in progress when Jarvis starts talking
-    await speaking(jarvis, speaker)
+    await asking(jarvis, speaker, bridge)
     await feed(voice, SPEECH, 40)
     speaker.on_done(); assert jarvis.state is State.FOLLOW_UP
     await feed(voice, SILENCE, 40)
