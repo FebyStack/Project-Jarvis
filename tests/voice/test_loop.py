@@ -162,6 +162,17 @@ async def test_noise_in_the_follow_up_window_goes_back_to_idle(voice, jarvis, en
     assert jarvis.state is State.IDLE and bridge.sent == []
 
 
+@pytest.mark.parametrize("ack", ["Okay.", "Huh?", "Thanks!", "got it", "Cool"])
+async def test_a_bare_ack_in_the_follow_up_window_ends_it_quietly(voice, jarvis, engines, speaker, bridge, ack):
+    await speaking(jarvis, speaker); speaker.on_done()
+    await feed(voice, SPEECH, 1); assert jarvis.state is State.LISTENING
+    engines.hears(ack); await voice.on_utterance(utt())
+    assert jarvis.state is State.IDLE and bridge.sent == []
+    engines.hears("okay so open Mail"); await voice.on_utterance(utt())   # longer than an ack: no name, IDLE → dropped
+    engines.hears("Jarvis, okay"); await voice.on_utterance(utt())         # said with the name: a request
+    await bridge.got("okay")
+
+
 async def test_a_kept_start_is_dropped_when_listening_ends(voice, jarvis, engines, bridge, clock):
     engines.hears("Jarvis, write an email to"); await voice.on_utterance(utt(15.0, cut=True))
     assert jarvis.state is State.LISTENING and bridge.sent == []

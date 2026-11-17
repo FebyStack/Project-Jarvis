@@ -121,6 +121,9 @@ class Voice:
         elif state is State.LISTENING:
             if r == "":  # the name alone again: listen afresh
                 j.wake()
+            elif r is None and not self._start and instant.is_ack(text) and not j.asks.pending("mac"):
+                j.give_up()  # "Okay." as an answer ends: nothing to send
+                return False
             else:
                 start, self._start = self._start, ""
                 j.heard(" ".join(filter(None, (start, r or text))))

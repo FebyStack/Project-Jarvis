@@ -24,6 +24,14 @@ def match(utterance: str, pending: bool) -> Action | None:
     return _PHRASES.get(text) or (_ANSWERS.get(text) if pending else None)
 
 
+_ACKS = {"okay", "ok", "huh", "thanks", "thank you", "got it", "cool", "alright", "all right", "great", "nice"}
+
+
+def is_ack(utterance: str) -> bool:
+    """A bare reaction ("Okay.", "Huh?"): in the follow-up window it ends the exchange instead of reaching Claude."""
+    return " ".join(re.sub(r"[^a-z0-9' ]", "", utterance.lower()).split()) in _ACKS
+
+
 def say_time(now: datetime) -> str:
     return f"It's {now.hour % 12 or 12}:{now.minute:02d} {'AM' if now.hour < 12 else 'PM'}."
 
