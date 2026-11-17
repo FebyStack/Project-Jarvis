@@ -625,3 +625,17 @@ Run 2026-11-17 (P5–P7 with Febriel at the Mac, 00:30–00:36 on 2026-11-18). P
 - **Task 11:** key code 61, flag bit `0x40` for Right Option; the up event clears the bit. A `keyDown` while it is held is the chord.
 - **Task 12:** the README names **"Python"** for both Input Monitoring and Microphone (it is the venv's interpreter that macOS sees, so a Python upgrade can drop both grants). `uv run` re-resolves the `en_core_web_sm` URL and fails with no network; the login agent runs `.venv/bin/jarvis` directly, so it is unaffected, but offline checks by hand use `.venv/bin/jarvis` or `uv run --frozen --no-sync`.
 - **Tasks 14–15:** P3 and P8 were on synthesized speech and this Mac's current volume; confirm on Febriel's voice.
+
+## Plan 3 results
+
+### Task 14: the name match on Febriel's voice (2026-11-18, 01:20–02:15)
+
+`spikes/09-voice/wake_tune.py`, live, in memory only (whether the rule woke; any word scoring ≥ 0.6 with its position; length, peak and word count as numbers). The login agent kept running: it was still the pre-voice build, so it did not own the mic.
+
+| Run | What | Result |
+|---|---|---|
+| Positives 1 | 30 names + requests, 1–3 m, facing and turned away (no diagnostics yet) | 38 utterances, 14 woke. The misses came in runs, which Febriel says were the far and turned-away ones |
+| Positives 2 | 30 more: 10 facing at 1 m, 10 facing at 3 m, 10 turned away; with diagnostics | 88 utterances, 52 woke. He pauses after the name, so most requests came as their own utterance (fine: a bare name gives the tone and listens). Of the ~63 utterances holding a name-like word, 52 woke (~83%). Heard as: jarvis 31, jervis 23, javis 2, jervies 1, jovis 1 (all woke); javi 3, javier 2, travis 2, jav 1, jovies 1, chervis 1 and once "jervis" as word 4 (no wake) |
+| Negatives | 30 min of video/talk at normal volume, name never said | 54 utterances, **0 woke**; the only word ≥ 0.6 was "rise" (0.60). None of javi, javier, jovies appeared. Bar ≤ 1: **pass** (a thin sample: 54 utterances) |
+
+**Final rule:** thresholds unchanged (`WAKE_SIMILARITY = 0.70`, `WAKE_STRICT = 0.80`, `WAKE_WORDS = 3`); `WAKE_ALSO = {"javi", "javier"}` (heard 3 and 2 times, absent from the negatives). "travis" stays rejected (a real name, and the rule's own reason for existing); "jovies" was heard once, not reliably. With the two added the second run would have woken ~57 of ~63 (~90%, the 27-of-30 bar at its edge). Far and turned-away speech is where it misses; the talk key is the fallback (spec §6.1). Task 15's rows re-check on the running daemon.

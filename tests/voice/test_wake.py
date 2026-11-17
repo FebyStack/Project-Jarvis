@@ -4,7 +4,8 @@ from jarvis import config
 from jarvis.voice import wake
 
 
-@pytest.mark.parametrize("word", ["jarvis", "Jervis", "jovis", "javis", "jarvas", "Jarvis's", "darvis", "carvis"])
+@pytest.mark.parametrize("word", ["jarvis", "Jervis", "jovis", "javis", "jarvas", "Jarvis's", "darvis", "carvis",
+                                  "javi", "Javier"])  # Task 14: heard on his voice
 def test_words_that_wake(word):
     assert wake.sounds_like_name(word)
 
