@@ -177,3 +177,23 @@ def test_a_player_that_cannot_open_is_not_left_busy():
     with pytest.raises(OSError):
         p.play(np.ones(10, dtype=np.float32))
     assert not p.busy
+
+
+def test_the_output_callback_never_stops_its_own_stream(monkeypatch):
+    """Its own stop racing a stop from the loop (Escape) deadlocks CoreAudio: only the loop stops a stream."""
+    import sounddevice as sd
+    from jarvis.voice import audio
+    made = []
+    monkeypatch.setattr(sd, "OutputStream", lambda **kw: made.append(kw) or SimpleNamespace(start=lambda: None))
+    audio._open_output(lambda out: True)  # the run is over
+    made[0]["callback"](np.zeros((4, 1), dtype=np.float32), 4, None, None)  # raises nothing
+
+
+def test_close_ends_a_finished_runs_stream_but_not_a_running_one(out):
+    out.p.play(np.ones(10, dtype=np.float32))
+    s = out.fo.streams[0]
+    out.p.close()
+    assert not s.closed and out.p.busy
+    pull(s, 500)
+    out.p.close()
+    assert s.aborted and s.closed and out.events == ["start", "done"]

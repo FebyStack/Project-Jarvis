@@ -25,7 +25,7 @@ class FakeSynth:
 class FakePlayer:
     """Busy from play() until its done, which comes a loop turn later; start fires inside play()."""
     def __init__(self):
-        self.played, self.stops, self.busy = [], 0, False
+        self.played, self.stops, self.closes, self.busy = [], 0, 0, False
         self.on_start = self.on_done = lambda: None
 
     def play(self, pcm):
@@ -42,6 +42,9 @@ class FakePlayer:
     def stop(self):
         self.stops += 1
         self.busy = False
+
+    def close(self):
+        self.closes += 1
 
 
 class FakeFallback:
@@ -199,3 +202,8 @@ async def test_a_reply_cannot_pass_say_an_option(monkeypatch):
     await idle(None)
     assert proc.args == ("say", "-v", "Daniel", "-f", "-") and proc.stdin == b"-o x Hello."
     task.cancel()
+
+
+async def test_a_finished_runs_stream_is_closed_from_the_loop(rig):
+    rig.sp.say("Mic off."); await idle(rig.sp)
+    assert rig.player.closes == 1 and rig.events == ["start", "done"]

@@ -92,8 +92,7 @@ def _open_output(fill: Callable[[np.ndarray], bool]):
     import sounddevice as sd
 
     def callback(outdata, frames, t, status):
-        if fill(outdata[:, 0]):
-            raise sd.CallbackStop
+        fill(outdata[:, 0])  # never CallbackStop: its stop racing the loop's abort (Escape) deadlocks CoreAudio
     stream = sd.OutputStream(samplerate=RATE_OUT, channels=1, dtype="float32", callback=callback)
     try:
         stream.start()
@@ -105,7 +104,7 @@ def _open_output(fill: Callable[[np.ndarray], bool]):
 
 class Player:
     """A run: from the first play() until reopen_delay of silence after the last sample. A stream per run, so a
-    changed output device is picked up."""
+    changed output device is picked up; only the loop stops it (stop, close, the next play)."""
     def __init__(self, open_stream=_open_output, reopen_delay: float = config.MIC_REOPEN_DELAY):
         self.on_start: Callable[[], None] = lambda: None
         self.on_done: Callable[[], None] = lambda: None
@@ -124,7 +123,7 @@ class Player:
             self.busy, self._started, self._tail = True, False, 0
             old, self._stream = self._stream, None
         if old is not None:
-            old.close()  # the last run's stream, stopped by its own callback
+            old.close()  # the last run's stream, if close() has not come yet
         try:
             self._stream = self._open(self._fill)
         except Exception:
@@ -144,8 +143,18 @@ class Player:
         if was:
             self.on_done()
 
+    def close(self) -> None:
+        """On the loop, after a run's done: its stream stops here, never from its own callback."""
+        with self._lock:
+            if self.busy:
+                return
+            stream, self._stream = self._stream, None
+        if stream is not None:
+            stream.abort()
+            stream.close()
+
     def _fill(self, out: np.ndarray) -> bool:
-        """The output callback: fills `out`; True when the run is over and the stream can stop."""
+        """The output callback: fills `out`; True when the run is over (the loop then close()s its stream)."""
         start = done = False
         with self._lock:
             i = 0

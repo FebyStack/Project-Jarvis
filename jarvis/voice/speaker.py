@@ -42,7 +42,7 @@ class VoiceSpeaker:
         self.on_start: Callable[[], None] = lambda: None
         self.on_done: Callable[[], None] = lambda: None
         player.on_start = lambda: self._loop.call_soon_threadsafe(self._player_started, self._gen)
-        player.on_done = lambda: self._loop.call_soon_threadsafe(self._maybe_done)
+        player.on_done = lambda: self._loop.call_soon_threadsafe(self._player_done)
         self._gen = 0  # bumped by stop(), so a start from before it is ignored
         self._split, self._fed = Splitter(), ""
         self._free = asyncio.Event()
@@ -98,6 +98,10 @@ class VoiceSpeaker:
     def _player_started(self, gen: int) -> None:
         if gen == self._gen and self._active:
             self._begin()
+
+    def _player_done(self) -> None:
+        self.player.close()
+        self._maybe_done()
 
     def _maybe_done(self) -> None:
         if self._active and not self._working and self._queue.empty() and not self.player.busy:
