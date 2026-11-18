@@ -294,7 +294,7 @@ async def test_typing_with_the_key_does_nothing(voice, jarvis, speaker):   # Rev
 
 async def test_a_chord_as_slow_as_febriels_typing_does_nothing(voice, jarvis, speaker):
     await speaking(jarvis, speaker); speaker.calls.clear(); seen = collect(jarvis)
-    voice.key("down"); await asyncio.sleep(0.34); voice.key("chord")  # his slowest of 15 é/ñ/⌥← measured, 2026-11-18
+    voice.key("down"); await asyncio.sleep(0.6); voice.key("chord")  # his slowest of 25 é/ñ/⌥← measured (603 ms), 2026-11-18
     assert ("stop",) not in speaker.calls and [e for e in seen() if e["type"] == "state"] == []
     assert jarvis.state is State.SPEAKING
 
