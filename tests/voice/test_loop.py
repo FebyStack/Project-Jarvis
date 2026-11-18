@@ -5,6 +5,7 @@ from collections import deque
 import numpy as np
 import pytest
 
+from jarvis import config
 from jarvis.daemon.instant import say_time
 from jarvis.daemon.state import State
 from jarvis.voice.loop import Voice
@@ -286,9 +287,16 @@ async def test_a_long_hold_is_not_cut_by_the_listening_timeout(voice, jarvis, cl
 async def test_typing_with_the_key_does_nothing(voice, jarvis, speaker):   # Review Focus 5
     await speaking(jarvis, speaker); speaker.calls.clear(); seen = collect(jarvis)
     voice.key("down"); await feed(voice, SPEECH, 3); voice.key("chord")
-    await asyncio.sleep(0.25)  # past the grace
+    await asyncio.sleep(config.KEY_GRACE_SECONDS + 0.1)  # past the grace
     assert ("stop",) not in speaker.calls and [e for e in seen() if e["type"] in ("state", "level")] == []
     assert jarvis.state is State.SPEAKING and voice.seg.buf == [] and not voice.seg.held
+
+
+async def test_a_chord_as_slow_as_febriels_typing_does_nothing(voice, jarvis, speaker):
+    await speaking(jarvis, speaker); speaker.calls.clear(); seen = collect(jarvis)
+    voice.key("down"); await asyncio.sleep(0.34); voice.key("chord")  # his slowest of 15 é/ñ/⌥← measured, 2026-11-18
+    assert ("stop",) not in speaker.calls and [e for e in seen() if e["type"] == "state"] == []
+    assert jarvis.state is State.SPEAKING
 
 
 async def test_a_chord_after_the_grace_gives_up_quietly(voice, jarvis, bridge):
