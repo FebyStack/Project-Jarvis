@@ -308,6 +308,13 @@ async def test_a_long_hold_is_not_cut_by_the_listening_timeout(voice, jarvis, cl
     clock.advance(9.0); await jarvis.tick(); assert jarvis.state is State.LISTENING
 
 
+async def test_a_silent_hold_is_not_timed_out_while_the_key_is_down(voice, jarvis, speaker, clock):
+    voice.key("down"); await until(lambda: jarvis.state is State.LISTENING); speaker.calls.clear()
+    await feed(voice, SILENCE, 10)
+    clock.advance(9.0); await jarvis.tick()
+    assert jarvis.state is State.LISTENING and ("hold", False) not in speaker.calls   # nothing plays into it
+
+
 async def test_typing_with_the_key_does_nothing(voice, jarvis, speaker):   # Review Focus 5
     await speaking(jarvis, speaker); speaker.calls.clear(); seen = collect(jarvis)
     voice.key("down"); await feed(voice, SPEECH, 3); voice.key("chord")

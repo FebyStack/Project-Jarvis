@@ -192,5 +192,5 @@ class Voice:
                     self.seg.hold()
                 talking = self.seg.speaking or self.seg.heard
             self.jarvis.wake(key=True)
-            if talking:  # speech already under way: no 8 s give-up while it runs
+            if talking or self._key_down:  # speech under way, or the key still held: no 8 s give-up meanwhile
                 self.jarvis.speech_started()
