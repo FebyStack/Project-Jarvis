@@ -197,3 +197,23 @@ def test_close_ends_a_finished_runs_stream_but_not_a_running_one(out):
     pull(s, 500)
     out.p.close()
     assert s.aborted and s.closed and out.events == ["start", "done"]
+
+
+def test_a_run_whose_device_stopped_calling_back_is_stalled():
+    fo, now = FakeOutput(), [0.0]
+    p = Player(open_stream=fo, reopen_delay=0.01, clock=lambda: now[0])
+    p.play(np.ones(10, dtype=np.float32))
+    now[0] = 2.1; assert p.stalled()  # it never called back at all
+    pull(fo.streams[0], 5); now[0] = 4.0; assert not p.stalled()  # 1.9 s since the last callback
+    now[0] = 4.2; assert p.stalled()
+    p.stop(); assert not p.stalled()
+
+
+def test_stop_ends_the_run_even_if_the_stream_will_not_abort(out):
+    out.p.play(np.ones(10, dtype=np.float32))
+
+    def gone():
+        raise OSError("device vanished")
+    out.fo.streams[0].abort = gone
+    out.p.stop()
+    assert out.events == ["done"] and not out.p.busy

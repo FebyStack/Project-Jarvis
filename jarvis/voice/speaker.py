@@ -52,6 +52,14 @@ class VoiceSpeaker:
         self._hinting = False  # a holding line's run is playing: a reply joining it starts no run of its own
         self._queue: asyncio.Queue[str] = asyncio.Queue()
         self._task = self._loop.create_task(self._consume())
+        self._loop.call_later(1, self._watch)
+
+    def _watch(self) -> None:
+        """Once a second: a run whose output device vanished never ends by itself, so it is stopped here."""
+        self._loop.call_later(1, self._watch)
+        if self.player.stalled():
+            log.warning("the speaker stopped playing; its run was ended")
+            self.player.stop()
 
     def feed(self, delta: str) -> None:
         self._fed += delta

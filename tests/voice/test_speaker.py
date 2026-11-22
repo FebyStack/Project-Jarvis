@@ -49,6 +49,9 @@ class FakePlayer:
     def close(self):
         self.closes += 1
 
+    def stalled(self):
+        return False
+
 
 class FakeFallback:
     def __init__(self):
@@ -272,3 +275,16 @@ async def test_a_reply_after_a_stopped_hint_starts_and_ends_once(rig):
     del rig.player._done
     rig.sp.say("Lima."); await idle(rig.sp)
     assert rig.events == ["start", "done"]
+
+
+async def test_a_run_whose_device_vanished_is_stopped_so_speech_ends():
+    from jarvis.voice.audio import Player
+    from tests.voice.test_audio import FakeOutput
+    now, events = [0.0], []
+    player = Player(open_stream=FakeOutput(), clock=lambda: now[0])
+    sp = VoiceSpeaker(FakeSynth(), player, FakeFallback())
+    sp.on_start, sp.on_done = lambda: events.append("start"), lambda: events.append("done")
+    sp.say("Hi."); await idle(sp)  # playing, and no output callback ever comes
+    now[0] = 2.1; sp._watch(); await idle(sp)
+    assert not player.busy and events == ["done"]
+    sp._task.cancel()

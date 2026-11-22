@@ -1,6 +1,7 @@
 """The mic and the speaker. Both call back on their own threads; whoever sets a callback hops to its loop."""
 import logging
 import threading
+import time
 from collections import deque
 from typing import Callable
 
@@ -13,6 +14,7 @@ log = logging.getLogger("jarvisd")
 TICK = 0.5  # seconds between checks that frames still come
 QUIET = 2.0  # seconds without a frame (reopen) or of all-zero samples (no permission)
 MAX_WAIT = 30
+STALL = 2.0  # seconds a busy run may go without an output callback: past that, its device went away
 
 
 def _open_input(on_frame: Callable[[np.ndarray], None]):
@@ -105,11 +107,13 @@ def _open_output(fill: Callable[[np.ndarray], bool]):
 class Player:
     """A run: from the first play() until reopen_delay of silence after the last sample. A stream per run, so a
     changed output device is picked up; only the loop stops it (stop, close, the next play)."""
-    def __init__(self, open_stream=_open_output, reopen_delay: float = config.MIC_REOPEN_DELAY):
+    def __init__(self, open_stream=_open_output, reopen_delay: float = config.MIC_REOPEN_DELAY,
+                 clock: Callable[[], float] = time.monotonic):
         self.on_start: Callable[[], None] = lambda: None
         self.on_done: Callable[[], None] = lambda: None
         self.busy = False
-        self._open, self._delay = open_stream, round(reopen_delay * RATE_OUT)
+        self._open, self._delay, self._clock = open_stream, round(reopen_delay * RATE_OUT), clock
+        self._called = 0.0  # when the output callback last ran (or the run began)
         self._lock = threading.Lock()  # the queue and run state, shared with the output callback
         self._queue: deque[np.ndarray] = deque()
         self._stream = None
@@ -120,7 +124,7 @@ class Player:
             self._queue.append(np.asarray(pcm, dtype=np.float32).reshape(-1))
             if self.busy:
                 return
-            self.busy, self._started, self._tail = True, False, 0
+            self.busy, self._started, self._tail, self._called = True, False, 0, self._clock()
             old, self._stream = self._stream, None
         if old is not None:
             old.close()  # the last run's stream, if close() has not come yet
@@ -138,10 +142,17 @@ class Player:
             was, self.busy = self.busy, False
             stream, self._stream = self._stream, None
         if stream is not None:  # outside the lock: abort waits for a running callback
-            stream.abort()
-            stream.close()
+            try:
+                stream.abort()
+                stream.close()
+            except Exception as e:  # a vanished device may not abort; the run is over all the same
+                log.warning("speaker stream did not stop: %s", type(e).__name__)
         if was:
             self.on_done()
+
+    def stalled(self) -> bool:
+        """Busy, but no output callback for STALL s: the device went away mid-run, so no done would come."""
+        return self.busy and self._clock() - self._called > STALL
 
     def close(self) -> None:
         """On the loop, after a run's done: its stream stops here, never from its own callback."""
@@ -157,6 +168,7 @@ class Player:
         """The output callback: fills `out`; True when the run is over (the loop then close()s its stream)."""
         start = done = False
         with self._lock:
+            self._called = self._clock()
             i = 0
             while i < len(out) and self._queue:
                 head = self._queue[0]
