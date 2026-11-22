@@ -91,19 +91,28 @@ def daemon() -> int:
 
     token = load_token(config.HOME_DIR)
     os.environ["HF_HUB_OFFLINE"] = "1"  # the models load from the cache; only `jarvis models` downloads
-    logging.basicConfig(filename=config.HOME_DIR / "jarvisd.log", level=logging.INFO,
-                        format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    _log_to(config.HOME_DIR / "jarvisd.log")
     vault = Vault(config.VAULT)
     vault.ensure_map()
     from jarvis.brain import desktop_skills
 
-    logging.info("linked %d desktop skills", len(desktop_skills.link(config.DESKTOP_SKILLS)))
+    logging.getLogger("jarvisd").info("linked %d desktop skills", len(desktop_skills.link(config.DESKTOP_SKILLS)))
     try:
         asyncio.run(_run(vault, token))
     except RuntimeError as e:
         print(e, file=sys.stderr)
         return 1
     return 0
+
+
+def _log_to(path) -> None:
+    """jarvisd's own lines, and only errors from other packages: Kokoro logs the phonemes of long sentences, the
+    words Jarvis says, at WARNING."""
+    import logging
+
+    handler = logging.FileHandler(path, delay=True)
+    handler.addFilter(lambda r: r.name == "jarvisd" or r.levelno >= logging.ERROR)
+    logging.basicConfig(handlers=[handler], level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
 
 def _build_voice():

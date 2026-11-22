@@ -58,8 +58,10 @@ def test_plist_runs_the_daemon_with_no_secrets():
     assert p["RunAtLoad"] is True and "EnvironmentVariables" not in p
 
 
-def test_daemon_links_the_desktop_skills_before_starting(monkeypatch, tmp_path):
+def test_daemon_links_the_desktop_skills_before_starting(monkeypatch, tmp_path, caplog):
+    import logging
     import jarvis.cli as cli
+    caplog.set_level(logging.INFO, logger="jarvisd")
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setenv("JARVIS_HOME", str(tmp_path / "j")); monkeypatch.setenv("JARVIS_VAULT", str(tmp_path / "v"))
     monkeypatch.setattr(cli, "_port_taken", lambda: False)
@@ -70,6 +72,18 @@ def test_daemon_links_the_desktop_skills_before_starting(monkeypatch, tmp_path):
         assert linked, "skills must be linked before the brain starts"
     monkeypatch.setattr(cli, "_run", no_run)
     assert cli.main(["daemon"]) == 0 and linked == [tmp_path / "j" / "desktop-skills"]
+    assert ("jarvisd", logging.INFO, "linked 1 desktop skills") in caplog.record_tuples  # jarvisd's own line
+
+
+def test_the_log_keeps_jarvisd_lines_and_only_errors_from_other_packages(tmp_path):
+    import subprocess, sys
+    log = tmp_path / "jarvisd.log"
+    code = ("import logging, sys; from jarvis.cli import _log_to; _log_to(sys.argv[1]); "
+            "logging.warning('phonemes of what Jarvis says'); logging.getLogger('phonemizer').warning('mismatch'); "
+            "logging.getLogger('jarvisd').info('turn 1.20 s'); logging.getLogger('mlx').error('boom')")
+    subprocess.run([sys.executable, "-c", code, str(log)], cwd=ROOT, check=True)
+    text = log.read_text()
+    assert "turn 1.20 s" in text and "boom" in text and "phonemes" not in text and "mismatch" not in text
 
 
 # ── Plan 2 review pass, daemon finding 14 ──
