@@ -146,6 +146,12 @@ async def test_a_failed_transcription_leaves_no_trace_and_no_stuck_state(voice, 
     assert [e["type"] for e in seen()] == ["state"]
 
 
+async def test_a_failed_transcription_of_speech_nobody_asked_for_is_not_logged(voice, jarvis, engines, caplog):
+    caplog.set_level(logging.DEBUG)
+    engines.hears(RuntimeError("the door code is 4417")); await voice.on_utterance(utt()); await asyncio.sleep(0.01)
+    assert jarvis.state is State.IDLE and caplog.text == ""
+
+
 async def test_a_request_in_one_breath(voice, jarvis, engines, speaker, vault):
     engines.hears("Jervis, what time is it?"); await voice.on_utterance(utt())
     await until(lambda: ("say", say_time(NOW)) in speaker.calls)

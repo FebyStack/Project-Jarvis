@@ -107,7 +107,8 @@ class Voice:
         try:
             text = await self.engines.transcribe(utt.pcm)
         except Exception as e:
-            log.error("transcription failed: %s", type(e).__name__)
+            if by_key or self.jarvis.sm.state is State.LISTENING:  # else it may be speech without the name: no trace
+                log.error("transcription failed: %s", type(e).__name__)
             text = ""
         if not text.strip():
             return self.jarvis.give_up()
