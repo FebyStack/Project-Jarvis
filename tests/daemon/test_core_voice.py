@@ -150,3 +150,50 @@ async def test_a_spoken_question_opens_the_follow_up_window_so_yes_needs_no_name
     j.speech_started(); assert j.state is State.LISTENING
     j.heard("yes"); assert (await asyncio.wait_for(h, 1))["verdict"] == "allow"
     b.emit(turn("Done.")); await until(lambda: ("say", "Done.") in sp.calls)
+
+
+def test_hint_for_names_what_jarvis_is_doing():
+    from jarvis.daemon.core import hint_for
+    assert hint_for("WebSearch", "") == hint_for("WebFetch", "") == hint_for("Agent", "researcher") == "Looking that up."
+    assert hint_for("Agent", "triage") == hint_for("Task", "coder") == "On it."
+    assert hint_for("Bash", "") == hint_for("", "") == "One moment."
+
+
+def web_search(bridge):
+    return {"hook_event_name": "PreToolUse", "session_id": bridge.session_id, "cwd": "/tmp",
+            "tool_name": "WebSearch", "tool_input": {"query": "Tokyo weather this week"}}
+
+
+async def test_a_slow_request_gets_one_holding_line(make, bridge_of, monkeypatch):
+    monkeypatch.setattr("jarvis.config.HOLD_SECONDS", 0.01)
+    j = await make(speaker=(sp := FakeSpeaker())); b = bridge_of(j)
+    t = asyncio.create_task(j.submit("look up the weather in Tokyo", "mac")); await b.got("look up the weather in Tokyo")
+    await j.hook(web_search(b)); await asyncio.sleep(0.05)
+    assert [c for c in sp.calls if c[0] == "hint"] == [("hint", "Looking that up.")]
+    b.emit(turn("Cool and dry.")); await t
+
+
+async def test_no_holding_line_once_the_reply_has_started(make, bridge_of, monkeypatch):
+    monkeypatch.setattr("jarvis.config.HOLD_SECONDS", 0.01)
+    j = await make(speaker=(sp := FakeSpeaker())); b = bridge_of(j)
+    t = asyncio.create_task(j.submit("capital of Peru", "mac")); await b.got("capital of Peru")
+    b.emit({"kind": "delta", "text": "Lima."}); await asyncio.sleep(0.05)
+    b.emit(turn("Lima.")); await t
+    assert not [c for c in sp.calls if c[0] == "hint"]
+
+
+async def test_no_holding_line_for_the_phone(make, bridge_of, monkeypatch):
+    monkeypatch.setattr("jarvis.config.HOLD_SECONDS", 0.01)
+    j = await make(speaker=(sp := FakeSpeaker())); b = bridge_of(j)
+    t = asyncio.create_task(j.submit("capital of Peru", "phone")); await b.got("capital of Peru")
+    await asyncio.sleep(0.05); b.emit(turn("Lima.")); await t
+    assert sp.calls == []
+
+
+async def test_no_holding_line_after_a_cancel(make, bridge_of, monkeypatch):
+    monkeypatch.setattr("jarvis.config.HOLD_SECONDS", 0.01)
+    j = await make(speaker=(sp := FakeSpeaker())); b = bridge_of(j)
+    t = asyncio.create_task(j.submit("look up the weather in Tokyo", "mac")); await b.got("look up the weather in Tokyo")
+    await j.submit("never mind", "mac"); await asyncio.sleep(0.05)
+    assert not [c for c in sp.calls if c[0] == "hint"]
+    b.emit(turn("", cancelled=True)); await t

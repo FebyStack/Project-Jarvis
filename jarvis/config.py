@@ -37,6 +37,7 @@ LISTEN_SECONDS = 8.0
 TALK_KEYCODE = 61  # Right Option
 TAP_SECONDS = 0.3
 KEY_GRACE_SECONDS = 0.8  # Febriel's é/ñ/⌥← chords: 87–603 ms after the key (25 measured, 2026-11-18); taps end sooner, on key up
+HOLD_SECONDS = 1.5  # a mac request with nothing said by then gets a holding line (2026-11-22)
 MIC_REOPEN_DELAY = 0.3
 FIRST_CHUNK_CHARS = 60
 STT_MODEL = "mlx-community/parakeet-tdt-0.6b-v2"

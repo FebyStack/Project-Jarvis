@@ -62,6 +62,14 @@ class _Request:
     turn: dict | None = None
     done: asyncio.Event = field(default_factory=asyncio.Event)
     answer: str = ""
+    tool: tuple[str, str] = ("", "")  # the last tool the hook saw for it, and its subagent: words the holding line
+
+
+def hint_for(tool: str, sub: str) -> str:
+    """The holding line for what Jarvis is doing."""
+    if tool in ("WebSearch", "WebFetch") or (tool in ("Agent", "Task") and sub == "researcher"):
+        return "Looking that up."
+    return "On it." if tool in ("Agent", "Task") else "One moment."
 
 
 async def reachable(host: str = "api.anthropic.com", port: int = 443) -> bool:
@@ -298,12 +306,18 @@ class Jarvis:
                 if req.waiters:
                     self._resolve(req, SERVE_FAILED, False)
 
+    def _hold_line(self, req: _Request) -> None:
+        if self._current is req and not self._first_token and self.sm.state is State.THINKING:
+            self.speaker.hint(hint_for(*req.tool))
+
     async def _serve_one(self, req: _Request) -> None:
         self._current = req
         self._publish_queue()
         self._publish_agents()
         try:
             self._sent_at, self._first_token = self.clock(), False
+            if req.channel == "mac" and self.speaker:
+                asyncio.get_running_loop().call_later(config.HOLD_SECONDS, self._hold_line, req)
             await self.bridge.send(req.text)
         except RuntimeError:
             self._current = None
@@ -511,6 +525,8 @@ class Jarvis:
         req = None
         if payload.get("session_id") == self.bridge.session_id:
             req = self._owner({"task_id": payload.get("agent_id")})
+        if req is not None:
+            req.tool = (tool, inp.get("subagent_type") or "")
         decision = judge(tool, inp, cwd, self.gate)
         if decision.verdict == "never":
             return {"verdict": "deny", "reason": decision.reason}
