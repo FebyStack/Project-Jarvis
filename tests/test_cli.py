@@ -139,6 +139,16 @@ def no_voice():
     return None, lambda jarvis: NoVoice()
 
 
+async def test_stopping_the_voice_stops_the_speaker():
+    import jarvis.cli as cli
+    from types import SimpleNamespace
+    from tests.conftest import FakeSpeaker
+    j = SimpleNamespace(speaker=FakeSpeaker())
+    task = asyncio.create_task(cli._voice(j, lambda jarvis: NoVoice())); await asyncio.sleep(0.01)
+    task.cancel(); await asyncio.gather(task, return_exceptions=True)
+    assert j.speaker.calls == [("stop",)]
+
+
 def test_voice_lines_say_what_to_do():
     from jarvis.cli import voice_lines
     assert voice_lines("on") == []

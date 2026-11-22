@@ -28,6 +28,9 @@ class FakeEngines:
     async def load(self):
         return self.load_says
 
+    def close(self):
+        self.closed = True
+
     async def transcribe(self, pcm):
         self.calls += 1
         self.lengths.append(len(pcm))
@@ -407,6 +410,10 @@ async def test_a_key_gesture_hops_to_the_loop_and_stop_ends_the_listener(voice, 
 async def test_the_key_holds_speech_from_the_moment_it_goes_down(voice, jarvis, speaker):
     voice.key("down"); assert ("hold", True) in speaker.calls
     speaker.calls.clear(); voice.key("chord"); assert speaker.calls[-1] == ("hold", False)
+
+
+async def test_stop_closes_the_engines(voice, engines):
+    await voice.stop(); assert engines.closed
 
 
 async def test_start_makes_the_holding_lines_ahead(jarvis, engines, mic, speaker):

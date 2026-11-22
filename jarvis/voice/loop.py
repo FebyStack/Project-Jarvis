@@ -51,6 +51,7 @@ class Voice:
         if self._stop_keys:
             self._stop_keys()
         self.mic.stop()
+        self.engines.close()
 
     async def _follow(self) -> None:
         async for ev in self.jarvis.subscribe():

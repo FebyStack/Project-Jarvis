@@ -143,6 +143,8 @@ async def _voice(jarvis, make_voice) -> None:
     finally:
         if voice is not None:
             await voice.stop()
+        if jarvis.speaker:
+            jarvis.speaker.stop()  # silence, and the output stream closed
 
 
 async def _run(vault: Vault, token: str, build_voice=_build_voice) -> None:
