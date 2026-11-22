@@ -45,6 +45,12 @@ def test_jarvis_carries_its_skills_inline():
     assert "# Humanizer" in vendored and "design tree" in vendored  # humanizer, and grill-me's grilling body
 
 
+def test_jarvis_knows_febriel_speaks_bisaya():
+    _, body = frontmatter(ROOT / ".claude" / "agents" / "jarvis.md")
+    own = body.split(VENDORED_MARK)[0]
+    assert "Bisaya (Cebuano) accent" in own and "Reply in English even when he speaks Bisaya" in own
+
+
 def test_making_files_is_never_small():
     _, body = frontmatter(ROOT / ".claude" / "agents" / "jarvis.md")
     small = body.split("## Small things")[1].split("##")[0]
