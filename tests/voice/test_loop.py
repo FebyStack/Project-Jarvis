@@ -221,6 +221,14 @@ async def test_frames_while_speaking_are_dropped_and_the_cutter_reset(voice, jar
     assert engines.calls == 0 and jarvis.state is State.FOLLOW_UP
 
 
+async def test_a_holding_line_is_not_heard(voice, jarvis, engines, speaker, bridge):
+    t = asyncio.create_task(jarvis.submit("look up the weather", "mac")); await bridge.got("look up the weather")
+    speaker.hinting = True; await feed(voice, SPEECH, 20); speaker.hinting = False   # the mic hears "On it."
+    await feed(voice, SILENCE, 30)
+    assert engines.calls == 0 and jarvis.state is State.THINKING
+    bridge.emit(turn("Dry.")); await t
+
+
 async def test_muting_stops_the_mic_and_unmuting_starts_it(voice, jarvis, engines, mic):
     assert mic.running and jarvis.health()["mic"] == "on"
     engines.hears("Jarvis, stop listening"); await voice.on_utterance(utt())

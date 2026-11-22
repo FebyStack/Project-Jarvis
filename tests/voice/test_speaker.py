@@ -288,3 +288,10 @@ async def test_a_run_whose_device_vanished_is_stopped_so_speech_ends():
     now[0] = 2.1; sp._watch(); await idle(sp)
     assert not player.busy and events == ["done"]
     sp._task.cancel()
+
+
+async def test_hinting_while_a_holding_line_plays(rig):
+    rig.player._done = lambda: None  # still playing
+    assert not rig.sp.hinting
+    rig.sp.hint("On it."); await idle(rig.sp); assert rig.sp.hinting
+    rig.player.busy = False; rig.player.on_done(); await idle(rig.sp); assert not rig.sp.hinting

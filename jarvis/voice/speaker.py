@@ -61,6 +61,11 @@ class VoiceSpeaker:
             log.warning("the speaker stopped playing; its run was ended")
             self.player.stop()
 
+    @property
+    def hinting(self) -> bool:
+        """A holding line's run is playing (read-only)."""
+        return self._hinting
+
     def feed(self, delta: str) -> None:
         self._fed += delta
         self._push(self._split.feed(delta))

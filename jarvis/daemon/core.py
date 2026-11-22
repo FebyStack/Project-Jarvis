@@ -37,6 +37,7 @@ VAULT_TOOLS = {"Read": "file_path", "Write": "file_path", "Edit": "file_path", "
 class Speaker(Protocol):
     on_start: Callable[[], None]  # set by the core: the first sound of a run of speech is going out
     on_done: Callable[[], None]  # set by the core: speech ran out (also when there was nothing to say)
+    hinting: bool  # read-only: a holding line is playing
 
     def feed(self, delta: str) -> None: ...  # reply text as it streams
     def say(self, text: str) -> None: ...  # a complete reply
@@ -600,6 +601,11 @@ class Jarvis:
     async def warm_hints(self) -> None:
         if self.speaker:
             await self.speaker.warm(HINTS)
+
+    @property
+    def hinting(self) -> bool:
+        """A holding line is playing, so the mic would hear it."""
+        return bool(self.speaker and self.speaker.hinting)
 
     def speech_started(self) -> None:
         self._drive(Event.SPEECH_START)

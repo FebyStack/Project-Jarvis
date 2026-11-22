@@ -82,10 +82,10 @@ class Voice:
     def on_frame(self, frame: np.ndarray) -> None:
         """On the mic thread: feeds the cutter while the mic is open; the rest hops to the loop."""
         j, loop = self.jarvis, self._loop
-        mic_open = j.sm.mic_open
+        mic_open = j.sm.mic_open and not j.hinting  # a holding line playing would be heard
         with self._lock:
             if not (self.seg.held or mic_open):  # held: the talk key is down
-                if self._open:  # Jarvis is speaking (or muted): forget what was being cut
+                if self._open:  # Jarvis is speaking (or muted, or a holding line plays): forget what was being cut
                     self.seg.reset()
                     self._open = False
                 return

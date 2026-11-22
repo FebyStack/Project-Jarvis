@@ -135,6 +135,8 @@ def day_log(vault):
 
 class FakeSpeaker:
     """Records what the core asks of the speaker; tests call `on_start` / `on_done` to play the speaker's part."""
+    hinting = False
+
     def __init__(self):
         self.calls = []
         self.on_start = self.on_done = lambda: None

@@ -255,3 +255,10 @@ async def test_health_says_offline_before_any_turn_fails(make, monkeypatch, cloc
     j = await make()
     await j.tick(); assert j.health()["brain"] == "offline"
     net["up"] = True; clock.advance(30); await j.tick(); assert j.health()["brain"] == "online"
+
+
+async def test_hinting_is_the_speakers(make):
+    j = await make(speaker=(sp := FakeSpeaker()))
+    assert not j.hinting
+    sp.hinting = True; assert j.hinting
+    assert not (await make()).hinting   # no speaker: nothing plays
