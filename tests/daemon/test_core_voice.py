@@ -271,3 +271,14 @@ async def test_the_key_cuts_a_holding_line_when_it_engages_not_when_it_goes_down
     j.key(True); assert ("stop",) not in sp.calls
     j.wake(key=True); assert ("stop",) in sp.calls and j.state is State.LISTENING
     b.emit(turn("Dry.")); await t
+
+
+async def test_a_spoken_request_that_fails_does_not_leave_jarvis_thinking(make, monkeypatch, caplog):
+    j = await make(speaker=FakeSpeaker())
+
+    def full_disk(exchange):
+        raise OSError("No space left on device")
+    monkeypatch.setattr(j.vault, "log_exchange", full_disk)
+    j.wake(); j.heard("what time is it")
+    await until(lambda: not j._hearing)
+    assert j.state is State.IDLE and "OSError" in caplog.text and "what time" not in caplog.text

@@ -618,7 +618,14 @@ class Jarvis:
         self._drive(Event.SPEECH_END)
         task = asyncio.create_task(self.submit(text, "mac"))
         self._hearing.add(task)
-        task.add_done_callback(self._hearing.discard)
+        task.add_done_callback(self._heard_done)
+
+    def _heard_done(self, task: asyncio.Task) -> None:
+        self._hearing.discard(task)
+        if not task.cancelled() and (e := task.exception()):  # logged without the text; not left thinking
+            log.error("a spoken request failed: %s", type(e).__name__)
+            if self.sm.state is State.THINKING:
+                self._drive(Event.CANCEL)
 
     def give_up(self) -> None:
         if self.sm.state is State.LISTENING:
