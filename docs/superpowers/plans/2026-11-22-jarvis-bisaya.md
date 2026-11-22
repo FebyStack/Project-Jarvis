@@ -46,12 +46,12 @@
 
 **Interfaces:** none.
 
-- [ ] **Step 1: Write the failing test** `test_jarvis_knows_febriel_speaks_bisaya`. It takes the body's own part (before `VENDORED_MARK`) and asserts that `"Bisaya (Cebuano) accent"` and `"Reply in English even when he speaks Bisaya"` are both in it. The existing `<= 60` line test must still pass.
-- [ ] **Step 2:** Run `uv run pytest tests/brain/test_agents.py -q`. Expected: the new test FAILS.
-- [ ] **Step 3:** Replace the bullet with the spec's Part 1 text, word for word. Keep it one bullet.
-- [ ] **Step 4:** Run `uv run pytest -q`. Expected: all PASS.
-- [ ] **Step 5:** Commit: `git add .claude/agents/jarvis.md tests/brain/test_agents.py && git commit -m "feat: Jarvis knows Febriel speaks Bisaya and Bisaya-accented English"`.
-- [ ] **Step 6 👤:** Ask Febriel whether to kickstart jarvisd now. Plan 3's session may be live-testing.
+- [x] **Step 1: Write the failing test** `test_jarvis_knows_febriel_speaks_bisaya`. It takes the body's own part (before `VENDORED_MARK`) and asserts that `"Bisaya (Cebuano) accent"` and `"Reply in English even when he speaks Bisaya"` are both in it. The existing `<= 60` line test must still pass.
+- [x] **Step 2:** Run `uv run pytest tests/brain/test_agents.py -q`. Expected: the new test FAILS.
+- [x] **Step 3:** Replace the bullet with the spec's Part 1 text, word for word. Keep it one bullet.
+- [x] **Step 4:** Run `uv run pytest -q`. Expected: all PASS.
+- [x] **Step 5:** Commit: `git add .claude/agents/jarvis.md tests/brain/test_agents.py && git commit -m "feat: Jarvis knows Febriel speaks Bisaya and Bisaya-accented English"`.
+- [x] **Step 6 👤:** Ask Febriel whether to kickstart jarvisd now. Plan 3's session may be live-testing. *(2026-11-22: "Not now"; the hint goes live at the next kickstart.)*
 
 ### Task 2: The recorder 👤
 
@@ -63,15 +63,15 @@
   - `spikes/10-bisaya/data/<kind>-<NN>.wav`: 16 kHz mono int16, where `kind` is one of `bisaya`, `english`, `wake`.
   - `spikes/10-bisaya/data/meant.json`, shaped `{"<file>.wav": {"kind": str, "meant": str}}`.
 
-- [ ] **Step 1:** Write `record.py` on the same path as `spikes/09-voice/wake_tune.py` (`Mic`, `Segmenter(engines.vad())`). It loops over 12 `bisaya`, 8 `english` and 3 `wake` prompts:
+- [x] **Step 1:** Write `record.py` on the same path as `spikes/09-voice/wake_tune.py` (`Mic`, `Segmenter(engines.vad())`). It loops over 12 `bisaya`, 8 `english` and 3 `wake` prompts:
   - Print the kind. For `wake`, add: *say "Jarvis, …" then a Bisaya request in one breath*.
   - Take the next utterance and write it with `soundfile`.
   - Ask Febriel to type what he said. Press Enter to keep it; type `r` to record again.
   - Write `meant.json` after every item, so a stop loses nothing.
   - Stop the mic while he types.
-- [ ] **Step 2:** Check that the folder is ignored: `git check-ignore spikes/10-bisaya/data/x.wav` must print the path.
-- [ ] **Step 3 👤:** Febriel runs `uv run python spikes/10-bisaya/record.py` and speaks the way he really talks to Jarvis. Expected: 23 WAV files, and 23 entries in `meant.json`.
-- [ ] **Step 4:** Commit only the script: `git add spikes/10-bisaya/record.py && git commit -m "spike: record Febriel's Bisaya and English requests"`.
+- [x] **Step 2:** Check that the folder is ignored: `git check-ignore spikes/10-bisaya/data/x.wav` must print the path.
+- [x] **Step 3 👤:** Febriel runs `uv run python spikes/10-bisaya/record.py` and speaks the way he really talks to Jarvis. Expected: 23 WAV files, and 23 entries in `meant.json`. *(Done 2026-11-22. He asked for lines to read, so `record.py` shows each one and Enter keeps it. On his ask ("it should also support and understand me when saying bisaya-english"), 6 mixed lines were added: 29 in all.)*
+- [x] **Step 4:** Commit only the script: `git add spikes/10-bisaya/record.py && git commit -m "spike: record Febriel's Bisaya and English requests"`.
 
 ### Task 3: The listeners 👤
 
@@ -83,31 +83,32 @@
   - `listeners.LOADERS: dict[str, Callable[[], Callable[[np.ndarray], str]]]`, where each loaded function takes 16 kHz int16 PCM and returns text. Keys: `parakeet`, `buzz`, `mms`, `turbo`, and `omni` if it survives Step 1. Task 5 copies the winner's loader.
   - `data/results-<name>.json`, shaped `{"load_s": float, "rss_mb": float, "files": {"<file>.wav": {"text": str, "seconds": float, "audio_s": float}}}`.
 
-- [ ] **Step 1: Check before downloading.**
+- [x] **Step 1: Check before downloading.**
   - BuzzASR/cebuano: read its model card for the license and the expected input.
   - Omnilingual ASR: look for `ceb_Latn` on its supported-language list, and check whether `omnilingual-asr` installs on macOS arm64. If either check fails, drop `omni` and note why.
-- [ ] **Step 2 👤 Downloads.** Ask Febriel to okay each one, with name, source and size:
+- [x] **Step 2 👤 Downloads.** Ask Febriel to okay each one, with name, source and size:
   - `BuzzASR/cebuano`
   - `facebook/mms-1b-all`
   - `mlx-community/whisper-large-v3-turbo`
   - the `mlx-whisper` package (spike only: `uv run --with mlx-whisper`)
   - if it survived Step 1: the Omnilingual CTC 300M or 1B checkpoint and its package
 
-  Download only what he okays.
-- [ ] **Step 3:** Write the loaders:
+  Download only what he okays. *(He okayed BuzzASR and MMS only. Turbo and Omnilingual are dropped. The models are stored on his external SSD, his choice. Later, on his "shrink BuzzASR", `mlx-whisper` and mlx-examples' `convert.py` were added.)*
+- [x] **Step 3:** Write the loaders:
   - `parakeet`: the same call as `jarvis/voice/engines._load_parakeet`.
   - `buzz`: a `transformers` ASR pipeline on `mps`, fp16.
   - `mms`: `Wav2Vec2ForCTC` with `tokenizer.set_target_lang("ceb")` and `model.load_adapter("ceb")`.
-  - `turbo`: `mlx_whisper.transcribe` with no language set.
-  - `omni`: per its README.
-- [ ] **Step 4:** Write `listen.py --listener NAME`. It runs one listener per process, so the memory figures stay clean:
+  - `turbo`: `mlx_whisper.transcribe` with no language set. *(not okayed: dropped)*
+  - `omni`: per its README. *(not okayed: dropped)*
+  - *(added)* `buzz8`/`buzz4`, MLX 8/4-bit, and `buzz8w10`/`buzz4w10`/…, with an encoder window of at least 10 s.
+- [x] **Step 4:** Write `listen.py --listener NAME`. It runs one listener per process, so the memory figures stay clean:
   - Load it, timing `load_s`.
   - Warm it once on 1 s of silence.
   - Transcribe every WAV in `data/`, timing each one.
   - Record `rss_mb` from `resource.getrusage(RUSAGE_SELF).ru_maxrss` (bytes on macOS).
   - Write `results-NAME.json`.
-- [ ] **Step 5:** Run `uv run python spikes/10-bisaya/listen.py --listener NAME` for each name (with `uv run --with mlx-whisper` for `turbo`). Expected: one results file per listener, with 23 entries each.
-- [ ] **Step 6:** Commit the two scripts only.
+- [x] **Step 5:** Run `uv run python spikes/10-bisaya/listen.py --listener NAME` for each name (with `uv run --with mlx-whisper` for `turbo`). Expected: one results file per listener, with 23 entries each.
+- [x] **Step 6:** Commit the two scripts only.
 
 ### Task 4: The judge and the verdict 👤
 
@@ -119,26 +120,31 @@
 - Consumes: `data/meant.json` and `data/results-*.json` (Tasks 2–3), and `jarvis.brain.env.clean_env()`.
 - Produces: the winner's name, or "none". If there is a winner, `config.BISAYA_MODEL`'s value and its loader for Task 5.
 
-- [ ] **Step 1:** Write `judge.py`. For each recording, and for each case (`parakeet` alone, then Parakeet plus each other listener), it runs a dry-run `claude -p` and appends the reply to `data/judged.md`, next to `meant`. The run:
-  - uses `clean_env()`, `--model sonnet`, `--tools ""`, `--strict-mcp-config`, and `--system-prompt` set to `jarvis.md`'s own part with the Part 3 sentence added;
+- [x] **Step 1:** Write `judge.py`. For each recording, and for each case (`parakeet` alone, then Parakeet plus each other listener), it runs a dry-run `claude -p` and appends the reply to `data/judged.md`, next to `meant`. The run:
+  - uses `clean_env()`, `--model sonnet` *(the front door's model: Haiku, then Sonnet at low effort; see findings)*, `--tools ""`, `--strict-mcp-config`, and `--system-prompt` set to `jarvis.md`'s own part with the Part 3 sentence added;
   - sends a message built the way Task 6's `with_alt` builds it, followed by: *"Dry run: do nothing. In one line, say what you would do."*
 
   That is about 115 short subscription calls. Run them one at a time.
-- [ ] **Step 2:** Score them by hand, judging each line in `judged.md` against `meant`:
+- [x] **Step 2:** Score them by hand, judging each line in `judged.md` against `meant`:
   - **Kept:** Claude would do what Febriel meant.
   - **Lost:** it would do something else, or not understand.
   - **Unsure:** it's unclear which.
 
   The unsure ones go to Febriel.
-- [ ] **Step 3: Measure.**
+- [x] **Step 3: Measure.**
   - One-breath wakes: `wake.split(parakeet text) is not None` for the 3 `wake` files.
   - Extra time at 5 s: a least-squares line of `seconds` against `audio_s`, evaluated at 5.0.
   - Memory: `rss_mb`.
-- [ ] **Step 4:** Write the findings section: one table row per listener (Bisaya kept /12, English kept /8 vs Parakeet's, wakes /3, extra s at 5 s, MB, license), plus up to five short mishearing examples. The winner is the listener that meets every bar with the least extra time; a tie goes to the higher Bisaya score.
-- [ ] **Step 5 (only if every listener misses the time bar):** Search Hugging Face for small or medium Whisper models fine-tuned on Cebuano, at most three. Ask Febriel before each download. Run each through Task 3 Steps 3–5 and this task's Steps 1–4.
-- [ ] **Step 6 👤:** Show Febriel the table and get his okay on the winner.
+- [x] **Step 4:** Write the findings section: one table row per listener (Bisaya kept /12, English kept /8 vs Parakeet's, wakes /3, extra s at 5 s, MB, license), plus up to five short mishearing examples. The winner is the listener that meets every bar with the least extra time; a tie goes to the higher Bisaya score.
+- [ ] **Step 5 (only if every listener misses the time bar):** *(Skipped: MMS met the time bar. Febriel chose to shrink BuzzASR instead; see findings.)* Search Hugging Face for small or medium Whisper models fine-tuned on Cebuano, at most three. Ask Febriel before each download. Run each through Task 3 Steps 3–5 and this task's Steps 1–4.
+- [x] **Step 6 👤:** Show Febriel the table and get his okay on the winner. *(2026-11-22: BuzzASR MLX 8-bit, ≥ 10 s window; memory ~2.3 GB over the bar, accepted.)*
   - **No winner, or he says no:** record "Bisaya listener: dead end (date, why)" in `PROJECT.md`'s Dead ends, and mark Tasks 5–7 skipped. Go to Task 8.
-- [ ] **Step 7:** Commit `judge.py`, `findings.md` and `PROJECT.md`.
+- [x] **Step 7:** Commit `judge.py`, `findings.md` and `PROJECT.md`. *(`judge.py` committed. `findings.md` and `PROJECT.md` are left uncommitted: they also hold the Plan 3 session's uncommitted edits.)*
+
+### What Task 4 found, for Tasks 5–7 (2026-11-22)
+- **The winner:** BuzzASR/cebuano converted to MLX at 8-bit, in a local folder: `/Volumes/PortableSSD/Jarvis/mlx/buzzasr-cebuano-q8` (`weights.safetensors` + `config.json`). It is not a Hub repo, so `config.BISAYA_MODEL` is that path. `download()` cannot fetch it: it needs the BuzzASR snapshot (also on the SSD) and mlx-examples' `whisper/convert.py` (`-q --q-bits 8`, then rename `model.safetensors` → `weights.safetensors`). With the SSD unplugged, it's `"missing"`.
+- **Loader:** `listeners._buzz_short(8, 10)`. It uses mlx-whisper's `decode` with `language="tl"`, greedy, and an encoder window of at least 10 s (the positional embedding is sliced to fit). It needs `mlx-whisper==0.4.3` as a main dependency, which is Febriel's okay in Task 5.
+- **Threads:** it is MLX, so it runs on the existing `self._pool`, adding about 0.6 s there.
 
 ### Task 5: The third model in `Engines`
 
