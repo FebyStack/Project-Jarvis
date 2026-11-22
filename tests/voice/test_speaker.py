@@ -248,11 +248,11 @@ async def test_a_reply_behind_a_hint_still_starts_speech(rig):
     assert rig.events[:1] == ["start"]
 
 
-async def test_hold_cuts_a_playing_hint(rig):
+async def test_hold_lets_a_playing_hint_finish(rig):   # a typing chord must not cut it; the key's engage does
     rig.player._done = lambda: None  # still playing
     rig.sp.hint("On it."); await idle(rig.sp)
     rig.sp.hold(True); await idle(rig.sp)
-    assert rig.player.stops == 1 and rig.events == []
+    assert rig.player.stops == 0 and rig.events == []
 
 
 async def test_a_hint_still_being_made_does_not_play_after_a_stop_or_hold(rig):

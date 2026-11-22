@@ -188,7 +188,7 @@ class Voice:
         if not self._engaged:
             self._engaged = True
             with self._lock:
-                if self.jarvis.sm.state is State.SPEAKING:  # what was held is Jarvis's own voice
+                if self.jarvis.sm.state is State.SPEAKING or self.jarvis.hinting:  # what was held is Jarvis's voice
                     self.seg.reset()
                     self.seg.hold()
                 talking = self.seg.speaking or self.seg.heard

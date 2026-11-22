@@ -583,8 +583,9 @@ class Jarvis:
     # ---- voice -----------------------------------------------------------------------------------------------
 
     def wake(self, key: bool = False) -> bool:
-        """The name (WAKE) or the talk key (PUSH, which also cuts speech short). True if now listening."""
-        if key and self.speaker and self.sm.state is State.SPEAKING:
+        """The name (WAKE) or the talk key (PUSH, which also cuts speech or a holding line short). True if now
+        listening."""
+        if key and self.speaker and (self.sm.state is State.SPEAKING or self.speaker.hinting):
             self.speaker.stop()
         self._drive(Event.PUSH if key else Event.WAKE)
         return self.sm.state is State.LISTENING

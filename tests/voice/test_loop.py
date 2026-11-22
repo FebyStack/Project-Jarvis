@@ -229,6 +229,16 @@ async def test_a_holding_line_is_not_heard(voice, jarvis, engines, speaker, brid
     bridge.emit(turn("Dry.")); await t
 
 
+async def test_a_holding_line_held_before_the_key_engages_is_not_sent(voice, jarvis, engines, speaker, bridge):
+    t = asyncio.create_task(jarvis.submit("look up the weather", "mac")); await bridge.got("look up the weather")
+    speaker.hinting = True
+    voice.key("down"); await feed(voice, SPEECH, 20)   # "On it.", through the held capture
+    await until(lambda: jarvis.state is State.LISTENING); speaker.hinting = False   # the engage cut it
+    await feed(voice, SILENCE, 5); voice.key("hold_end"); await asyncio.sleep(0.01)
+    assert engines.calls == 0 and bridge.sent == ["look up the weather"]
+    bridge.emit(turn("Dry.")); await t
+
+
 async def test_muting_stops_the_mic_and_unmuting_starts_it(voice, jarvis, engines, mic):
     assert mic.running and jarvis.health()["mic"] == "on"
     engines.hears("Jarvis, stop listening"); await voice.on_utterance(utt())

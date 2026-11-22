@@ -91,9 +91,7 @@ class VoiceSpeaker:
         self._loop.call_soon(self._maybe_done)
 
     def hold(self, on: bool) -> None:
-        self._free.clear() if on else self._free.set()
-        if on and self._hinting and not self._active:
-            self.player.stop()  # the talk key cuts a holding line short
+        self._free.clear() if on else self._free.set()  # a playing holding line goes on: the key's engage cuts it
 
     def cue(self) -> None:
         """Not held and not speech: it plays while listening and leaves the core's state alone."""

@@ -262,3 +262,12 @@ async def test_hinting_is_the_speakers(make):
     assert not j.hinting
     sp.hinting = True; assert j.hinting
     assert not (await make()).hinting   # no speaker: nothing plays
+
+
+async def test_the_key_cuts_a_holding_line_when_it_engages_not_when_it_goes_down(make, bridge_of):
+    j = await make(speaker=(sp := FakeSpeaker())); b = bridge_of(j)
+    t = asyncio.create_task(j.submit("look up the weather", "mac")); await b.got("look up the weather")
+    sp.hinting = True
+    j.key(True); assert ("stop",) not in sp.calls
+    j.wake(key=True); assert ("stop",) in sp.calls and j.state is State.LISTENING
+    b.emit(turn("Dry.")); await t
