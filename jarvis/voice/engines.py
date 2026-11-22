@@ -81,9 +81,14 @@ class Engines:
 
 
 def vad() -> Callable[[np.ndarray], float]:
+    """The voice detector; its `reset` forgets the speech it was in (the model keeps state across frames)."""
     from openwakeword.vad import VAD
     model = VAD()
-    return lambda frame: float(model.predict(frame, frame_size=config.FRAME))
+
+    def predict(frame: np.ndarray) -> float:
+        return float(model.predict(frame, frame_size=config.FRAME))
+    predict.reset = model.reset_states
+    return predict
 
 
 def download() -> None:

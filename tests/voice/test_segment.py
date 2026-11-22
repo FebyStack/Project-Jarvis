@@ -127,3 +127,13 @@ def test_a_hold_that_does_not_keep_drops_speech_under_way_but_the_pre_roll():
     run(s, (0.9, 100))
     s.hold(keep=False)
     assert len(s.buf) == 10 and not s.heard
+
+
+def test_reset_resets_the_voice_detector_too():
+    resets = []
+    predict = lambda f: float(f[0]) / 1000
+    predict.reset = lambda: resets.append(1)
+    s = Segmenter(predict); resets.clear()
+    run(s, (0.9, 10))
+    s.reset()
+    assert resets == [1]  # its memory of the speech would fire on the first frames after

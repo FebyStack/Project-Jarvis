@@ -68,3 +68,19 @@ def test_importing_the_voice_modules_loads_no_audio_or_model_package():
     code = ("import sys, jarvis.voice.engines, jarvis.voice.audio, jarvis.voice.speaker; "
             "print([m for m in ('mlx', 'mlx_audio', 'parakeet_mlx', 'sounddevice', 'openwakeword') if m in sys.modules])")
     assert subprocess.run([sys.executable, "-c", code], capture_output=True, text=True).stdout.strip() == "[]"
+
+
+def test_the_voice_detector_can_forget_what_it_heard(monkeypatch):
+    import sys
+    from types import SimpleNamespace
+    from jarvis.voice.engines import vad
+
+    class FakeVAD:
+        resets = 0
+        def predict(self, frame, frame_size): return 0.9
+        def reset_states(self): FakeVAD.resets += 1
+    monkeypatch.setitem(sys.modules, "openwakeword", SimpleNamespace())
+    monkeypatch.setitem(sys.modules, "openwakeword.vad", SimpleNamespace(VAD=FakeVAD))
+    predict = vad()
+    assert predict(np.zeros(480, dtype=np.int16)) == 0.9
+    predict.reset(); assert FakeVAD.resets == 1

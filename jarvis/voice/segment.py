@@ -29,6 +29,7 @@ class Segmenter:
         self.reset()
 
     def reset(self) -> None:
+        getattr(self.predict, "reset", lambda: None)()  # a detector frozen mid-speech would fire on the next frames
         self.buf: list[np.ndarray] = []
         self.speaking = False
         self.held = False
