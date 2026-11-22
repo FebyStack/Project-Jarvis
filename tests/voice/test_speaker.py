@@ -295,3 +295,18 @@ async def test_hinting_while_a_holding_line_plays(rig):
     assert not rig.sp.hinting
     rig.sp.hint("On it."); await idle(rig.sp); assert rig.sp.hinting
     rig.player.busy = False; rig.player.on_done(); await idle(rig.sp); assert not rig.sp.hinting
+
+
+async def test_say_waits_for_the_chunk_still_playing(rig):
+    rig.player._done = lambda: None  # "One." is still playing
+    made = rig.sp._synth
+
+    async def synth(text):
+        if text == "Two.":
+            raise RuntimeError("synthesis failed")
+        return await made(text)
+    rig.sp._synth = synth
+    rig.sp.feed("One. Two. "); await idle(rig.sp)
+    assert rig.fallback.texts == []
+    rig.player.busy = False; rig.player.on_done(); await asyncio.sleep(0.1)
+    assert rig.fallback.texts == ["Two."]

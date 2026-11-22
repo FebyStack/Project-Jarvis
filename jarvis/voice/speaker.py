@@ -166,6 +166,8 @@ class VoiceSpeaker:
             except Exception as e:
                 log.warning("speech fell back to say: %s", type(e).__name__)
                 await self._free.wait()
+                while self.player.busy:  # `say` would talk over the chunk still playing
+                    await asyncio.sleep(0.05)
                 self._begin()
                 try:
                     await self._fallback(text)
