@@ -627,6 +627,10 @@ class Jarvis:
             if self.sm.state is State.THINKING:
                 self._drive(Event.CANCEL)
 
+    def noise(self) -> None:
+        """Speech that held no words: listening goes on until its own give-up."""
+        self._drive(Event.NOISE)
+
     def give_up(self) -> None:
         if self.sm.state is State.LISTENING:
             self._drive(Event.CANCEL)

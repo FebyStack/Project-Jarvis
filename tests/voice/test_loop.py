@@ -180,6 +180,26 @@ async def test_noise_in_the_follow_up_window_goes_back_to_idle(voice, jarvis, en
     assert jarvis.state is State.IDLE and bridge.sent == ["remind me"]
 
 
+async def test_a_cough_after_the_name_keeps_listening(voice, jarvis, engines, bridge, clock):
+    engines.hears("Jarvis.", "", "open Mail")
+    await voice.on_utterance(utt()); await feed(voice, SPEECH, 1)   # the cough starts speech
+    await voice.on_utterance(utt()); assert jarvis.state is State.LISTENING
+    await voice.on_utterance(utt()); await bridge.got("open Mail")
+
+
+async def test_a_cough_after_the_name_still_gives_up_after_8_s(voice, jarvis, engines, clock):
+    engines.hears("Jarvis.", "")
+    await voice.on_utterance(utt()); await feed(voice, SPEECH, 1); await voice.on_utterance(utt())
+    clock.advance(8.0); await jarvis.tick(); assert jarvis.state is State.IDLE
+
+
+async def test_a_hold_that_transcribes_to_nothing_gives_up(voice, jarvis, engines, bridge):
+    engines.hears("")
+    voice.key("down"); await feed(voice, SPEECH, 10); await until(lambda: jarvis.state is State.LISTENING)
+    voice.key("hold_end"); await until(lambda: engines.calls == 1); await asyncio.sleep(0.01)
+    assert jarvis.state is State.IDLE and bridge.sent == []
+
+
 @pytest.mark.parametrize("ack", ["Okay.", "Huh?", "Thanks!", "got it", "Cool"])
 async def test_a_bare_ack_in_the_follow_up_window_ends_it_quietly(voice, jarvis, engines, speaker, bridge, ack):
     await asking(jarvis, speaker, bridge); speaker.on_done()

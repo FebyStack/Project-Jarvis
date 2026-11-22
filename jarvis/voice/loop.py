@@ -114,9 +114,9 @@ class Voice:
         except Exception as e:
             if by_key or self.jarvis.sm.state is State.LISTENING:  # else it may be speech without the name: no trace
                 log.error("transcription failed: %s", type(e).__name__)
-            text = ""
-        if not text.strip():
             return self.jarvis.give_up()
+        if not text.strip():  # a cough after the tone: keep listening; a held key's request ends here
+            return self.jarvis.give_up() if by_key else self.jarvis.noise()
         if self._act(text, utt.cut, by_key):
             log.info("transcribe %.2f s for %.1f s of speech", time.monotonic() - t0, len(utt.pcm) / config.SAMPLE_RATE)
 

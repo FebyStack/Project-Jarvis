@@ -128,3 +128,15 @@ def test_waking_again_while_listening_restarts_the_eight_seconds(sm, clock):
     sm.on(Event.WAKE); sm.on(Event.SPEECH_START); clock.advance(5); sm.on(Event.WAKE)
     clock.advance(7.9); assert sm.on(Event.TICK) is State.LISTENING
     clock.advance(0.1); assert sm.on(Event.TICK) is State.IDLE
+
+
+def test_noise_lets_listening_go_on_until_its_eight_seconds(sm, clock):
+    sm.on(Event.WAKE); clock.advance(1); sm.on(Event.SPEECH_START); clock.advance(2)
+    assert sm.on(Event.NOISE) == State.LISTENING   # a cough after the tone: still listening
+    clock.advance(4.9); assert sm.on(Event.TICK) == State.LISTENING
+    clock.advance(0.1); assert sm.on(Event.TICK) == State.IDLE
+
+
+def test_noise_after_the_follow_up_window_opened_listening_ends_it(sm):
+    reach(sm, State.FOLLOW_UP); sm.on(Event.SPEECH_START)
+    assert sm.on(Event.NOISE) == State.IDLE   # no name and no key: it lasts only while speech is heard

@@ -28,6 +28,7 @@ class Event(Enum):
     PUSH = auto()  # the talk key: listens from any state, even muted
     REQUEST = auto()  # a typed request on the Mac
     REPLY_PAUSE = auto()  # speech ran out, the turn goes on
+    NOISE = auto()  # speech that held no words (a cough): listening goes on, on its own 8 s
 
 
 # WAKE is accepted only in IDLE (and LISTENING, to restart it), so Jarvis cannot wake itself while thinking or speaking.
@@ -64,6 +65,8 @@ class StateMachine:
 
     def on(self, event: Event) -> State:
         now = self.clock()
+        if event is Event.NOISE:
+            self._speech_seen = False
         if self.state is State.FOLLOW_UP and now - self._follow_up_since >= FOLLOW_UP_SECONDS:
             self.state = State.IDLE
         if self.state is State.LISTENING and not self._speech_seen and now - self._listening_since >= LISTEN_SECONDS:
@@ -77,8 +80,10 @@ class StateMachine:
         elif event is Event.PUSH or (event is Event.WAKE and not self.muted and self.state in _WAKES):
             self.state, self._listening_since, self._speech_seen = State.LISTENING, now, False
         elif not (self.muted and event is Event.WAKE):
-            self.state = _TRANSITIONS.get((self.state, event), self.state)
+            was, self.state = self.state, _TRANSITIONS.get((self.state, event), self.state)
             self._speech_seen |= event is Event.SPEECH_START  # also entering LISTENING from the follow-up window
+            if was is State.FOLLOW_UP and self.state is State.LISTENING:  # no name, no key: no 8 s of its own
+                self._listening_since = now - LISTEN_SECONDS
             if self.state is State.FOLLOW_UP and event is Event.REPLY_END:
                 self._follow_up_since = now
                 if self.muted:  # no follow-up window while the mic is off
