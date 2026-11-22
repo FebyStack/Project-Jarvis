@@ -250,6 +250,13 @@ async def test_muting_stops_the_mic_and_unmuting_starts_it(voice, jarvis, engine
     await until(lambda: mic.running); assert jarvis.health()["mic"] == "on"
 
 
+async def test_the_mic_dying_mid_request_ends_the_listen(voice, jarvis, engines, mic):
+    engines.hears("Jarvis."); await voice.on_utterance(utt()); assert jarvis.state is State.LISTENING
+    await feed(voice, SPEECH, 10)   # speech under way, so the 8 s give-up is off
+    mic.on_word("off"); await asyncio.sleep(0.01)
+    assert jarvis.state is State.IDLE and voice.seg.buf == [] and not voice.seg.speaking
+
+
 async def test_engines_that_will_not_load_leave_typed_jarvis_working(jarvis, engines, mic):
     engines.load_says = "no models"
     v = Voice(jarvis, engines, mic, Segmenter(lambda f: 0.0), listen=(keys := FakeKeys()))

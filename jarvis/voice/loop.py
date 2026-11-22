@@ -73,6 +73,10 @@ class Voice:
 
     def _mic_word(self, word: str) -> None:
         self._word = word
+        if word == "off":  # the stream is gone: so is what was being cut, and no end of speech will come
+            with self._lock:
+                self.seg.reset()
+            self.jarvis.give_up()
         self.jarvis.set_mic(self._shown())
 
     def _shown(self) -> str:
