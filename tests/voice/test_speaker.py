@@ -23,15 +23,16 @@ class FakeSynth:
 
 
 class FakePlayer:
-    """Busy from play() until its done, which comes a loop turn later; start fires inside play()."""
+    """Busy from play() until its done, which comes a loop turn later; start fires inside the run's first play()."""
     def __init__(self):
         self.played, self.stops, self.closes, self.busy = [], 0, 0, False
         self.on_start = self.on_done = lambda: None
 
     def play(self, pcm):
         self.played.append(len(pcm))
+        if not self.busy:  # once per run, as the real Player
+            self.on_start()
         self.busy = True
-        self.on_start()
         asyncio.get_running_loop().call_soon(self._done)
 
     def _done(self):
@@ -207,3 +208,29 @@ async def test_a_reply_cannot_pass_say_an_option(monkeypatch):
 async def test_a_finished_runs_stream_is_closed_from_the_loop(rig):
     rig.sp.say("Mic off."); await idle(rig.sp)
     assert rig.player.closes == 1 and rig.events == ["start", "done"]
+
+
+async def test_a_hint_plays_without_starting_speech(rig):
+    rig.sp.hint("On it."); await idle(rig.sp)
+    assert rig.synth.texts == ["On it."] and rig.player.played == [6] and rig.events == []
+
+
+async def test_a_hint_is_synthesized_once(rig):
+    rig.sp.hint("On it."); await idle(rig.sp)
+    rig.sp.hint("On it."); await idle(rig.sp)
+    assert rig.synth.texts == ["On it."] and rig.player.played == [6, 6]
+
+
+async def test_a_hint_is_silent_while_held_or_speaking(rig):
+    rig.sp.hold(True); rig.sp.hint("On it."); await idle(rig.sp)
+    assert rig.player.played == []
+    rig.sp.hold(False); rig.synth.block = {"One."}
+    rig.sp.feed("One. "); rig.sp.hint("On it."); await idle(rig.sp)
+    assert "On it." not in rig.synth.texts
+
+
+async def test_a_reply_behind_a_hint_still_starts_speech(rig):
+    rig.player._done = lambda: None  # the hint's run is still playing when the reply comes
+    rig.sp.hint("On it."); await idle(rig.sp)
+    rig.sp.say("Lima."); await idle(rig.sp)
+    assert rig.events[:1] == ["start"]

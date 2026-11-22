@@ -48,6 +48,8 @@ class VoiceSpeaker:
         self._free = asyncio.Event()
         self._free.set()
         self._active = self._speaking = self._working = False
+        self._hints: dict[str, np.ndarray] = {}  # holding lines, synthesized once
+        self._hinting = False  # a holding line's run is playing: a reply joining it starts no run of its own
         self._queue: asyncio.Queue[str] = asyncio.Queue()
         self._task = self._loop.create_task(self._consume())
 
@@ -85,6 +87,22 @@ class VoiceSpeaker:
         except Exception as e:
             log.warning("cue did not play: %s", type(e).__name__)
 
+    def hint(self, text: str) -> None:
+        """A holding line while the brain works. Like the tone, it leaves the core's state alone."""
+        if self._active or not self._free.is_set():
+            return
+        self._loop.create_task(self._hint(text))
+
+    async def _hint(self, text: str) -> None:
+        try:
+            if text not in self._hints:
+                self._hints[text] = await self._synth(text)
+            if not self._active:  # the reply may have begun meanwhile
+                self._hinting = True
+                self.player.play(self._hints[text])
+        except Exception as e:
+            log.warning("hint did not play: %s", type(e).__name__)
+
     def _push(self, chunks: list[str]) -> None:
         for c in chunks:
             self._active = True
@@ -100,6 +118,7 @@ class VoiceSpeaker:
             self._begin()
 
     def _player_done(self) -> None:
+        self._hinting = False
         self.player.close()
         self._maybe_done()
 
@@ -116,6 +135,8 @@ class VoiceSpeaker:
                 pcm = await self._synth(text)
                 await self._free.wait()
                 self.player.play(pcm)
+                if self._hinting:  # queued behind a holding line: the player's start has already gone
+                    self._begin()
             except Exception as e:
                 log.warning("speech fell back to say: %s", type(e).__name__)
                 await self._free.wait()

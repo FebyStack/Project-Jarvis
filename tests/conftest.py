@@ -146,6 +146,9 @@ class FakeSpeaker:
     def cue(self):
         self.calls.append(("cue",))
 
+    def hint(self, text):
+        self.calls.append(("hint", text))
+
 
 def states(j):
     """From now on, the `voice` of every `state` event `j` publishes; call the result to read them."""

@@ -43,6 +43,7 @@ class Speaker(Protocol):
     def stop(self) -> None: ...  # silence now; forget what was queued
     def hold(self, on: bool) -> None: ...  # while on, start no new sound
     def cue(self) -> None: ...  # the listening tone
+    def hint(self, text: str) -> None: ...  # a holding line while the brain works; no state change
 
 
 @dataclass
