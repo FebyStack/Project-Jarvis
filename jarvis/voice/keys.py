@@ -28,7 +28,9 @@ def listen(on_kind: Callable[[Kind], None], keycode: int = config.TALK_KEYCODE) 
 
     def callback(proxy, etype, event, refcon):
         if etype in (Q.kCGEventTapDisabledByTimeout, Q.kCGEventTapDisabledByUserInput):
-            Q.CGEventTapEnable(box["tap"], True)  # macOS switched it off for being slow
+            Q.CGEventTapEnable(box["tap"], True)  # macOS switched it off for being slow, or for secure input
+            if kind := gesture.lost():
+                on_kind(kind)
             return event
         now = time.monotonic()
         if etype in others:

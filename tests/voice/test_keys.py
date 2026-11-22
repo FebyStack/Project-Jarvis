@@ -68,3 +68,15 @@ def test_a_click_or_a_scroll_with_the_key_down_is_a_chord(tap, name):
     assert tap.q.mask & (1 << etype)
     tap.down(); tap.send(etype, {}); tap.up()  # {}: what was clicked is never read
     assert tap.kinds == ["down", "chord"]
+
+
+@pytest.mark.parametrize("name", ["kCGEventTapDisabledByTimeout", "kCGEventTapDisabledByUserInput"])
+def test_a_press_under_way_when_macos_switches_the_tap_off_ends_as_a_chord(tap, name):
+    tap.down(); tap.send(getattr(tap.q, name))   # the key up may be lost while the tap is off
+    tap.down()                                    # and the key still works afterwards
+    assert tap.kinds == ["down", "chord", "down"]
+
+
+def test_the_tap_switched_off_with_the_key_up_says_nothing(tap):
+    tap.send(tap.q.kCGEventTapDisabledByTimeout)
+    assert tap.kinds == []

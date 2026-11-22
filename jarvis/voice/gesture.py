@@ -30,3 +30,8 @@ class Gesture:
             return None
         self.chord = True
         return "chord"
+
+    def lost(self) -> Kind | None:
+        """The event tap was off, so a key up may have been missed: a press under way ends as a chord."""
+        was, self.down_at = self.down_at, None
+        return None if was is None or self.chord else "chord"
