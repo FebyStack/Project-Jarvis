@@ -20,7 +20,7 @@ SILENCE = np.zeros(480, dtype=np.int16)
 class FakeEngines:
     """Transcribes to the next queued text ("" when none is queued); a queued exception is raised instead."""
     def __init__(self):
-        self.texts, self.calls, self.load_says = deque(), 0, None
+        self.texts, self.calls, self.load_says, self.lengths = deque(), 0, None, []
 
     def hears(self, *texts):
         self.texts.extend(texts)
@@ -30,6 +30,7 @@ class FakeEngines:
 
     async def transcribe(self, pcm):
         self.calls += 1
+        self.lengths.append(len(pcm))
         t = self.texts.popleft() if self.texts else ""
         if isinstance(t, Exception):
             raise t
@@ -255,6 +256,14 @@ async def test_hold_sends_what_was_said_with_no_name_and_no_silence_wait(voice, 
     engines.hears("open Mail")
     voice.key("down"); await feed(voice, SPEECH, 20); await until(lambda: jarvis.state is State.LISTENING)
     voice.key("hold_end"); await bridge.got("open Mail")
+
+
+async def test_speech_under_way_when_the_key_goes_down_is_not_sent(voice, jarvis, engines, bridge):
+    engines.hears("open Mail")
+    await feed(voice, SPEECH, 100)  # 3 s of someone talking, no name
+    voice.key("down"); await until(lambda: jarvis.state is State.LISTENING)
+    await feed(voice, SPEECH, 10); voice.key("hold_end"); await bridge.got("open Mail")
+    assert engines.lengths == [(10 + 10) * 480]  # the pre-roll and what was said with the key
 
 
 async def test_a_press_let_go_inside_the_grace_does_nothing(voice, jarvis, engines, speaker):   # 0.3-0.8 s

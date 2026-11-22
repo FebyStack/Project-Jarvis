@@ -150,7 +150,7 @@ class Voice:
         if kind == "down":
             self._key_down, self._engaged = True, False
             with self._lock:
-                self.seg.hold()
+                self.seg.hold(keep=self.jarvis.sm.state is State.LISTENING)
             self.jarvis.key(True)
             self._sync()  # starts the mic if muted
             self._grace = self._loop.call_later(config.KEY_GRACE_SECONDS, self._engage)

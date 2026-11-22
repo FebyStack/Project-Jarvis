@@ -120,3 +120,10 @@ def test_a_tap_with_no_speech_waits_for_the_detector():
     assert run(s, (0.0, 27)) == [] and not s.speaking
     out = run(s, (0.9, 34), (0.0, 27))
     assert len(out) == 1 and not out[0].cut
+
+
+def test_a_hold_that_does_not_keep_drops_speech_under_way_but_the_pre_roll():
+    s = seg()
+    run(s, (0.9, 100))
+    s.hold(keep=False)
+    assert len(s.buf) == 10 and not s.heard

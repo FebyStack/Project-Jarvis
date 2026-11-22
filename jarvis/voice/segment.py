@@ -60,7 +60,10 @@ class Segmenter:
             return self._take(len(self.buf) - self.quiet + KEEP_QUIET, capped and self.quiet < END_FRAMES)
         return None
 
-    def hold(self) -> None:
+    def hold(self, keep: bool = True) -> None:
+        """keep: speech under way is part of the request (listening); else only the pre-roll is kept."""
+        if not keep:
+            self.buf, self.speaking = self.buf[-PRE_ROLL:], False
         self.held, self.heard = True, self.speaking
 
     def release(self) -> Utterance | None:
