@@ -235,6 +235,14 @@ async def test_a_cut_request_continues_into_the_next_utterance(voice, jarvis, en
     await bridge.got("write an email to the accountant about Friday"); assert len(bridge.sent) == 1
 
 
+async def test_a_cut_request_takes_one_more_piece_and_no_more(voice, jarvis, engines, bridge):
+    engines.hears("Jarvis, write an email to", "the accountant about", "Friday and the invoices")
+    for _ in range(3):  # continuous talk: every piece ends at the 15 s cap
+        await voice.on_utterance(utt(15.0, cut=True))
+    await bridge.got("write an email to the accountant about"); await asyncio.sleep(0.01)
+    assert bridge.sent == ["write an email to the accountant about"]
+
+
 async def test_frames_while_speaking_are_dropped_and_the_cutter_reset(voice, jarvis, engines, speaker, bridge):
     await feed(voice, SPEECH, 10)  # speech in progress when Jarvis starts talking
     await asking(jarvis, speaker, bridge)
