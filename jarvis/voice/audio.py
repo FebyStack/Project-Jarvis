@@ -60,9 +60,9 @@ class Mic:
     def _frame(self, frame: np.ndarray) -> None:
         self._quiet, self._flowed = 0.0, True
         if frame.any():
-            self._zeros = 0
+            self._sound = True
             self._say("on")
-        else:
+        elif not self._sound:  # silence after sound on the same stream is the room or the device, not the grant
             self._zeros += len(frame)
             if self._zeros >= QUIET * config.SAMPLE_RATE:  # what macOS gives a process without the grant
                 self._say("no permission")
@@ -72,7 +72,7 @@ class Mic:
         sleep = self._sleep or stopping.wait
         wait, fails, why = 1, 0, None
         while not stopping.is_set():
-            self._quiet, self._zeros, self._flowed = 0.0, 0, False
+            self._quiet, self._zeros, self._flowed, self._sound = 0.0, 0, False, False
             try:
                 with _portaudio:
                     stream = self._open(self._frame)

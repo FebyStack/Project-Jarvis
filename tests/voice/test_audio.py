@@ -97,6 +97,16 @@ def test_all_zero_audio_is_no_permission_then_on_when_it_returns(rig):
     assert rig.words == ["no permission", "on"]
 
 
+def test_silence_after_sound_on_the_same_stream_is_not_no_permission(rig):
+    rig.mic.start()
+    wait_for(lambda: rig.fi.streams)
+    s = rig.fi.streams[0]
+    s.feed(loud())
+    for _ in range(70):  # 2.1 s of digital silence mid-stream: the device, not the grant
+        s.feed(zeros())
+    assert rig.words == ["on"]
+
+
 def test_mic_stop_ends_its_thread_and_says_off(rig):
     rig.mic.start()
     wait_for(lambda: rig.fi.streams)
