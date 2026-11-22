@@ -42,7 +42,9 @@ class FakePlayer:
 
     def stop(self):
         self.stops += 1
-        self.busy = False
+        if self.busy:  # done at once, as the real Player
+            self.busy = False
+            self.on_done()
 
     def close(self):
         self.closes += 1
@@ -234,3 +236,32 @@ async def test_a_reply_behind_a_hint_still_starts_speech(rig):
     rig.sp.hint("On it."); await idle(rig.sp)
     rig.sp.say("Lima."); await idle(rig.sp)
     assert rig.events[:1] == ["start"]
+
+
+async def test_hold_cuts_a_playing_hint(rig):
+    rig.player._done = lambda: None  # still playing
+    rig.sp.hint("On it."); await idle(rig.sp)
+    rig.sp.hold(True); await idle(rig.sp)
+    assert rig.player.stops == 1 and rig.events == []
+
+
+async def test_a_hint_still_being_made_does_not_play_after_a_stop_or_hold(rig):
+    rig.synth.block = {"On it."}
+    rig.sp.hint("On it."); await idle(rig.sp); rig.sp.stop(); rig.synth.gate.set(); await idle(rig.sp)
+    rig.synth.gate.clear(); rig.synth.block = {"One moment."}
+    rig.sp.hint("One moment."); await idle(rig.sp); rig.sp.hold(True); rig.synth.gate.set(); await idle(rig.sp)
+    assert rig.player.played == [] and rig.events == []
+
+
+async def test_warm_makes_each_hint_once(rig):
+    await rig.sp.warm(("On it.", "One moment."))
+    rig.sp.hint("On it."); await idle(rig.sp)
+    assert rig.synth.texts == ["On it.", "One moment."] and rig.player.played == [6]
+
+
+async def test_a_reply_after_a_stopped_hint_starts_and_ends_once(rig):
+    rig.player._done = lambda: None
+    rig.sp.hint("On it."); await idle(rig.sp); rig.sp.stop(); await idle(rig.sp)
+    del rig.player._done
+    rig.sp.say("Lima."); await idle(rig.sp)
+    assert rig.events == ["start", "done"]

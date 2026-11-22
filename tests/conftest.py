@@ -149,6 +149,9 @@ class FakeSpeaker:
     def hint(self, text):
         self.calls.append(("hint", text))
 
+    async def warm(self, texts):
+        self.calls.append(("warm", tuple(texts)))
+
 
 def states(j):
     """From now on, the `voice` of every `state` event `j` publishes; call the result to read them."""

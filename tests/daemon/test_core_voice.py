@@ -197,3 +197,27 @@ async def test_no_holding_line_after_a_cancel(make, bridge_of, monkeypatch):
     await j.submit("never mind", "mac"); await asyncio.sleep(0.05)
     assert not [c for c in sp.calls if c[0] == "hint"]
     b.emit(turn("", cancelled=True)); await t
+
+
+async def test_the_talk_key_holds_the_speaker_until_it_engages_or_lets_go(make):
+    j = await make(speaker=(sp := FakeSpeaker()))
+    j.key(True); assert sp.calls[-1] == ("hold", True)
+    j.key(False); assert sp.calls[-1] == ("hold", False)
+
+
+async def test_a_workers_tool_does_not_word_the_holding_line(make, bridge_of, monkeypatch):
+    monkeypatch.setattr("jarvis.config.HOLD_SECONDS", 0.05)
+    j = await make(speaker=(sp := FakeSpeaker())); b = bridge_of(j)
+    t = asyncio.create_task(j.submit("fix the export bug", "mac")); await b.got("fix the export bug")
+    base = {"hook_event_name": "PreToolUse", "session_id": b.session_id, "cwd": "/tmp"}
+    await j.hook(base | {"tool_name": "Agent", "tool_input": {"subagent_type": "triage"}})
+    await j.hook(base | {"agent_id": "triage-1", "tool_name": "Read", "tool_input": {"file_path": "/tmp/x"}})
+    await asyncio.sleep(0.1)
+    assert [c for c in sp.calls if c[0] == "hint"] == [("hint", "On it.")]
+    b.emit(turn("Fixed.")); await t
+
+
+async def test_the_holding_lines_are_made_ahead(make):
+    j = await make(speaker=(sp := FakeSpeaker()))
+    await j.warm_hints()
+    assert sp.calls == [("warm", ("Looking that up.", "On it.", "One moment."))]

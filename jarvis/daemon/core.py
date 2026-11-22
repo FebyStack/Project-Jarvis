@@ -44,6 +44,7 @@ class Speaker(Protocol):
     def hold(self, on: bool) -> None: ...  # while on, start no new sound
     def cue(self) -> None: ...  # the listening tone
     def hint(self, text: str) -> None: ...  # a holding line while the brain works; no state change
+    async def warm(self, texts: tuple[str, ...]) -> None: ...  # make the holding lines ahead
 
 
 @dataclass
@@ -65,11 +66,14 @@ class _Request:
     tool: tuple[str, str] = ("", "")  # the last tool the hook saw for it, and its subagent: words the holding line
 
 
+HINTS = ("Looking that up.", "On it.", "One moment.")
+
+
 def hint_for(tool: str, sub: str) -> str:
     """The holding line for what Jarvis is doing."""
     if tool in ("WebSearch", "WebFetch") or (tool in ("Agent", "Task") and sub == "researcher"):
-        return "Looking that up."
-    return "On it." if tool in ("Agent", "Task") else "One moment."
+        return HINTS[0]
+    return HINTS[1] if tool in ("Agent", "Task") else HINTS[2]
 
 
 async def reachable(host: str = "api.anthropic.com", port: int = 443) -> bool:
@@ -352,6 +356,7 @@ class Jarvis:
         self._current = None
         req.done.clear()
         req.turn = None
+        req.tool = ("", "")
         self._waiting.appendleft(req)
         self._resolve(req, say, False)
 
@@ -525,7 +530,7 @@ class Jarvis:
         req = None
         if payload.get("session_id") == self.bridge.session_id:
             req = self._owner({"task_id": payload.get("agent_id")})
-        if req is not None:
+        if req is not None and not payload.get("agent_id"):  # the front door's own call, not a worker's
             req.tool = (tool, inp.get("subagent_type") or "")
         decision = judge(tool, inp, cwd, self.gate)
         if decision.verdict == "never":
@@ -583,6 +588,15 @@ class Jarvis:
     def cue(self) -> None:
         if self.speaker:
             self.speaker.cue()
+
+    def key(self, down: bool) -> None:
+        """The talk key is down (capture has begun) or let go: no new sound, holding line included, while down."""
+        if self.speaker:
+            self.speaker.hold(down or self.sm.state is State.LISTENING)
+
+    async def warm_hints(self) -> None:
+        if self.speaker:
+            await self.speaker.warm(HINTS)
 
     def speech_started(self) -> None:
         self._drive(Event.SPEECH_START)

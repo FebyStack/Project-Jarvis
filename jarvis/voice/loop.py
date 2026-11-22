@@ -41,6 +41,7 @@ class Voice:
             return self.jarvis.set_mic(reason)
         self._stop_keys = self._listen(lambda kind: self._loop.call_soon_threadsafe(self.key, kind))
         self._sync()
+        self._warm = asyncio.create_task(self.jarvis.warm_hints())  # kept, so it is not collected
         self._task = asyncio.create_task(self._follow())
 
     async def stop(self) -> None:
@@ -150,6 +151,7 @@ class Voice:
             self._key_down, self._engaged = True, False
             with self._lock:
                 self.seg.hold()
+            self.jarvis.key(True)
             self._sync()  # starts the mic if muted
             self._grace = self._loop.call_later(config.KEY_GRACE_SECONDS, self._engage)
             return
@@ -176,6 +178,7 @@ class Voice:
                 task = asyncio.create_task(self.on_utterance(utt, by_key=True))
                 self._keyed.add(task)
                 task.add_done_callback(self._keyed.discard)
+        self.jarvis.key(False)
         self._sync()
 
     def _engage(self) -> None:

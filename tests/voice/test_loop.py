@@ -339,3 +339,15 @@ async def test_a_key_gesture_hops_to_the_loop_and_stop_ends_the_listener(voice, 
     await asyncio.to_thread(keys.on_kind, "down")  # the listener calls back on its own thread
     await until(lambda: voice.seg.held)
     await voice.stop(); assert keys.stopped
+
+
+async def test_the_key_holds_speech_from_the_moment_it_goes_down(voice, jarvis, speaker):
+    voice.key("down"); assert ("hold", True) in speaker.calls
+    speaker.calls.clear(); voice.key("chord"); assert speaker.calls[-1] == ("hold", False)
+
+
+async def test_start_makes_the_holding_lines_ahead(jarvis, engines, mic, speaker):
+    v = Voice(jarvis, engines, mic, Segmenter(lambda f: 0.0), listen=lambda on_kind: None)
+    await v.start(); await asyncio.sleep(0.01)
+    assert ("warm", ("Looking that up.", "On it.", "One moment.")) in speaker.calls
+    await v.stop()

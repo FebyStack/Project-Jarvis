@@ -79,6 +79,8 @@ class VoiceSpeaker:
 
     def hold(self, on: bool) -> None:
         self._free.clear() if on else self._free.set()
+        if on and self._hinting and not self._active:
+            self.player.stop()  # the talk key cuts a holding line short
 
     def cue(self) -> None:
         """Not held and not speech: it plays while listening and leaves the core's state alone."""
@@ -91,15 +93,27 @@ class VoiceSpeaker:
         """A holding line while the brain works. Like the tone, it leaves the core's state alone."""
         if self._active or not self._free.is_set():
             return
-        self._loop.create_task(self._hint(text))
+        self._hint_task = self._loop.create_task(self._hint(text, self._gen))  # kept, so it is not collected
 
-    async def _hint(self, text: str) -> None:
+    async def warm(self, texts) -> None:
+        """Makes the holding lines ahead, so none waits on synthesis when it is needed."""
+        for text in texts:
+            try:
+                await self._made(text)
+            except Exception as e:
+                log.warning("hint not made: %s", type(e).__name__)
+
+    async def _made(self, text: str) -> np.ndarray:
+        if text not in self._hints:
+            self._hints[text] = await self._synth(text)
+        return self._hints[text]
+
+    async def _hint(self, text: str, gen: int) -> None:
         try:
-            if text not in self._hints:
-                self._hints[text] = await self._synth(text)
-            if not self._active:  # the reply may have begun meanwhile
+            pcm = await self._made(text)
+            if gen == self._gen and self._free.is_set() and not self._active:  # no stop, hold or reply meanwhile
                 self._hinting = True
-                self.player.play(self._hints[text])
+                self.player.play(pcm)
         except Exception as e:
             log.warning("hint did not play: %s", type(e).__name__)
 
@@ -118,7 +132,8 @@ class VoiceSpeaker:
             self._begin()
 
     def _player_done(self) -> None:
-        self._hinting = False
+        if not self.player.busy:  # not a new run's: a hint may have just started one
+            self._hinting = False
         self.player.close()
         self._maybe_done()
 
