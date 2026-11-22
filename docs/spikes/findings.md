@@ -605,7 +605,7 @@ Not re-run, and still Febriel's: row 10's live `y`/`n` and Escape in the HUD (th
 
 ## Plan 3 probes (Plan 3 Task 1)
 
-Run 2026-11-17 (P5–P7 with Febriel at the Mac, 00:30–00:36 on 2026-11-18). Packages: `parakeet-mlx` 0.7.0, `pyobjc-framework-quartz` 13.0, `en_core_web_sm` 3.8.0 added; the `spike` uv group is gone (everything in it is now a product dependency) and the re-lock changed no other version. Scripts: `spikes/09-voice/` (`_common.py` holds the shared Kokoro / resample / Parakeet helpers). No audio was written to disk.
+Run 2026-11-17 (P5–P7 with Febriel at the Mac, 00:30–00:36). Packages: `parakeet-mlx` 0.7.0, `pyobjc-framework-quartz` 13.0, `en_core_web_sm` 3.8.0 added; the `spike` uv group is gone (everything in it is now a product dependency) and the re-lock changed no other version. Scripts: `spikes/09-voice/` (`_common.py` holds the shared Kokoro / resample / Parakeet helpers). No audio was written to disk.
 
 | # | Probe | Measured | Bar | Verdict |
 |---|---|---|---|---|
@@ -628,7 +628,7 @@ Run 2026-11-17 (P5–P7 with Febriel at the Mac, 00:30–00:36 on 2026-11-18). P
 
 ## Plan 3 results
 
-### Task 14: the name match on Febriel's voice (2026-11-18, 01:20–02:15)
+### Task 14: the name match on Febriel's voice (2026-11-17, 01:20–02:15)
 
 `spikes/09-voice/wake_tune.py`, live, in memory only (whether the rule woke; any word scoring ≥ 0.6 with its position; length, peak and word count as numbers). The login agent kept running: it was still the pre-voice build, so it did not own the mic.
 
@@ -639,3 +639,72 @@ Run 2026-11-17 (P5–P7 with Febriel at the Mac, 00:30–00:36 on 2026-11-18). P
 | Negatives | 30 min of video/talk at normal volume, name never said | 54 utterances, **0 woke**; the only word ≥ 0.6 was "rise" (0.60). None of javi, javier, jovies appeared. Bar ≤ 1: **pass** (a thin sample: 54 utterances) |
 
 **Final rule:** thresholds unchanged (`WAKE_SIMILARITY = 0.70`, `WAKE_STRICT = 0.80`, `WAKE_WORDS = 3`); `WAKE_ALSO = {"javi", "javier"}` (heard 3 and 2 times, absent from the negatives). "travis" stays rejected (a real name, and the rule's own reason for existing); "jovies" was heard once, not reliably. With the two added the second run would have woken ~57 of ~63 (~90%, the 27-of-30 bar at its edge). Far and turned-away speech is where it misses; the talk key is the fallback (spec §6.1). Task 15's rows re-check on the running daemon.
+
+### Task 15: the live rows on the running daemon (2026-11-17 to 2026-11-22)
+
+Recorded from `jarvisd.log`, the day logs and an event recorder that kept event types and states only, never text.
+
+| # | Result |
+|---|---|
+| 1 | Pass on redo: "what time is it" ×10, all spoken; end of speech to first sound about 1.37 s (0.8 s of it the silence wait). |
+| 2 | Pass on redo: "capital of Australia" ×10, median end of speech to first word **2.42 s** (bar 2.5 s), so `END_SILENCE_SECONDS` stays 0.8. The first run merged requests that came less than 0.8 s apart; that was rapid repetition, not a fault. |
+| 3 | Pass: the tone comes about 1 s after a bare "Jarvis"; 8 s of nothing goes back to `IDLE`. |
+| 4 | Pass after two fixes Febriel chose (below): an answer without the name inside 6 s is taken; after 6 s the name is needed. |
+| 5 | Pass on the yes path: the question is spoken and shown, and "yes" deleted the scratch file twice. The live "no" never ran, because both answers were heard as "Yes."; the unanswered question that timed out at 11:24 on 2026-11-18 left its file, and the unit tests cover "no". The front door asks its own "say go" before the gate's yes/no, so a delete is confirmed twice. |
+| 6 | Pass: hold, "capital of Peru", release, and "Lima." with no name and no wait. |
+| 7 | Pass: tap, tone, "capital of Chile", and "Santiago.". |
+| 8 | Pass: "stop listening" turns the orange dot off and the footer to `MIC ○ muted`; a named request while muted leaves no trace; holding the key while muted is answered; `ctrl+l` turns it back on. |
+| 9 | Pass: long answers at normal volume, and Jarvis never answered itself. A spoken permission question was answered "Yes." in the window, as designed. |
+| 10 | **Failed first:** Escape during a long answer froze jarvisd (fixed in 27524f6, below). On redo it passed: Escape cut the answer and the next request was heard; a quick tap stopped speech and kept listening; "Jarvis, never mind" cancelled a worker job ("Cancelled."). |
+| 11 | Pass: 2026-11-18 15:12–15:17, talk and video without the name, and nothing in `jarvisd.log`, the day log or the events. |
+| 12 | Pass: the lid closed at 15:21:28 and woke at 15:22:09; `MIC` was back `on` at 15:22:15 (6 s) and a named request was answered. |
+| 13 | **Failed first:** typing é, ñ and ⌥← woke Jarvis and twice cut off a reply. Febriel's chords come 87–603 ms after the key (25 measured over two passes), past the 0.15 s grace. The grace is now **0.8 s** (5d45ece, then be6044b, Febriel's choice). On redo, typing while idle did nothing and typing during a reading left it reading. One unexplained engage at 2026-11-22 20:54:18, with the probe off, is parked for the review. |
+| 14 | jarvisd's CPU was **6.4 %** of one core idle (4.6–8.3) and **5.9 %** with a video (4.9–6.9), 2026-11-22 21:55–22:15. That is a few percent, but above Plan 1's 2 % and 4 %. A stack sample shows only the mic thread and onnxruntime (the voice detector) at work, with no output stream left open. The video left no trace. |
+| 15 | Pass: a request typed in the HUD was spoken ("Lima."), and a worker's weather lookup was spoken when it finished. |
+| 16 | Pass: with the network off (2026-11-22 22:22:06), jarvisd restarted, `MIC` was `on` 9 s later from the cached models, and "what time is it" was answered ("It's 10:22 PM."). `/health` still said `brain: online` while offline. |
+
+**Fixed during the rows** (each with a failing test first):
+- 366440e: a bare "Okay." or "Huh?" in the follow-up window ends the exchange instead of going to Claude (Febriel's choice).
+- 07b3993: the follow-up window opens only after a reply that asks something (ends in "?") or while a yes/no waits. Before this, other people talking in the room chained reply after reply (Febriel's choice).
+- d30dccf: a worker's announcement that asks something opens the window too.
+- 27524f6: Escape no longer freezes jarvisd. The output callback's own stop and the loop's abort deadlocked inside CoreAudio (shown by a stack sample); now only the loop stops a stream.
+- 5d45ece, be6044b: the key's grace is 0.8 s.
+
+**Seen and parked for the review:**
+- The mic drops to `no permission` (2 s of exact zeros, then back) every few seconds since 2026-11-22 20:55, and 3–5 times on 2026-11-18. It did not stop when CapCut quit, and a separate 20 s read of the mic saw no zeros.
+- Holding the key while Jarvis speaks stops it, but the speaker's done then drops the state to `IDLE` while the key is still held. The keyed request still goes through.
+- A Right Option press between 0.3 s and the grace with no chord engages at key up. On 2026-11-20, holds of 8–13 s while muted sent "Oh." and "Mm-hmm." to Claude, and their cause is unknown.
+
+The review (2026-11-22) took up all three, and the fix pass (b398dd0..a5aea03, 21 commits, 879 tests) dealt with each:
+- The mic now says `no permission` only for a stream that has carried no sound at all (a5aea03). Where the zeros come from is still unknown.
+- Speech the key cut short no longer ends the listen the key started (50d94e2).
+- A press let go inside the grace, a click with the key, or a hold with nothing said sends nothing (b398dd0).
+
+### Re-check after the review fixes (2026-11-23, 00:32–00:35)
+
+jarvisd ran the fixed code from 2026-11-22 23:30:17. `jarvisd.log` now has only jarvisd's own lines: no phoneme lines and no phonemizer warning.
+
+| Check | Result |
+|---|---|
+| Hold, "what time is it", release | Pass: "It's 12:32 AM." |
+| A half-second press while Jarvis reads | Pass, with a caveat. The press landed while the log request was still thinking: the brain cold-started, so the first token took 5.07 s. Nothing was sent, and the reading then played to the end. |
+| Option+click while Jarvis reads | Pass: no events during the reading. |
+| A video talking, hold, "capital of Peru" | Pass: "Lima." with nothing from the video. |
+| "Jarvis", tone, cough, "capital of Chile" | Pass: "Santiago." 6.7 s after the tone. The logs can't show whether the cough reached the new keep-listening path, because a wordless sound leaves no line. |
+| Tap near the end of a reading, then "what time is it" | Pass: the tap cut the reading at 11.8 s and the request was answered. Before the fix, this tap was lost. |
+
+**Seen:** the first reply after an hour idle, the instant time answer, took **11.5 s** from reply to sound. Earlier first replies after idle took 3–7 s: 5.7 s, 4.0 s, 4.3 s, 5.4 s, 3.1 s and 7.4 s. The next replies started in 0.2–0.3 s. This looks like a cold first synthesis, which is older than the fix pass. Parked.
+
+### Holding line and model routing (2026-11-22)
+
+Plan: `docs/superpowers/plans/2026-11-22-jarvis-holding-line-and-routing.md`.
+- **Holding line:** if a mac request is still thinking 1.5 s after it was sent with nothing said, jarvisd says "Looking that up.", "On it." or "One moment." Febriel heard it live. Requests answered quickly get none (Chile, 1.33 s first token).
+- **Haiku is slower to start.** First token, one-word question, three runs each outside Jarvis:
+
+  | | First token |
+  |---|---|
+  | Haiku | 1.4–2.0 s |
+  | Sonnet | 0.75–0.9 s |
+
+  `--effort low` changed little. The front door therefore stays on **Sonnet at low effort**.
+- **Triage:** moved from Opus to Sonnet at medium effort. A weather lookup's first token went from 17 s of silence to 13 s, with the holding line filling the wait.

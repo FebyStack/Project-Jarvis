@@ -46,7 +46,7 @@ Each was Claude's call. **Febriel confirmed all 14 as written on 2026-11-17** ("
 
 ### Amendments after Task 1
 
-Probes run 2026-11-17/18 (`docs/spikes/findings.md`, "Plan 3 probes"). Where this table disagrees with a task, it wins.
+Probes run 2026-11-17 (`docs/spikes/findings.md`, "Plan 3 probes"). Where this table disagrees with a task, it wins.
 
 | Probe | Found | Change |
 |---|---|---|
@@ -55,6 +55,21 @@ Probes run 2026-11-17/18 (`docs/spikes/findings.md`, "Plan 3 probes"). Where thi
 | P2 | `uv run` re-resolves the `en_core_web_sm` URL and fails with no network | Row 16 and offline checks use `.venv/bin/jarvis` (as the login agent does) or `uv run --frozen --no-sync`. |
 | P6, P7 | macOS lists the venv interpreter as "Python" under Input Monitoring and Microphone; Right Option = 61, bit `0x40` | Task 11 uses them as planned; Task 12's README names "Python". |
 | (Step 1) | Every package in the `spike` uv group became a product dependency | The `spike` group is removed and `default-groups = ["dev"]`. |
+
+Found while building (2026-11-17):
+
+| Task | Found | Change |
+|---|---|---|
+| 7 | With the pinned `on_done` rule, a spoken gate question ("Delete test.txt?") ends in `THINKING` (the turn is still running), where only "Jarvis, cancel" is heard, so row 5's spoken "yes" would be dropped | When speech runs out while a yes/no question is pending, `on_done` sends `REPLY_END` (the follow-up window), not `REPLY_PAUSE`. |
+| 7 | A request parked by the usage limit or by the brain being offline would count as "still waiting" and hold the state in `THINKING` for hours | A parked request does not count for `REPLY_PAUSE`. |
+| 8 | `Mic(..., sleep=time.sleep)` would make `stop()` wait out a reopen backoff of up to 30 s | `Mic(open_stream=_open_input, sleep=None)`: by default it waits on its stop event, so `stop()` ends it at once. |
+| 9 | Task 9's rule for `say()` ("if the fed text ends with `text`") contradicts its own test (`feed("Let me check. ")`, `feed("Done.")`, `say("Done.")`) | `say()` speaks only what the longest overlap of the fed text and `text` leaves unspoken; the tests stand as written. |
+| 9 | `say -v Daniel <text>` lets a reply that starts with "-" pass options to `say` (security review) | `say -v Daniel -f -`, the text on stdin. |
+| 11 | `tap()` made the kept frames an utterance ended by silence, so a tap followed by the tone and a pause gave up after 0.8 s and the request then arrived in `IDLE` with no name | `Segmenter.tap()` with no speech in the kept frames falls back to normal listening; the state stays `LISTENING` until speech or the 8 s timeout. |
+| 15 (rows 1–2) | Febriel's reflex "Okay." / "Huh?" as an answer ended was taken in the follow-up window and sent to Claude, whose reply opened another window | A bare acknowledgement (`instant.is_ack`) heard while `LISTENING` with no name, no kept start and no pending question ends the exchange silently (Febriel, 2026-11-17). |
+| 15 (rows 3–5) | With other people talking in the room, the 6 s no-name window after every answer caught their speech and chained reply after reply | The follow-up window opens only after a reply that asks something (ends in "?") or while a yes/no waits; after a plain answer the state goes straight to `IDLE` (Febriel, 2026-11-17; spec §6.1 to amend). |
+| 15 (row 10) | Escape during a long answer froze jarvisd (2026-11-18): the output callback's `CallbackStop` and the loop's `abort()` stopped the same stream at once and deadlocked on a CoreAudio lock (stack sample), so the state stayed `SPEAKING` and nothing more was heard | The callback never stops its stream; only the loop does: `Player.stop()`, the next `play()`, or the new `Player.close()`, which `VoiceSpeaker` calls when a run's done arrives. |
+| 15 (row 13) | Typing é, ñ and ⌥← with Right Option woke Jarvis and twice cut off a reply: Febriel's chords come 87–603 ms after the key (25 measured over two passes, 2026-11-18), past the pinned 0.15 s grace; 0.5 s still let a 603 ms é through | `KEY_GRACE_SECONDS = 0.8` (Febriel's choice). Taps (111–136 ms) still engage at once on key up; a hold now stops speech and shows `LISTENING` 0.8 s after the press (capture still starts at once). |
 
 **Known exposure, not solved here:** in the 6 s follow-up window no name is needed, so after Jarvis asks "Delete 14 files?", a "yes" from a video or another person in the room would count (spec §10 risk 8). The voice-print lock is in §14, later. Until then the question is also in the HUD, and a held key is the sure way to answer.
 

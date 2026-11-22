@@ -92,6 +92,26 @@ States: `IDLE → LISTENING → THINKING → SPEAKING → (follow-up window) →
 - Spoken replies are short. Long output goes to the HUD and the vault, and Jarvis says where it put it.
 - **No parroting (amended 2026-11-14, Febriel):** Jarvis never repeats back what Febriel just said ("You said: …"). It answers or acts.
 - **Speech without the wake name (amended 2026-11-14):** waking by transcription means everything said near the Mac is transcribed, including other people. The text never leaves the Mac, and an utterance without the wake name is discarded at once: never logged, never shown, never written to the vault.
+- **Plan 3, as built and confirmed (amended 2026-11-22):**
+  - **The name rule.** Only the first three words count. A word wakes Jarvis when either of these holds:
+    - it scores at least 0.70 against "jarvis", starts with "j" and has at least 5 letters;
+    - it scores at least 0.80 and has at least 6 letters.
+
+    "javi" and "javier" also wake it: that is how Febriel is heard (Task 14). "travis" stays rejected.
+  - **The talk key is Right Option** (key code 61).
+    - A tap under 0.3 s starts listening with the tone.
+    - A hold records from the moment the key goes down, and Jarvis engages after a **0.8 s grace** (Febriel's chords for é, ñ and ⌥← come 87–603 ms after the key). Right Option used for typing therefore stops nothing and shows nothing.
+    - The key works in every state. In `SPEAKING` it cuts the speech short and listens.
+  - **Cancel while speaking.** Escape, the key, or "Jarvis, never mind" silence Jarvis within 0.2 s.
+  - **Muted closes the mic stream.** The orange indicator goes off. Only the key opens the mic while muted, and only for that hold.
+  - **The tone** plays on a bare "Jarvis" and on a tap.
+  - **Timeouts and caps.**
+    - Nothing said for 8 s after the tone returns to `IDLE`.
+    - One utterance is cut at 15 s, and the cut start is kept for the rest of the request.
+    - A hold is capped at 60 s.
+  - **Mac replies are always spoken**, typed or said. Phone replies are not.
+  - **The follow-up window (Febriel, 2026-11-17)** opens only after a reply that asks something (ends in "?") or while a yes/no question waits. A plain answer goes straight back to `IDLE`, because other people talking in the room were otherwise taken as follow-ups. A bare reaction in the window ("Okay.", "Huh?", "Thanks") ends the exchange instead of going to Claude.
+  - **Holding line (Febriel, 2026-11-22).** If a mac request is still thinking 1.5 s after it was sent and nothing has been said, jarvisd says "Looking that up.", "On it." or "One moment." The wording follows what the front door is doing. The line changes no state, never plays while the talk key is down, and never plays after a stop.
 
 ### 6.2 The brain
 
@@ -271,6 +291,12 @@ A full-screen terminal app, gold on black (`#D4AF37` text, brighter `#FFD700` fo
 
 The panels differ from the reference HUD because routines and inbox/calendar are out of scope. **(Claude's call)**
 
+*(amended 2026-11-22, Plan 3)*
+- **`MIC` words:** `loading`, `on`, `on, no key` (no Input Monitoring grant), `off`, `no permission` (2 s of silent samples), `muted`, or a model-load error such as `no models`.
+- **`ctrl+l`** in the HUD toggles mute.
+- The VOICE waveform is fed by a `level` event (0–1, about ten per second while the mic is open).
+- The front door runs on Sonnet at low effort, and triage on Sonnet at medium effort (§11).
+
 ## 8. Structure
 
 Python, one package, because the wake word, speech-to-text, and text-to-speech libraries are all Python. Terminal UI in Textual. **(Claude's call)**
@@ -330,6 +356,11 @@ State lives in three places only: the in-memory state machine in `jarvisd`, Clau
 - *(Plan 2, 2026-11-14)* Through `jarvisd`, a small typed request's first token arrived 0.97–1.50 s after it was sent (1.12 s on a fresh process), against 0.79 s in Spike 1. That eats into the margin above; Plan 3 measures the spoken figure.
 - Anything expected to take over 5 s gets a short spoken acknowledgement first.
 - Idle CPU with the mic open: a few percent of one core. Measured: 2 % in a quiet room, about 4 % with video playing. *(amended 2026-11-14)*
+- *(Plan 3, measured on the running daemon)*
+  - End of speech to first sound: about 1.37 s for an instant answer, and a median of **2.42 s** to the first word for a small Sonnet request (2026-11-17, ten each). The 2.5 s target is met, and `END_SILENCE_SECONDS` stays 0.8.
+  - The spoken acknowledgement above is now jarvisd's holding line at 1.5 s (§6.1). A lookup's first token went from 17 s to 13 s when triage moved from Opus to Sonnet at medium effort.
+  - Haiku took 1.4–2.0 s to its first token against Sonnet's 0.75–0.9 s, so the front door stays on Sonnet at low effort (2026-11-22).
+  - Idle CPU measured 6.4 % in a quiet room and 5.9 % with a video (2026-11-22). That is a few percent, but above Plan 1's figures; the voice detector is the only active code.
 
 ## 12. Privacy
 
@@ -342,6 +373,7 @@ State lives in three places only: the in-memory state machine in `jarvisd`, Clau
 ## 13. Setup Febriel does personally
 
 - Grant Microphone, Accessibility, and Input Monitoring (for hold-to-talk) permissions when macOS asks. *(2026-11-14: Microphone, Accessibility and Screen Recording were granted to the Claude app during the spikes; `jarvisd` will need its own grants. Input Monitoring is still to do.)*
+  *(amended 2026-11-22, Plan 3)* Microphone and Input Monitoring are granted to **Homebrew Python** (`/opt/homebrew/Cellar/python@3.12/…/Python.app`), the interpreter the login agent runs `.venv/bin/jarvis` on. Both show as "Python" in System Settings. A Python upgrade that moves that path will likely need them granted again.
 - Create the Tailscale account; install and sign in on Mac and iPhone. *(Done 2026-11-14.)*
 - Build the Shortcut from the steps in `shortcuts/` and paste in the token; set up Back Tap. *(Done 2026-11-14.)*
 - Allow Claude to control Reminders when macOS asks (for the phone nudge). *(Done 2026-11-14.)*
@@ -358,4 +390,4 @@ Interrupting Jarvis mid-sentence by voice, talking to Jarvis from inside Obsidia
 
 Library versions, the exact agent prompts, the event names, the HTTP routes, test layout, and the order of work after the spikes. Build order should put the spikes in §10 first, since each can change the design.
 
-*(amended 2026-11-14, Plan 2)* The HTTP routes and event names are now fixed. Routes, in `jarvis/remote/api.py`, on `127.0.0.1:8787`, every one behind the bearer token and a `Host` check: `POST /ask` (`{"text", "channel"?}` → `{"say", "loop"?: "yes"}`, Spike 6's contract), `POST /answer`, `POST /cancel`, `POST /hook`, `GET /health`, and the WebSocket `GET /events`. Events, in `jarvis/daemon/core.py`: `snapshot` first, then `state`, `heard`, `reply_delta`, `reply`, `agents`, `queue`, `memory`, `limits` and `health`.
+*(amended 2026-11-14, Plan 2)* The HTTP routes and event names are now fixed. Routes, in `jarvis/remote/api.py`, on `127.0.0.1:8787`, every one behind the bearer token and a `Host` check: `POST /ask` (`{"text", "channel"?}` → `{"say", "loop"?: "yes"}`, Spike 6's contract), `POST /answer`, `POST /cancel`, `POST /hook`, `GET /health`, and the WebSocket `GET /events`. Events, in `jarvis/daemon/core.py`: `snapshot` first, then `state`, `heard`, `reply_delta`, `reply`, `agents`, `queue`, `memory`, `limits` and `health`, plus `level` *(added 2026-11-22, Plan 3: mic level for the waveform)*.
