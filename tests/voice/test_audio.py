@@ -217,3 +217,27 @@ def test_stop_ends_the_run_even_if_the_stream_will_not_abort(out):
     out.fo.streams[0].abort = gone
     out.p.stop()
     assert out.events == ["done"] and not out.p.busy
+
+
+def test_streams_open_stop_and_close_under_one_lock():
+    """PortAudio is not thread-safe: the mic thread and the loop must not open or stop streams at once."""
+    from jarvis.voice import audio
+    seen = []
+
+    def note(what):
+        lock = getattr(audio, "_portaudio", None)
+        seen.append((what, bool(lock and lock.locked())))
+
+    def open_in(on_frame):
+        note("open in")
+        return SimpleNamespace(close=lambda: note("close in"))
+
+    def open_out(fill):
+        note("open out")
+        return SimpleNamespace(abort=lambda: note("abort out"), close=lambda: note("close out"))
+    mic = Mic(open_stream=open_in, sleep=FakeSleep())
+    mic.start(); wait_for(lambda: len(seen) >= 2); mic.stop()
+    p = Player(open_stream=open_out); p.play(np.ones(10, dtype=np.float32)); p.stop()
+    p.play(np.ones(10, dtype=np.float32)); p.busy = False; p.close()
+    assert {w for w, _ in seen} == {"open in", "close in", "open out", "abort out", "close out"}
+    assert all(locked for _, locked in seen), seen

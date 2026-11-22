@@ -15,6 +15,9 @@ TICK = 0.5  # seconds between checks that frames still come
 QUIET = 2.0  # seconds without a frame (reopen) or of all-zero samples (no permission)
 MAX_WAIT = 30
 STALL = 2.0  # seconds a busy run may go without an output callback: past that, its device went away
+# PortAudio is not thread-safe: the mic thread and the loop open, stop and close streams only under this lock.
+# The stream callbacks never take it (abort waits for a running callback).
+_portaudio = threading.Lock()
 
 
 def _open_input(on_frame: Callable[[np.ndarray], None]):
@@ -71,7 +74,8 @@ class Mic:
         while not stopping.is_set():
             self._quiet, self._zeros, self._flowed = 0.0, 0, False
             try:
-                stream = self._open(self._frame)
+                with _portaudio:
+                    stream = self._open(self._frame)
             except Exception as e:
                 log.warning("mic did not open: %s", type(e).__name__)
             else:
@@ -79,7 +83,8 @@ class Mic:
                     sleep(TICK)
                     self._quiet += TICK
                 try:
-                    stream.close()
+                    with _portaudio:
+                        stream.close()
                 except Exception as e:
                     log.warning("mic did not close: %s", type(e).__name__)
                 if self._flowed:
@@ -126,10 +131,11 @@ class Player:
                 return
             self.busy, self._started, self._tail, self._called = True, False, 0, self._clock()
             old, self._stream = self._stream, None
-        if old is not None:
-            old.close()  # the last run's stream, if close() has not come yet
         try:
-            self._stream = self._open(self._fill)
+            with _portaudio:
+                if old is not None:
+                    old.close()  # the last run's stream, if close() has not come yet
+                self._stream = self._open(self._fill)
         except Exception:
             with self._lock:
                 self._queue.clear()
@@ -143,8 +149,9 @@ class Player:
             stream, self._stream = self._stream, None
         if stream is not None:  # outside the lock: abort waits for a running callback
             try:
-                stream.abort()
-                stream.close()
+                with _portaudio:
+                    stream.abort()
+                    stream.close()
             except Exception as e:  # a vanished device may not abort; the run is over all the same
                 log.warning("speaker stream did not stop: %s", type(e).__name__)
         if was:
@@ -161,8 +168,9 @@ class Player:
                 return
             stream, self._stream = self._stream, None
         if stream is not None:
-            stream.abort()
-            stream.close()
+            with _portaudio:
+                stream.abort()
+                stream.close()
 
     def _fill(self, out: np.ndarray) -> bool:
         """The output callback: fills `out`; True when the run is over (the loop then close()s its stream)."""
