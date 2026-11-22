@@ -107,7 +107,7 @@ def test_env_keeps_only_the_named_variables(monkeypatch):
 def test_argv_is_exact(monkeypatch):
     monkeypatch.delenv("JARVIS_CLAUDE_BIN", raising=False)
     a = claude_argv("MAP")
-    assert a[:6] == ["claude", "-p", "--agent", "jarvis", "--model", "sonnet"]
+    assert a[:6] == ["claude", "-p", "--agent", "jarvis", "--model", "haiku"] and a[a.index("--effort") + 1] == "low"
     assert "--bare" not in a and a[a.index("--setting-sources") + 1] == "project"
     assert a[a.index("--settings") + 1].endswith(".claude/jarvis-settings.json")
     assert "--strict-mcp-config" in a and "--mcp-config" not in a and a[a.index("--append-system-prompt") + 1] == "MAP"

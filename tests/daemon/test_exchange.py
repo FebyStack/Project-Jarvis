@@ -57,7 +57,7 @@ def test_task_stays_open_until_its_background_worker_ends(tracker, vault, tmp_pa
     with pytest.raises(RuntimeError): tracker.finish("Started.", [])
     tracker.feed(agent_done("t1", "completed", "Fixed the exporter.")); assert tracker.closed
     text = tracker.finish("Started.", [("Delete 14 files?", False)]).read_text()
-    for needle in ("# Fix export bug", "jarvis (sonnet)", "triage (claude-opus-5-5)", "coder (claude-opus-5-5)",
+    for needle in ("# Fix export bug", "jarvis (haiku)", "triage (claude-opus-5-5)", "coder (claude-opus-5-5)",
                    "/x/y.py", "Fixed the exporter.", "Delete 14 files? — no"):
         assert needle in text
 

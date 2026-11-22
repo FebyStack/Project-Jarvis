@@ -113,7 +113,7 @@ class Tracker:
         if not self.is_task:
             return self.vault.log_exchange(Exchange(self.at, self.channel, self.asked, answered, self.notes_read))
         title = self.verdict.title if self.verdict else " ".join(self.asked.split()[:6])
-        agents = [("jarvis", "sonnet")] + [(a["name"], a["model"] or a["asked_model"] or agent_model(a["name"])) for a in self._agents.values()]
+        agents = [("jarvis", config.FRONT_MODEL)] + [(a["name"], a["model"] or a["asked_model"] or agent_model(a["name"])) for a in self._agents.values()]
         return self.vault.write_task_note(TaskRecord(
             self.at, self.channel, title, self.asked, "\n\n".join([answered, *self.summaries]), agents,
             confirmations, self.files, self.notes_read))

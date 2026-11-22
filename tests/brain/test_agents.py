@@ -25,7 +25,7 @@ def split(tools):
 
 # Plan 2 Task 1 probe Step 6 (docs/spikes/findings.md, "Plan 2 probes"): `skills:` does not load on the
 # `--agent` main thread, so jarvis has no skills key; humanizer and grill-me are pasted below VENDORED_MARK.
-EXPECT = {"jarvis": ("sonnet", None, []), "triage": ("claude-opus-5-5", ["Read", "Glob", "Grep"], []),
+EXPECT = {"jarvis": ("haiku", None, []), "triage": ("sonnet", ["Read", "Glob", "Grep"], []),
           "coder": ("sonnet", None, ["ponytail"]), "researcher": ("haiku", ["Read", "Glob", "Grep", "WebSearch", "WebFetch"], []),
           "scribe": ("haiku", ["Read", "Glob", "Grep", "Write", "Edit"], ["vault"])}
 
@@ -37,6 +37,11 @@ def test_agent_frontmatter(name):
     assert fm["name"] == name and fm["model"] == model and fm.get("skills", []) == skills
     assert (split(fm["tools"]) if "tools" in fm else None) == tools
     assert len(body.split(VENDORED_MARK)[0].splitlines()) <= 60
+
+
+def test_triage_thinks_at_medium_effort():
+    fm, _ = frontmatter(ROOT / ".claude" / "agents" / "triage.md")
+    assert fm["effort"] == "medium"
 
 
 def test_jarvis_carries_its_skills_inline():

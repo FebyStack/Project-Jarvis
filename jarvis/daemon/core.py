@@ -684,7 +684,7 @@ class Jarvis:
         return self._health_body()
 
     def _agent_rows(self) -> list[dict]:
-        front = {"id": "jarvis", "name": "jarvis", "model": "sonnet", "since": self._last_activity,
+        front = {"id": "jarvis", "name": "jarvis", "model": config.FRONT_MODEL, "since": self._last_activity,
                  "doing": "working on your request" if self._current else "idle", "background": False}
         return [front] + [{k: v for k, v in a.items() if k != "_tu"} for a in self._agents.values()]
 

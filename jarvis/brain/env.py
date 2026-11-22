@@ -21,7 +21,8 @@ def clean_env() -> dict[str, str]:
 
 
 def claude_argv(memory_map: str, agent: str = "jarvis", resume: str | None = None) -> list[str]:
-    argv = [os.environ.get("JARVIS_CLAUDE_BIN") or "claude", "-p", "--agent", agent, "--model", "sonnet",
+    argv = [os.environ.get("JARVIS_CLAUDE_BIN") or "claude", "-p", "--agent", agent, "--model", config.FRONT_MODEL,
+            "--effort", config.FRONT_EFFORT,
             "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
             "--setting-sources", "project", "--settings", str(config.SETTINGS), "--strict-mcp-config",
             "--add-dir", str(config.DESKTOP_SKILLS), "--append-system-prompt", memory_map]
