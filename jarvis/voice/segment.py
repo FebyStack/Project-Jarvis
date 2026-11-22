@@ -44,7 +44,9 @@ class Segmenter:
         self.buf.append(frame)
         if self.held:
             self.heard |= self.predict(frame) >= START
-            return self._take(len(self.buf), True) if len(self.buf) >= MAX_HELD_FRAMES else None
+            if len(self.buf) < MAX_HELD_FRAMES:
+                return None
+            return self._take(len(self.buf), True) if self.heard else self.reset()  # nothing said: dropped
         p = self.predict(frame)
         if not self.speaking:
             if p >= START:
@@ -62,7 +64,7 @@ class Segmenter:
         self.held, self.heard = True, self.speaking
 
     def release(self) -> Utterance | None:
-        if not (self.held and self.buf):
+        if not (self.held and self.heard):  # the detector never fired: room sound, not a request
             self.held = False
             return None
         return self._take(len(self.buf), False)

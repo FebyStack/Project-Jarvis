@@ -156,7 +156,7 @@ class Voice:
             self._grace = self._loop.call_later(config.KEY_GRACE_SECONDS, self._engage)
             return
         self._key_down = False
-        if kind == "chord":
+        if kind == "chord" or (kind == "hold_end" and not self._engaged):  # let go inside the grace: as a chord
             if self._engaged:
                 self.jarvis.give_up()
             elif self._grace:
@@ -168,8 +168,7 @@ class Voice:
             with self._lock:
                 self.seg.tap()
             self.jarvis.cue()
-        else:  # hold_end
-            self._engage()
+        else:  # hold_end, engaged
             with self._lock:
                 utt = self.seg.release()
             if utt is None:
@@ -187,8 +186,11 @@ class Voice:
             self._grace = None
         if not self._engaged:
             self._engaged = True
-            self.jarvis.wake(key=True)
             with self._lock:
+                if self.jarvis.sm.state is State.SPEAKING:  # what was held is Jarvis's own voice
+                    self.seg.reset()
+                    self.seg.hold()
                 talking = self.seg.speaking or self.seg.heard
+            self.jarvis.wake(key=True)
             if talking:  # speech already under way: no 8 s give-up while it runs
                 self.jarvis.speech_started()

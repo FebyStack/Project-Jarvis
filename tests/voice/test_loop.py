@@ -253,8 +253,23 @@ async def test_the_log_has_timings_and_never_text(voice, jarvis, engines, bridge
 
 async def test_hold_sends_what_was_said_with_no_name_and_no_silence_wait(voice, jarvis, engines, bridge):
     engines.hears("open Mail")
-    voice.key("down"); await feed(voice, SPEECH, 20)
+    voice.key("down"); await feed(voice, SPEECH, 20); await until(lambda: jarvis.state is State.LISTENING)
     voice.key("hold_end"); await bridge.got("open Mail")
+
+
+async def test_a_press_let_go_inside_the_grace_does_nothing(voice, jarvis, engines, speaker):   # 0.3-0.8 s
+    await speaking(jarvis, speaker); speaker.calls.clear(); seen = collect(jarvis)
+    voice.key("down"); await feed(voice, SPEECH, 20); voice.key("hold_end")   # Jarvis's own voice, held
+    await asyncio.sleep(config.KEY_GRACE_SECONDS + 0.1)
+    assert ("stop",) not in speaker.calls and [e for e in seen() if e["type"] in ("state", "heard")] == []
+    assert jarvis.state is State.SPEAKING and engines.calls == 0 and voice.seg.buf == [] and not voice.seg.held
+
+
+async def test_jarvis_own_voice_held_before_the_key_engages_is_not_sent(voice, jarvis, engines, speaker):
+    await speaking(jarvis, speaker)
+    voice.key("down"); await feed(voice, SPEECH, 20); await until(lambda: jarvis.state is State.LISTENING)
+    await feed(voice, SILENCE, 5); voice.key("hold_end"); await asyncio.sleep(0.01)
+    assert engines.calls == 0 and jarvis.state is State.IDLE
 
 
 async def test_tap_listens_and_a_pause_sends(voice, jarvis, engines, speaker, bridge):
@@ -310,7 +325,8 @@ async def test_the_key_works_while_muted_and_the_mic_shuts_again(voice, jarvis, 
     await jarvis.submit("stop listening", "mac"); await until(lambda: not mic.running)
     engines.hears("open Mail")
     voice.key("down"); assert mic.running
-    await feed(voice, SPEECH, 20); voice.key("hold_end"); await bridge.got("open Mail")
+    await feed(voice, SPEECH, 20); await until(lambda: jarvis.state is State.LISTENING)
+    voice.key("hold_end"); await bridge.got("open Mail")
     bridge.emit(turn("Opened.")); await until(lambda: ("say", "Opened.") in speaker.calls)
     speaker.on_start(); speaker.on_done(); assert jarvis.state is State.IDLE
     await until(lambda: not mic.running); assert jarvis.health()["mic"] == "muted"
@@ -323,9 +339,9 @@ async def test_the_key_stops_speech(voice, jarvis, speaker):
 
 
 async def test_holding_with_nothing_said_gives_up(voice, jarvis, engines, bridge):
-    engines.hears("")
-    voice.key("down"); await feed(voice, SILENCE, 20); voice.key("hold_end")
-    await until(lambda: engines.calls == 1 and jarvis.state is State.IDLE); assert bridge.sent == []
+    voice.key("down"); await feed(voice, SILENCE, 20); await until(lambda: jarvis.state is State.LISTENING)
+    voice.key("hold_end"); await asyncio.sleep(0.01)
+    assert jarvis.state is State.IDLE and engines.calls == 0 and bridge.sent == []
 
 
 async def test_without_a_listener_the_footer_says_so(jarvis, engines, mic):

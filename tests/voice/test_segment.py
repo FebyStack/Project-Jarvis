@@ -59,11 +59,18 @@ def test_pre_roll_is_kept():
     assert (u.pcm[:480] == 7).all()
 
 
-def test_hold_keeps_everything_whatever_the_detector_says():
+def test_hold_keeps_everything_once_speech_is_heard():
+    s = seg()
+    s.hold()
+    run(s, (0.0, 20), (0.9, 5), (0.0, 25))
+    assert len(s.release().pcm) == 50 * 480
+
+
+def test_a_hold_the_detector_never_fired_in_is_not_sent():
     s = seg()
     s.hold()
     run(s, (0.0, 50))
-    assert len(s.release().pcm) == 50 * 480
+    assert s.release() is None and not s.held
 
 
 def test_release_with_nothing_held_is_none():
@@ -78,9 +85,15 @@ def test_release_with_nothing_held_is_none():
 def test_hold_stops_at_the_held_cap():
     s = seg()
     s.hold()
-    assert run(s, (0.0, 1999)) == []
+    assert run(s, (0.9, 1), (0.0, 1998)) == []
     u = s.feed(frame(0.0))
     assert u is not None and u.cut and len(u.pcm) == 2000 * 480
+
+
+def test_a_silent_hold_at_the_cap_is_dropped():
+    s = seg()
+    s.hold()
+    assert run(s, (0.0, 2000)) == [] and s.buf == [] and not s.held
 
 
 def test_tap_turns_the_held_frames_into_speech_in_progress():
