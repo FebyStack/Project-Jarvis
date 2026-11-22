@@ -241,3 +241,34 @@ def test_streams_open_stop_and_close_under_one_lock():
     p.play(np.ones(10, dtype=np.float32)); p.busy = False; p.close()
     assert {w for w, _ in seen} == {"open in", "close in", "open out", "abort out", "close out"}
     assert all(locked for _, locked in seen), seen
+
+
+def opened_after(errors):
+    """open_stream for Mic: raises each of `errors` in turn, then opens streams."""
+    errors, streams = list(errors), []
+
+    def open_stream(on_frame):
+        if errors:
+            raise errors.pop(0)
+        streams.append(SimpleNamespace(close=lambda: None))
+        return streams[-1]
+    return open_stream, streams
+
+
+def mic_warnings(caplog):
+    return [r.getMessage() for r in caplog.records if "mic did not open" in r.getMessage()]
+
+
+def test_a_mic_that_will_not_open_logs_the_first_failure_then_about_hourly(caplog):
+    open_stream, streams = opened_after([OSError("no input device")] * 250)
+    mic = Mic(open_stream=open_stream, sleep=lambda s: None)
+    mic.start(); wait_for(lambda: streams); mic.stop()
+    assert len(mic_warnings(caplog)) == 3  # the 1st, the 120th and the 240th: 120 tries at the 30 s wait is an hour
+
+
+def test_a_mic_that_will_not_open_logs_each_new_reason(caplog):
+    open_stream, streams = opened_after([OSError(), OSError(), RuntimeError(), OSError()])
+    mic = Mic(open_stream=open_stream, sleep=lambda s: None)
+    mic.start(); wait_for(lambda: streams); mic.stop()
+    assert mic_warnings(caplog) == ["mic did not open: OSError", "mic did not open: RuntimeError",
+                                    "mic did not open: OSError"]

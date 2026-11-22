@@ -70,15 +70,19 @@ class Mic:
 
     def _run(self, stopping: threading.Event) -> None:
         sleep = self._sleep or stopping.wait
-        wait = 1
+        wait, fails, why = 1, 0, None
         while not stopping.is_set():
             self._quiet, self._zeros, self._flowed = 0.0, 0, False
             try:
                 with _portaudio:
                     stream = self._open(self._frame)
             except Exception as e:
-                log.warning("mic did not open: %s", type(e).__name__)
+                fails += 1
+                if type(e).__name__ != why or fails % 120 == 0:  # a new reason, else about hourly at the 30 s wait
+                    why = type(e).__name__
+                    log.warning("mic did not open: %s", why)
             else:
+                fails, why = 0, None
                 while not stopping.is_set() and self._quiet < QUIET:
                     sleep(TICK)
                     self._quiet += TICK
