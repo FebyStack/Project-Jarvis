@@ -184,9 +184,10 @@ class Jarvis:
         full = now >= self._next_check
         if full:
             self._next_check = now + CHECK_EVERY
-            if self._offline and await reachable():
-                self._offline = False
-                self._wake.set()
+            if not self._in_flight():  # a TCP connect, no API call: health says offline before a turn fails
+                was, self._offline = self._offline, not await reachable()
+                if was and not self._offline:
+                    self._wake.set()
         self._publish_health(full)
 
     def _sweep_step(self, now: float, quiet: bool) -> None:
@@ -238,6 +239,8 @@ class Jarvis:
         self._publish_queue()
         if self._limits["status"] == "reached":
             return self._reply(channel, self._limit_sentence(), False)
+        if self._offline:  # queued for when the connection is back; nobody waits in THINKING meanwhile
+            return self._reply(channel, OFFLINE, False)
         return await fut
 
     def _limit_sentence(self) -> str:

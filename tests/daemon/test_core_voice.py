@@ -229,3 +229,29 @@ async def test_a_late_done_from_speech_the_key_stopped_keeps_listening(make, bri
     j.key(True); j.wake(key=True); sp.on_done()   # the stopped reply's done reaches the core after it listens
     assert j.state is State.LISTENING
     j.heard("open Mail"); await b.got("open Mail")
+
+
+async def no_network(*args):
+    return False
+
+
+async def test_offline_a_second_spoken_request_is_answered_at_once(make, bridge_of, monkeypatch):
+    from jarvis.daemon.core import OFFLINE
+    monkeypatch.setattr("jarvis.daemon.core.reachable", no_network)
+    j = await make(speaker=(sp := FakeSpeaker())); b = bridge_of(j)
+    t = asyncio.create_task(j.submit("fix it", "mac")); await b.got("fix it")
+    b.emit(turn("", is_error=True)); assert (await t).say == OFFLINE
+    sp.on_start(); sp.on_done(); assert j.state is State.IDLE
+    assert (await asyncio.wait_for(j.submit("open Mail", "mac"), 1)).say == OFFLINE
+    sp.on_start(); sp.on_done(); assert j.state is State.IDLE    # not THINKING until the network is back
+
+
+async def test_health_says_offline_before_any_turn_fails(make, monkeypatch, clock):
+    net = {"up": False}
+
+    async def reachable(*args):
+        return net["up"]
+    monkeypatch.setattr("jarvis.daemon.core.reachable", reachable)
+    j = await make()
+    await j.tick(); assert j.health()["brain"] == "offline"
+    net["up"] = True; clock.advance(30); await j.tick(); assert j.health()["brain"] == "online"

@@ -7,6 +7,14 @@ import pytest
 from jarvis.daemon.core import Jarvis
 from jarvis.memory.vault import Vault
 
+@pytest.fixture(autouse=True)
+def online(monkeypatch):
+    """No test opens a connection: `reachable` says the network is up unless a test says otherwise."""
+    async def up(*args):
+        return True
+    monkeypatch.setattr("jarvis.daemon.core.reachable", up)
+
+
 class FakeClock:
     def __init__(self):
         self.now = 0.0
