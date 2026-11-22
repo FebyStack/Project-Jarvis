@@ -25,7 +25,7 @@ def split(tools):
 
 # Plan 2 Task 1 probe Step 6 (docs/spikes/findings.md, "Plan 2 probes"): `skills:` does not load on the
 # `--agent` main thread, so jarvis has no skills key; humanizer and grill-me are pasted below VENDORED_MARK.
-EXPECT = {"jarvis": ("haiku", None, []), "triage": ("sonnet", ["Read", "Glob", "Grep"], []),
+EXPECT = {"jarvis": ("sonnet", None, []), "triage": ("sonnet", ["Read", "Glob", "Grep"], []),
           "coder": ("sonnet", None, ["ponytail"]), "researcher": ("haiku", ["Read", "Glob", "Grep", "WebSearch", "WebFetch"], []),
           "scribe": ("haiku", ["Read", "Glob", "Grep", "Write", "Edit"], ["vault"])}
 
