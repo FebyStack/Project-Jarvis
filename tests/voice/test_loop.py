@@ -341,6 +341,13 @@ async def test_the_key_works_while_muted_and_the_mic_shuts_again(voice, jarvis, 
     await until(lambda: not mic.running); assert jarvis.health()["mic"] == "muted"
 
 
+async def test_a_tap_that_stopped_speech_still_hears_the_request(voice, jarvis, engines, speaker, bridge):
+    await speaking(jarvis, speaker)
+    voice.key("down"); voice.key("tap"); speaker.on_done()   # the stopped reply's done comes after the tap
+    assert jarvis.state is State.LISTENING
+    engines.hears("open Mail"); await voice.on_utterance(utt()); await bridge.got("open Mail")
+
+
 async def test_the_key_stops_speech(voice, jarvis, speaker):
     await speaking(jarvis, speaker)
     voice.key("down"); await until(lambda: jarvis.state is State.LISTENING)

@@ -625,6 +625,8 @@ class Jarvis:
         """Speech ran out: the turn goes on if a mac request is still running or about to be served, unless it waits
         on a spoken yes/no. The follow-up window (no name needed) opens only after a reply that asks something or
         while a yes/no waits; after a plain answer the name or the key is needed again (Febriel, 2026-11-17)."""
+        if self.sm.state is State.LISTENING:  # the done of speech the key cut short: listening goes on
+            return
         blocked = self._limits["status"] == "reached" or self._offline  # its wait may be hours: don't sit in THINKING
         busy = [self._current] if self._current else []
         busy += [] if blocked else list(self._waiting)

@@ -171,6 +171,13 @@ async def test_a_late_start_from_before_a_stop_is_ignored(rig):
     assert rig.events == ["done"]
 
 
+async def test_stop_after_the_reply_has_all_been_queued_still_ends_with_done(rig):
+    rig.player._done = lambda: None  # the last chunk is still playing
+    rig.sp.say("Hi."); await idle(rig.sp)
+    rig.sp.stop(); await idle(rig.sp)
+    assert rig.events == ["start", "done"]  # done comes after the stop: the core must not take it as fresh news
+
+
 def fake_say(monkeypatch):
     """`say` that runs until killed: records its argv and what it read on stdin."""
     proc = SimpleNamespace(args=None, stdin=None, killed=False, done=asyncio.Event())

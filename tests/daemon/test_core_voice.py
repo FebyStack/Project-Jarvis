@@ -221,3 +221,11 @@ async def test_the_holding_lines_are_made_ahead(make):
     j = await make(speaker=(sp := FakeSpeaker()))
     await j.warm_hints()
     assert sp.calls == [("warm", ("Looking that up.", "On it.", "One moment."))]
+
+
+async def test_a_late_done_from_speech_the_key_stopped_keeps_listening(make, bridge_of):
+    j = await make(speaker=(sp := FakeSpeaker())); b = bridge_of(j)
+    await j.submit("what time is it", "mac"); sp.on_start()
+    j.key(True); j.wake(key=True); sp.on_done()   # the stopped reply's done reaches the core after it listens
+    assert j.state is State.LISTENING
+    j.heard("open Mail"); await b.got("open Mail")
