@@ -144,6 +144,10 @@ Reading of Febriel's answer **(Claude's call)**: Sonnet decides what counts as s
 | "repeat that", "say that again" | Speaks its last reply again. |
 | "status", "what are you working on" | Reads out the queue: what is running, waiting, and needing a yes. |
 | "yes", "no", "yes always" while a yes is pending | Answers the gate (§6.5). |
+| "stop Nova" *(amended 2026-11-23, Plan 4)* | Stops that one agent and says "Stopped Nova." |
+| "yes to Nova", "no to Nova", "yes always to Nova" *(amended 2026-11-23, Plan 4)* | Answers that agent's open question. |
+
+*(amended 2026-11-23, Plan 4)* A heard word matches a running agent's name only if it is that name or a close mis-hearing: the same first letter (b and v count as one, p and f as one), a length within one letter, and not a dictionary word. A word that matches no running name is not an instant phrase.
 
 The list is fixed in code for v1. Jev, the router model the reference uses for this sorting, is not used: it is a separate provider's model, and here the sorting is done by this list, then Sonnet, then Opus 5.5.
 
@@ -260,6 +264,8 @@ The cost of strict: early on, remote on-screen work will ask often, and gets qui
 
 ## 7. The face
 
+*(amended 2026-11-23, Plan 4)* The face is now the on-screen design in `2026-11-17-jarvis-screen-hud-design.md`, amended by `2026-11-23-jarvis-face-tether-design.md`: a red circle with a bead per agent. The terminal app below stays as `jarvis hud`, optional, and **red replaces gold** (`#FF3B30` active, `#C2241B` text and lines, `#6B1512` idle and borders).
+
 A full-screen terminal app, gold on black (`#D4AF37` text, brighter `#FFD700` for the active element, dim gold for idle), monospace, box-drawing characters. It attaches to `jarvisd`; closing it does not stop Jarvis.
 
 ```
@@ -311,12 +317,13 @@ Project Jarvis/
     brain/      Claude Code process bridge, session spawning, permission bridge
     memory/     raw-note writer, wiki index, vault paths
     remote/     local HTTP + WebSocket API, token check
-    tui/        Textual HUD, gold theme
+    tui/        Textual HUD, gold theme (red since 2026-11-23)
+    face/       the on-screen circle and beads: model, controller, place, tether, mark, page/, beads, threads, app (added 2026-11-23, Plan 4)
   .claude/
     agents/     jarvis, triage, coder, operator, reverser, researcher, scribe
     skills/     vault, sessions, system
     jarvis-settings.json   hooks, passed with --settings (no settings.json)
-  launchd/      login agent that starts jarvisd
+  launchd/      login agents that start jarvisd and, since 2026-11-23, com.febriel.jarvis-face
   shortcuts/    build steps for the iOS Shortcut
   tests/
 ```
@@ -391,3 +398,9 @@ Interrupting Jarvis mid-sentence by voice, talking to Jarvis from inside Obsidia
 Library versions, the exact agent prompts, the event names, the HTTP routes, test layout, and the order of work after the spikes. Build order should put the spikes in §10 first, since each can change the design.
 
 *(amended 2026-11-14, Plan 2)* The HTTP routes and event names are now fixed. Routes, in `jarvis/remote/api.py`, on `127.0.0.1:8787`, every one behind the bearer token and a `Host` check: `POST /ask` (`{"text", "channel"?}` → `{"say", "loop"?: "yes"}`, Spike 6's contract), `POST /answer`, `POST /cancel`, `POST /hook`, `GET /health`, and the WebSocket `GET /events`. Events, in `jarvis/daemon/core.py`: `snapshot` first, then `state`, `heard`, `reply_delta`, `reply`, `agents`, `queue`, `memory`, `limits` and `health`, plus `level` *(added 2026-11-22, Plan 3: mic level for the waveform)*.
+
+*(amended 2026-11-23, Plan 4)* Added to the API:
+- Route `POST /stop` with `{"agent": id}`: stops one agent (the gate first, then a `stop_task` control request).
+- The `agents` event and snapshot rows carry `id`, `name`, `call`, `model`, `doing`, `since`, `background`, `title`, `state`, `question`, `ask_id`, `ask_until`, `channel`.
+- The `level` event carries `source`: `"mic"` or `"voice"`.
+- The face is hidden or shown with Ctrl-Option-J: the snapshot carries `face_hidden`, and a `face` event `{"type": "face", "hidden": bool}` follows each change.

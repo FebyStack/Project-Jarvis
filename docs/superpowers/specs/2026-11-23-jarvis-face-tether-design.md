@@ -122,6 +122,10 @@ The circle's page loses two of its three messages. It can send only "the circle 
 
 Still true: never the key window, no Dock icon, every Space and over full-screen apps, the face's death never stops a question being asked by voice.
 
+### Hide and show *(added 2026-11-23, Febriel)*
+
+Ctrl-Option-J hides and shows the face. Hidden means the circle, every bead and every thread are gone and the page is paused. `jarvisd` detects the chord in its existing key tap (Input Monitoring, already granted) and keeps the state: `face_hidden` in the snapshot, and a `{"type": "face", "hidden": bool}` event on each change. It starts shown. A question that opens while the face is hidden brings it back.
+
 ## 9. States worth naming
 
 | Situation | The face |
@@ -141,6 +145,8 @@ One field: each agent row carries `ask_until`, the time its open question become
 
 The budgets of §8 stand. Expect it lighter than planned, since one web view is gone. The probe measures the real thing: the circle, five glass beads, five animated threads.
 
+*(amended 2026-11-23, Plan 4)* Measured on the built face: working with five beads about 22 %, talking about 22 %, idle (10 fps by timer) about 7 % of one core; memory 159–177 MB. The circle's web view is most of it (19 % alone at 30 fps); five beads add about 3 %. Febriel kept 30 fps and set new budgets: working and talking at most 25 %, idle at most 8 %, memory at most 200 MB.
+
 ## 12. Setup Febriel does
 
 Nothing. One install is named before it runs: `pyobjc-framework-WebKit`. `pyobjc-framework-Cocoa` is already installed (it came with Quartz in Plan 3) and becomes a declared dependency. Checked on this Mac on 2026-11-23: `NSGlassEffectView` is reachable from PyObjC 13.0 on macOS 26.4.1.
@@ -151,5 +157,5 @@ The probes of Plan 4 Task 1. Exact spring curve. The alert sound (unchanged). Te
 
 ## 14. Not decided
 
-- Whether a single big panel replaces one panel per bead (the probe says).
-- Whether the system glass looks right in a panel that is never key; the fallback is `NSVisualEffectView`.
+- ~~Whether a single big panel replaces one panel per bead.~~ *(settled 2026-11-23, Plan 4)* One panel per bead stands: it passed every click, typing, full-screen and Spaces check live.
+- ~~Whether the system glass looks right in a panel that is never key.~~ *(settled 2026-11-23, Plan 4)* It does: right in light, dark and Reduce Transparency. No fallback needed.

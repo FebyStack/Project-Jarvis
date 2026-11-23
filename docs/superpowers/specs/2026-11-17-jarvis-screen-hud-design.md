@@ -2,6 +2,8 @@
 
 Date: 2026-11-17 · Owner: Febriel · Status: approved by Febriel 2026-11-17, as written (so the calls marked Claude's are accepted).
 
+*(amended 2026-11-23)* `2026-11-23-jarvis-face-tether-design.md` amends this design: beads hung off the circle replace the corner cards (§1, §7.3, §10), and where the two disagree that one wins. §7.4, §7.6 and §8 are settled by the Plan 4 probes, below.
+
 Extends `2026-11-10-jarvis-design.md` (the main design) and replaces parts of its §7. Where the two disagree, this one wins once approved. Anything marked **(Claude's call)** was not said by Febriel.
 
 ## 1. Intent
@@ -106,7 +108,7 @@ The stack holds five. Order: cards with a question first, then working agents ne
 
 Each worker gets a name when it starts, picked at random from a list of about sixty short names kept in the code **(Claude's call: a fixed list, no film characters)**, never one that a running agent already has. The name stays for that agent's life and is used on its card, in the terminal HUD's AGENTS panel, in the task note in the vault, and when Jarvis speaks about it ("Nova has finished").
 
-**The name is chosen by `jarvisd`, and Jarvis's brain is told it** (Febriel, 2026-11-17: names work by voice too). `jarvisd` picks the name when the front door dispatches the worker, before the worker starts, and hands it to the front door so its own replies say "Nova", not "the coder". How it is handed over (in the dispatch itself, or as a `[jarvisd]` notice) is for the plan's first task to probe. If the model cannot be told reliably, the fallback is that `jarvisd` adds the name to what is spoken and shown, and the model's own sentence stays nameless.
+**The name is chosen by `jarvisd`, and Jarvis's brain is told it** (Febriel, 2026-11-17: names work by voice too). `jarvisd` picks the name when the front door dispatches the worker, before the worker starts, and hands it to the front door so its own replies say "Nova", not "the coder". How it is handed over (in the dispatch itself, or as a `[jarvisd]` notice) is for the plan's first task to probe. *(settled 2026-11-23, Plan 4 probes)* In the dispatch itself: the hook answers the `Agent` call with `updatedInput`, the description becomes "Nova: …" and the prompt starts "Your name is Nova." It works for foreground and background workers. If the model cannot be told reliably, the fallback is that `jarvisd` adds the name to what is spoken and shown, and the model's own sentence stays nameless.
 
 **By voice or typed, answered by code with no model**, like the other instant phrases, and matched only against the agents running now:
 
@@ -131,7 +133,9 @@ Only questions that need a yes (the gate's) light the card, the ring and the sou
 
 Stop on a card stops that one agent. Its request is recorded as stopped by Febriel, the card shows `stopped`, and Jarvis says nothing (he clicked it; he knows). Stop on the `Jarvis` question card answers no.
 
-Today "never mind" stops every running worker by restarting the `claude` process. Whether one background worker can be stopped alone is not yet known; the plan's first task probes it.
+*(settled 2026-11-23, Plan 4 probes)* One worker can be stopped alone. The hook's `agent_id` is the worker's task id, so the gate refuses that worker's calls first (it ends itself in about 4 s), then `jarvisd` sends a `stop_task` control request, which ends it at once. The front door announces a stopped worker on its own; `jarvisd` hushes that turn, so Jarvis says nothing. The fallbacks below are not built.
+
+Before the probe: today "never mind" stops every running worker by restarting the `claude` process. Whether one background worker can be stopped alone is not yet known; the plan's first task probes it.
 
 What counts as stopped **(Claude's call)**: from the click on, that agent does nothing more. So `jarvisd` first refuses every further tool call from that agent at the gate, at once and by code, and then ends it: a real kill of that one worker if the probe finds one, otherwise a `[jarvisd]` notice telling the front door to end it. The card says `stopped` as soon as the gate is shut. A stopped agent's result, if one still arrives, is not announced.
 
@@ -156,9 +160,9 @@ The reference for the look, circle and cards, is `docs/superpowers/specs/assets/
 
 ## 8. Performance
 
-- The face uses a few percent of one core while idle, no more than about 15 % while working or talking, and under 200 MB of memory.
+- The face uses a few percent of one core while idle, no more than about 15 % while working or talking, and under 200 MB of memory. *(amended 2026-11-23, Plan 4)* Measured on the built face: working and talking about 22 % of one core, idle about 7 %, memory 159–177 MB (about 175 MB). Febriel kept 30 fps and set the budgets to working and talking at most 25 %, idle at most 8 %, memory at most 200 MB.
 - A card appears within half a second of its agent starting.
-- The circle animates at about 30 frames a second without stutter while agents work.
+- The circle animates at about 30 frames a second without stutter while agents work. *(amended 2026-11-23, Plan 4)* Measured: 30 fps while listening, working and talking; idle 10 fps, by timer; muted and off draw one still frame.
 
 These figures count everything the face starts, the web view's helper processes included. The plan's first task measures them on a throwaway build before anything else is built. If they are missed **(Claude's call)**: first the idle circle slows to about 10 frames a second; then the memory limit loosens to 300 MB; approach A is dropped for B only if working or talking still costs more than a quarter of one core.
 
