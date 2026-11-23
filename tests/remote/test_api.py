@@ -17,6 +17,7 @@ TOKEN = "t" * 43
 class FakeJarvis:
     def __init__(self):
         self.reply, self.submitted, self.answers, self.cancelled, self._subs = Reply("ok", False), [], [], 0, []
+        self.stops = []
 
     async def submit(self, text, channel):
         self.submitted.append((text, channel)); return self.reply
@@ -26,6 +27,9 @@ class FakeJarvis:
 
     async def cancel(self):
         self.cancelled += 1
+
+    async def stop_agent(self, agent_id):
+        self.stops.append(agent_id); return agent_id == "t1"
 
     async def hook(self, payload):
         return {"verdict": "deny", "reason": payload.get("tool_name", "")}
@@ -97,6 +101,16 @@ async def test_answer_cancel_hook_health(client, fake):
     assert await (await client.post("/cancel")).json() == {"ok": True} and fake.cancelled == 1
     assert await (await client.post("/hook", json={"tool_name": "Bash"})).json() == {"verdict": "deny", "reason": "Bash"}
     assert (await (await client.get("/health")).json())["mic"] == "off"
+
+
+async def test_stop_route(client, fake):
+    assert await (await client.post("/stop", json={"agent": "t1"})).json() == {"stopped": True}
+    assert await (await client.post("/stop", json={"agent": "nope"})).json() == {"stopped": False}
+    for bad in (b'{"agent": 5}', b"{}", b"nope", b"[]"):
+        assert (await client.post("/stop", data=bad)).status == 400
+    assert (await client.post("/stop", json={"agent": "t1"}, headers={"Authorization": "Bearer wrong"})).status == 401
+    assert (await client.post("/stop", json={"agent": "t1"}, headers={"Host": "jarvis.example.com"})).status == 403
+    assert (await client.get("/stop")).status == 405 and fake.stops == ["t1", "nope"]
 
 
 async def test_events_stream_starts_with_the_snapshot(client, fake):

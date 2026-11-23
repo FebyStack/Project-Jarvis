@@ -294,6 +294,16 @@ async def test_interrupt_writes_the_control_request_and_marks_the_turn_cancelled
     await b.stop()
 
 
+async def test_stop_task_writes_the_control_request_for_that_task(fake_claude):     # Plan 4 probe P6
+    b = Bridge(lambda e: None, lambda: "MAP", sleep=no_wait); await b.start()
+    await b.stop_task("t1")
+    await until(lambda: fake_claude.stdin)
+    req = fake_claude.stdin[0]
+    assert req["type"] == "control_request" and req["request"] == {"subtype": "stop_task", "task_id": "t1"}
+    assert req["request_id"] and not b._interrupted
+    await b.stop()
+
+
 async def test_reset_starts_fresh_with_a_new_memory_map(fake_claude):
     maps = iter(["MAP1", "MAP2"])
     events = []; b = Bridge(events.append, lambda: next(maps), sleep=no_wait); await b.start()

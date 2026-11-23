@@ -46,7 +46,7 @@ class FakeBridge:
     def __init__(self, on_event, memory_map):
         self.on_event, self.memory_map = on_event, memory_map
         self.sent, self.session_id, self.interrupted, self.resets, self.alive = [], "fake-session", False, 0, True
-        self.restarted = 0
+        self.restarted, self.stopped_tasks = 0, []
 
     async def start(self):
         self.on_event({"kind": "init", "session_id": self.session_id, "api_key_source": "none", "mcp_servers": []})
@@ -58,6 +58,9 @@ class FakeBridge:
 
     async def interrupt(self):
         self.interrupted = True
+
+    async def stop_task(self, task_id):
+        self.stopped_tasks.append(task_id)
 
     async def restart(self):  # the real one kills the child; its supervisor resumes the same session
         self.restarted += 1

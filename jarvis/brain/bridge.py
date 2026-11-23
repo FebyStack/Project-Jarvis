@@ -124,6 +124,11 @@ class Bridge:
         self._interrupted = True
         await self._write({"type": "control_request", "request_id": str(uuid.uuid4()), "request": {"subtype": "interrupt"}})
 
+    async def stop_task(self, task_id: str) -> None:
+        """Ends one worker at once, even mid-turn; the stream reports it stopped, the others go on (Plan 4 probe P6)."""
+        await self._write({"type": "control_request", "request_id": str(uuid.uuid4()),
+                           "request": {"subtype": "stop_task", "task_id": task_id}})
+
     async def restart(self) -> None:
         """Kills the child; the supervisor resumes the same session, so background workers stop and memory stays."""
         if self._proc is not None:

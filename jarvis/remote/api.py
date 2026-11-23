@@ -54,6 +54,12 @@ def make_app(jarvis, token: str) -> web.Application:
         await jarvis.cancel()
         return web.json_response({"ok": True})
 
+    async def stop(request):
+        agent = (await _body(request) or {}).get("agent")
+        if not isinstance(agent, str):
+            return _bad("send {\"agent\": \"<id>\"}")
+        return web.json_response({"stopped": await jarvis.stop_agent(agent)})
+
     async def hook(request):
         body = await _body(request)
         if body is None:
@@ -88,7 +94,7 @@ def make_app(jarvis, token: str) -> web.Application:
     app = web.Application(middlewares=[guard])
     app.on_shutdown.append(close_streams)
     app.add_routes([web.post("/ask", ask), web.post("/answer", answer), web.post("/cancel", cancel),
-                    web.post("/hook", hook), web.get("/health", health), web.get("/events", events)])
+                    web.post("/stop", stop), web.post("/hook", hook), web.get("/health", health), web.get("/events", events)])
     return app
 
 

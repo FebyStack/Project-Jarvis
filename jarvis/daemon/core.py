@@ -31,6 +31,7 @@ CHILD_DIED = "Claude stopped while answering. Ask me again."
 SERVE_FAILED = "Something went wrong on my side while answering. Ask me again."
 STOPPING = "Jarvis is stopping, so this one wasn't answered. Ask again once it's back."
 OFFLINE = "I can't reach Claude right now. I'll answer when the connection is back."
+STOPPED = "Febriel stopped this agent."
 VAULT_TOOLS = {"Read": "file_path", "Write": "file_path", "Edit": "file_path", "MultiEdit": "file_path"}
 
 
@@ -114,7 +115,9 @@ class Jarvis:
         self._limits = {"status": "ok", "weekly": None, "resets_at": None}
         self._offline = self._turn_open = self._cancelling = False
         self._unprompted_owner: str | None = None  # the request an unprompted turn belongs to, by id
-        self._causes: deque[str] = deque()  # requests whose background worker ended and await their announcement
+        self._causes: deque[tuple[str, bool]] = deque()  # (request, its worker was stopped) per ended background worker
+        self._hush = False  # the open turn of its own announces a stopped worker: neither shown nor spoken
+        self._stopped: set[str] = set()  # agent ids the gate refuses
         self._sweep: tuple[Path, object] | None = None  # (day log, scribe process) of a running idle sweep
         self._down: str | None = None
         self._last_activity = clock()
@@ -229,9 +232,12 @@ class Jarvis:
         if status != "ok":
             self._publish_health(full=True)
             return self._reply(channel, VAULT_SAYS[status], False)
+        named = {r["call"]: r for r in self._agent_rows()
+                 if r["call"] and r["state"] in ("working", "needs_you") and (r["id"] != "jarvis" or r["question"])}
+        hit = instant.match_named(text, named)
         action = instant.match(text, pending=bool(self.asks.pending(channel)))
-        if action:
-            reply = await self._instant(action, channel)
+        if hit or action:
+            reply = await (self._by_name(hit[0], named[hit[1]], channel) if hit else self._instant(action, channel))
             self.vault.log_exchange(Exchange(self.now(), channel, text, reply.say))
             self._last_activity = self.clock()
             return reply
@@ -276,13 +282,26 @@ class Jarvis:
                     who = [self._caller(a) for a in waiting]
                     return self._reply(channel, f"{', '.join(who[:-1])} and {who[-1]} each have a question. Say yes or "
                                                 "no to one by name, or answer on its card.", False)
-                req = self._current if ask and self._current and ask.request_id == self._current.id else None
-                if req is None:  # no turn will follow: a background worker's or another session's question
-                    return self._reply(channel, "Okay.", False)
-                fut = asyncio.get_running_loop().create_future()
-                req.waiters.append(fut)
-                return await fut
+                return await self._answered(ask, channel)
         return self._reply(channel, say, False)
+
+    async def _by_name(self, action: str, row: dict, channel: Channel) -> Reply:
+        """Stop Nova, or yes / no / yes always to Nova. Stop on Jarvis answers its question no, as its card does."""
+        if action == "stop" and row["id"] != "jarvis":
+            await self.stop_agent(row["id"])
+            return self._reply(channel, f"Stopped {row['call']}.", False)
+        ask = row["ask_id"] and self.asks.answer("no" if action == "stop" else action, ask_id=row["ask_id"])
+        if not ask:
+            return self._reply(channel, f"{row['call']} has no question open.", False)
+        return await self._answered(ask, channel)
+
+    async def _answered(self, ask, channel: Channel) -> Reply:
+        req = self._current if ask and self._current and ask.request_id == self._current.id else None
+        if req is None:  # no turn will follow: a background worker's or another session's question
+            return self._reply(channel, "Okay.", False)
+        fut = asyncio.get_running_loop().create_future()
+        req.waiters.append(fut)
+        return await fut
 
     def answer(self, reply: str, channel: Channel | None = None, ask_id: str | None = None) -> bool:
         return self.asks.answer(reply, channel=channel, ask_id=ask_id) is not None
@@ -302,6 +321,24 @@ class Jarvis:
         elif self._current is not None or self._turn_open:
             with contextlib.suppress(RuntimeError):
                 await self.bridge.interrupt()
+
+    async def stop_agent(self, agent_id: str) -> bool:
+        """That agent does nothing more: the gate refuses its calls, its question is a no, and its worker is ended.
+        Nothing is said (a card's Stop). False if no such agent is running."""
+        a = self._agents.get(agent_id)
+        if a is None or "_ended" in a:
+            return False
+        self._stopped.add(agent_id)
+        for q in self.asks.pending():
+            if q.agent_id == agent_id:
+                self.asks.answer("no", ask_id=q.id)
+        if req := self._find(a["_req"]):
+            req.tracker.summaries.append("(stopped by Febriel)")
+        self._end(a, "stopped")
+        self._publish_agents()
+        with contextlib.suppress(RuntimeError):  # no child: the worker died with it
+            await self.bridge.stop_task(agent_id)
+        return True
 
     async def _serve(self) -> None:
         """Serves requests one at a time, in arrival order, while the brain is usable."""
@@ -444,9 +481,10 @@ class Jarvis:
             if not self._first_token:
                 self._first_token = True
                 log.info("first token %.2f s", self.clock() - self._sent_at)
-            self._publish("reply_delta", text=ev["text"])
-            if self.speaker and self._turn_channel() == "mac":
-                self.speaker.feed(ev["text"])
+            if not self._hush:
+                self._publish("reply_delta", text=ev["text"])
+                if self.speaker and self._turn_channel() == "mac":
+                    self.speaker.feed(ev["text"])
         elif kind == "turn":
             if self._in_flight():
                 self._current.turn = ev
@@ -466,7 +504,7 @@ class Jarvis:
         if owner:
             owner.tracker.feed(ev)
         if ended and owner is not self._current:  # the front door will announce it in a turn of its own
-            self._causes.append(owner.id)
+            self._causes.append((owner.id, ev["task_id"] in self._stopped))
         if kind == "agent_start":
             call, desc = "", ev.get("description") or ""
             if ev["agent"] not in FREE_AGENTS:
@@ -481,12 +519,7 @@ class Jarvis:
         elif kind == "agent_progress" and ev.get("task_id") in self._agents:
             self._agents[ev["task_id"]]["doing"] = ev.get("description") or ""
         elif kind == "agent_done" and ev.get("task_id") in self._agents:
-            a = self._agents[ev["task_id"]]
-            req = self._find(a["_req"]) if a["_req"] else None
-            a["_ended"] = self.clock()
-            a["_frozen"] = (req.tracker.verdict.title if req and req.tracker.verdict else a["_desc"],
-                            req.channel if req else "mac")
-            self._agents[ev["task_id"]]["_state"] = {"completed": "done", "stopped": "stopped"}.get(ev.get("status"), "failed")
+            self._end(self._agents[ev["task_id"]], {"completed": "done", "stopped": "stopped"}.get(ev.get("status"), "failed"))
         elif kind == "tool" and ev.get("parent"):
             for a in self._agents.values():
                 if a["_tu"] == ev["parent"] and ev.get("model"):
@@ -498,27 +531,36 @@ class Jarvis:
             self._publish_queue()
         self._publish_agents()
 
+    def _end(self, a: dict, state: str) -> None:
+        """A row ends once, keeping its first final state (a stopped worker may still report completed)."""
+        if "_ended" in a:
+            return
+        req = self._find(a["_req"]) if a["_req"] else None
+        a["_ended"], a["_state"] = self.clock(), state
+        a["_frozen"] = (req.tracker.verdict.title if req and req.tracker.verdict else a["_desc"],
+                        req.channel if req else "mac")
+
     def _open_unprompted(self) -> None:
         """A turn nobody asked for has started: it belongs to the oldest request whose worker ended unannounced."""
         if self._turn_open:
             return
-        self._turn_open, self._unprompted_owner = True, None
+        self._turn_open, self._unprompted_owner, self._hush = True, None, False
         while self._causes:
-            rid = self._causes.popleft()
+            rid, hush = self._causes.popleft()
             if self._find(rid):
-                self._unprompted_owner = rid
+                self._unprompted_owner, self._hush = rid, hush
                 break
 
     def _close_unprompted(self, text: str) -> None:
-        """The front door's own turn ended, announcing a worker that finished."""
+        """The front door's own turn ended, announcing a worker that finished (a stopped one: said nowhere)."""
         self._open_unprompted()
         req = self._find(self._unprompted_owner) if self._unprompted_owner else None
-        self._turn_open, self._unprompted_owner = False, None
+        hush, self._turn_open, self._unprompted_owner, self._hush = self._hush, False, None, False
         channel = req.channel if req else "mac"
-        if req:
+        if req and not hush:
             req.answer += "\n\n" + text
         self._last_activity = self.clock()
-        if text.strip():  # an empty turn (e.g. right after a restart) has nothing to say or log
+        if text.strip() and not hush:  # an empty turn (e.g. right after a restart) has nothing to say or log
             self._reply(channel, text, text.rstrip().endswith("?"))
             self.vault.log_exchange(Exchange(self.now(), channel, "(worker finished)", text))
         self._record_closed()
@@ -536,7 +578,7 @@ class Jarvis:
             cur.done.set()
         for req in self._pending:
             req.tracker.abandon(why)
-        self._turn_open, self._unprompted_owner, self._cancelling = False, None, False
+        self._turn_open, self._unprompted_owner, self._cancelling, self._hush = False, None, False, False
         self._causes.clear()
         self._agents = {}
         self._record_closed()
@@ -547,6 +589,8 @@ class Jarvis:
     # ---- hooks -----------------------------------------------------------------------------------------------
 
     async def hook(self, payload: dict) -> dict:
+        if payload.get("agent_id") in self._stopped:
+            return {"verdict": "deny", "reason": STOPPED}
         tool, inp = payload.get("tool_name") or "", payload.get("tool_input") or {}
         cwd = Path(payload.get("cwd") or config.PROJECT)
         req = None
@@ -566,7 +610,10 @@ class Jarvis:
             channel = req.channel if req else "mac"
             loop = asyncio.get_running_loop()
             started = loop.time()
-            if not await self.asks.ask(decision, channel, req.id if req else "", payload.get("agent_id") or ""):
+            yes = await self.asks.ask(decision, channel, req.id if req else "", payload.get("agent_id") or "")
+            if payload.get("agent_id") in self._stopped:  # stopped while it waited, even if a yes came first
+                return {"verdict": "deny", "reason": STOPPED}
+            if not yes:
                 late = loop.time() - started >= self.asks.timeouts[channel]
                 return {"verdict": "deny", "reason": "No answer in time, so no." if late else "Febriel said no."}
         self._memory_event(tool, inp, cwd)
