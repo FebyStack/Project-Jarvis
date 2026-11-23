@@ -480,7 +480,9 @@ dependencies = [
     { name = "onnxruntime" },
     { name = "openwakeword" },
     { name = "parakeet-mlx" },
+    { name = "pyobjc-framework-cocoa" },
     { name = "pyobjc-framework-quartz" },
+    { name = "pyobjc-framework-webkit" },
     { name = "sounddevice" },
     { name = "textual" },
 ]
@@ -501,7 +503,9 @@ requires-dist = [
     { name = "onnxruntime", specifier = ">=1.32.0" },
     { name = "openwakeword", specifier = ">=0.6" },
     { name = "parakeet-mlx", specifier = ">=0.7.0" },
+    { name = "pyobjc-framework-cocoa", specifier = ">=13.0" },
     { name = "pyobjc-framework-quartz", specifier = ">=13.0" },
+    { name = "pyobjc-framework-webkit", specifier = ">=13.0" },
     { name = "sounddevice", specifier = ">=0.5.6" },
     { name = "textual", specifier = ">=8.2.8" },
 ]
@@ -1067,6 +1071,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/7a/86/ffaa76ca28df5450cce14614c657b910bbd7bb737feaf47f74230c3b78d3/pyobjc_framework_quartz-13.0.tar.gz", hash = "sha256:b9a4942182efbbc7e18e6cb7f5a8faa166dc2fc5e33bece7c7b1355494274add", size = 3399243, upload-time = "2026-10-30T10:47:23.667Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/73/f9/be94503cc5475a076b61b65b64ccb030a2b72bf6fddbe68bae1f20d9e624/pyobjc_framework_quartz-13.0-cp312-cp312-macosx_10_13_universal2.whl", hash = "sha256:5e1d49f2699d128553a52fad473622ff4fd424d05e879d9585dad0a9f7c3dcfd", size = 215360, upload-time = "2026-10-30T10:42:34.247Z" },
+]
+
+[[package]]
+name = "pyobjc-framework-webkit"
+version = "13.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyobjc-core" },
+    { name = "pyobjc-framework-cocoa" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5c/c3/8cf2bd403676ac956046150c666357f3eaf246e936bfd29069dba59534ce/pyobjc_framework_webkit-13.0.tar.gz", hash = "sha256:80debaa16c416895214c74e483bd13f510fc0965e4def34653e37705a5eef1a6", size = 334160, upload-time = "2026-10-30T10:47:54.863Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e6/26/cab74d983eedde4b07a3f79c442717eaf3045911dbd0a00da26701cdeff0/pyobjc_framework_webkit-13.0-cp312-cp312-macosx_10_13_universal2.whl", hash = "sha256:868cbeca83d079af6f049765d018db731d8fb2fb3bbfaf8be7fd6e96e8c6ca1a", size = 51146, upload-time = "2026-10-30T10:45:31.304Z" },
 ]
 
 [[package]]
