@@ -36,7 +36,7 @@ The agents are his own, named, and steerable by voice or click ("stop Nova", "ye
 - Cards are native AppKit views with system Liquid Glass (Febriel, 2026-11-23); the circle stays a canvas.
 - Never takes keyboard focus; clicks beside a card pass through; shows on every Space and over full-screen apps.
 - Agent text is never markup or code.
-- Budgets: idle at most 5 % of one core, working or talking at most 15 %, at most 200 MB, a card within 0.5 s of its agent starting.
+- Budgets (Febriel, 2026-11-23, after measuring the built face): idle at most 8 % of one core, working or talking at most 25 %, at most 200 MB, a card within 0.5 s of its agent starting.
 - Subscription login only; the face calls no model.
 - Direction: **Tether** (Febriel, 2026-11-23). Each agent is a glass bead hanging from the circle on a red silk thread, wherever the circle sits; not a stack in the top-right corner. Design: `docs/superpowers/specs/2026-11-23-jarvis-face-tether-design.md`.
 
