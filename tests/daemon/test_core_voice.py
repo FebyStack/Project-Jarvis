@@ -128,6 +128,17 @@ async def test_level_and_mic_reach_subscribers(make):
     assert j.health()["mic"] == "on"
 
 
+async def test_speech_levels_reach_subscribers_marked_voice(make):
+    j = await make(speaker=(sp := FakeSpeaker())); events = j.subscribe(); await anext(events)
+    sp.on_level(0.6); e = await anext(events)
+    assert (e["type"], e["rms"], e["source"]) == ("level", 0.6, "voice")
+
+
+async def test_mic_levels_are_marked_mic(make):
+    j = await make(); events = j.subscribe(); await anext(events)
+    j.level(0.4); e = await anext(events); assert e["source"] == "mic"
+
+
 async def test_a_typed_request_shows_thinking(make, bridge_of):
     j = await make(); b = bridge_of(j); seen = states(j)
     asyncio.create_task(j.submit("capital of Peru", "mac")); await b.got("capital of Peru")

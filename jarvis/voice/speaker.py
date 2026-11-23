@@ -41,8 +41,10 @@ class VoiceSpeaker:
         self._synth, self.player, self._fallback = synth, player, fallback
         self.on_start: Callable[[], None] = lambda: None
         self.on_done: Callable[[], None] = lambda: None
+        self.on_level: Callable[[float], None] = lambda rms: None
         player.on_start = lambda: self._loop.call_soon_threadsafe(self._player_started, self._gen)
         player.on_done = lambda: self._loop.call_soon_threadsafe(self._player_done)
+        player.on_level = lambda rms: self._loop.call_soon_threadsafe(self.on_level, rms)
         self._gen = 0  # bumped by stop(), so a start from before it is ignored
         self._split, self._fed = Splitter(), ""
         self._free = asyncio.Event()

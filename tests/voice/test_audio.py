@@ -159,6 +159,32 @@ def test_player_fires_start_once_per_run_and_done_after_the_delay(out):
     assert out.events == ["start", "done"] and over and not out.p.busy
 
 
+def test_the_player_reports_the_loudness_of_what_it_plays(out):
+    levels = []
+    out.p.on_level = levels.append
+    square = np.tile(np.array([1.0, -1.0], dtype=np.float32), 1500)  # 3000 samples, past 90 ms (2160)
+    out.p.play(square)
+    s = out.fo.streams[0]
+    pull(s, 3000)
+    assert len(levels) == 1 and levels[0] == pytest.approx(1.0)
+    out.p.play(np.zeros(3000, dtype=np.float32))
+    pull(s, 3000)
+    assert levels[1:] == [0.0]
+    pull(s, 3000)  # the queue has drained
+    assert len(levels) == 2
+
+
+def test_no_level_is_reported_after_stop(out):
+    levels = []
+    out.p.on_level = levels.append
+    out.p.play(np.ones(5000, dtype=np.float32))
+    s = out.fo.streams[0]
+    pull(s, 1500)  # not yet 90 ms
+    out.p.stop()
+    pull(s, 3000)  # a late callback
+    assert levels == []
+
+
 def test_player_stop_drops_what_is_queued_and_is_done_at_once(out):
     out.p.play(np.ones(1000, dtype=np.float32))
     out.p.play(np.ones(1000, dtype=np.float32))

@@ -14,6 +14,7 @@ log = logging.getLogger("jarvisd")
 TICK = 0.5  # seconds between checks that frames still come
 QUIET = 2.0  # seconds without a frame (reopen) or of all-zero samples (no permission)
 MAX_WAIT = 30
+LEVEL_EVERY = round(0.09 * RATE_OUT)  # samples played between level reports
 STALL = 2.0  # seconds a busy run may go without an output callback: past that, its device went away
 # PortAudio is not thread-safe: the mic thread and the loop open, stop and close streams only under this lock.
 # The stream callbacks never take it (abort waits for a running callback).
@@ -120,6 +121,7 @@ class Player:
                  clock: Callable[[], float] = time.monotonic):
         self.on_start: Callable[[], None] = lambda: None
         self.on_done: Callable[[], None] = lambda: None
+        self.on_level: Callable[[float], None] = lambda rms: None
         self.busy = False
         self._open, self._delay, self._clock = open_stream, round(reopen_delay * RATE_OUT), clock
         self._called = 0.0  # when the output callback last ran (or the run began)
@@ -127,6 +129,7 @@ class Player:
         self._queue: deque[np.ndarray] = deque()
         self._stream = None
         self._started, self._tail = False, 0
+        self._sq, self._n = 0.0, 0  # sum of squares and count of the samples since the last level report
 
     def play(self, pcm: np.ndarray) -> None:
         with self._lock:
@@ -134,6 +137,7 @@ class Player:
             if self.busy:
                 return
             self.busy, self._started, self._tail, self._called = True, False, 0, self._clock()
+            self._sq, self._n = 0.0, 0
             old, self._stream = self._stream, None
         try:
             with _portaudio:
@@ -149,6 +153,7 @@ class Player:
     def stop(self) -> None:
         with self._lock:
             self._queue.clear()
+            self._sq, self._n = 0.0, 0
             was, self.busy = self.busy, False
             stream, self._stream = self._stream, None
         if stream is not None:  # outside the lock: abort waits for a running callback
@@ -179,6 +184,7 @@ class Player:
     def _fill(self, out: np.ndarray) -> bool:
         """The output callback: fills `out`; True when the run is over (the loop then close()s its stream)."""
         start = done = False
+        level = None
         with self._lock:
             self._called = self._clock()
             i = 0
@@ -193,6 +199,10 @@ class Player:
                 i += n
             out[i:] = 0
             if i:
+                self._sq += float(np.dot(out[:i], out[:i]))
+                self._n += i
+                if self._n >= LEVEL_EVERY:
+                    level, self._sq, self._n = min(1.0, (self._sq / self._n) ** 0.5), 0.0, 0
                 self._tail = len(out) - i
                 start, self._started = not self._started, True
             elif self.busy:
@@ -202,6 +212,8 @@ class Player:
             over = not self.busy
         if start:
             self.on_start()
+        if level is not None:
+            self.on_level(level)
         if done:
             self.on_done()
         return over

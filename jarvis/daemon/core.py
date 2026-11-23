@@ -9,7 +9,7 @@ from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Protocol
+from typing import Literal, Protocol
 
 from jarvis import config
 from jarvis.brain.asks import Asks
@@ -38,6 +38,7 @@ VAULT_TOOLS = {"Read": "file_path", "Write": "file_path", "Edit": "file_path", "
 class Speaker(Protocol):
     on_start: Callable[[], None]  # set by the core: the first sound of a run of speech is going out
     on_done: Callable[[], None]  # set by the core: speech ran out (also when there was nothing to say)
+    on_level: Callable[[float], None]  # set by the core: how loud the speech going out is, 0-1, on the loop
     hinting: bool  # read-only: a holding line is playing
 
     def feed(self, delta: str) -> None: ...  # reply text as it streams
@@ -97,6 +98,7 @@ class Jarvis:
         self.speaker = speaker
         if speaker:
             speaker.on_start, speaker.on_done = lambda: self._drive(Event.REPLY_START), self._spoke
+            speaker.on_level = lambda rms: self.level(rms, "voice")
         self._mic = "off"
         self._hearing: set[asyncio.Task] = set()  # requests started by heard(), kept so they are not collected
         self.gate = load_config()
@@ -716,8 +718,8 @@ class Jarvis:
         if self.sm.state is State.LISTENING:
             self._drive(Event.CANCEL)
 
-    def level(self, rms: float) -> None:
-        self._publish("level", rms=rms)
+    def level(self, rms: float, source: Literal["mic", "voice"] = "mic") -> None:
+        self._publish("level", rms=rms, source=source)
 
     def set_mic(self, word: str) -> None:
         self._mic = word

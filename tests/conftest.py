@@ -143,6 +143,7 @@ class FakeSpeaker:
     def __init__(self):
         self.calls = []
         self.on_start = self.on_done = lambda: None
+        self.on_level = lambda rms: None
 
     def feed(self, delta):
         self.calls.append(("feed", delta))
