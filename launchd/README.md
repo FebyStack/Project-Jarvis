@@ -37,7 +37,7 @@ Then check with `jarvis doctor`. A Python upgrade (uv-managed CPython, or Homebr
 
 ## The face login agent
 
-`com.febriel.jarvis-face.plist` starts `jarvis face` (the red circle and its agent beads) when you log in, and starts it again if it stops. It runs only in your desktop session, sets no environment variables, and needs no permission: no microphone, no Input Monitoring, no Accessibility. It is a client of jarvisd like the terminal HUD; when jarvisd restarts or is not running yet, the circle goes grey with `NO DAEMON` and reconnects by itself every 2 seconds.
+`com.febriel.jarvis-face.plist` starts `jarvis face` (the red circle and its agent beads) when you log in, and starts it again if it stops. It runs only in your desktop session, sets no environment variables, and needs no permission: no microphone, no Input Monitoring, no Accessibility. If it crashes, the traceback is in `~/.jarvis/face.log` (code lines only, never what you said or asked). It is a client of jarvisd like the terminal HUD; when jarvisd restarts or is not running yet, the circle goes grey with `NO DAEMON` and reconnects by itself every 2 seconds.
 
 Load it:
 

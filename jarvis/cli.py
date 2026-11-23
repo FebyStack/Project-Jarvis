@@ -224,7 +224,7 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="jarvis")
     sub = p.add_subparsers(dest="cmd", required=True)
     sub.add_parser("daemon", help="run jarvisd")
-    sub.add_parser("hud", help="the gold terminal HUD")
+    sub.add_parser("hud", help="the red terminal HUD")
     sub.add_parser("face", help="the circle on screen, with an agent bead for each worker")
     sub.add_parser("ask", help="ask jarvisd once").add_argument("text")
     sub.add_parser("doctor", help="what is still missing")

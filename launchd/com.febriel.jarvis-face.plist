@@ -17,5 +17,7 @@
 	<true/>
 	<key>LimitLoadToSessionType</key>
 	<string>Aqua</string>
+	<key>StandardErrorPath</key>
+	<string>/Users/febrielotud/.jarvis/face.log</string>
 </dict>
 </plist>

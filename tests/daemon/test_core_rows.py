@@ -181,3 +181,20 @@ async def test_several_open_questions_are_named_not_counted(jarvis, bridge, tmp_
     for a in jarvis.asks.pending():
         jarvis.answer("no", ask_id=a.id)
     await asyncio.gather(*hs)
+
+
+async def test_a_new_workers_doing_line_does_not_repeat_its_name(jarvis, bridge):   # the final review's M3
+    t = await triaged(jarvis, bridge)
+    out = await jarvis.hook(agent_call("coder", tool_use_id="tu9", description="Fix export bug", prompt="Do it."))
+    bridge.emit(agent_start("t1", "coder", True, "tu9") | {"description": out["input"]["description"]})
+    assert rows(jarvis)["t1"]["doing"] == "Fix export bug"
+    bridge.emit(turn("Started.")); await t
+
+
+async def test_a_dispatch_that_never_starts_frees_its_name_when_the_child_goes(jarvis, bridge):   # M15
+    t = await triaged(jarvis, bridge)
+    await jarvis.hook(agent_call("coder", tool_use_id="tu9", description="Fix export bug", prompt="Do it."))
+    assert jarvis._named
+    bridge.emit({"kind": "exited"})
+    assert not jarvis._named
+    await t

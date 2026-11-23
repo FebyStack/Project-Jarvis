@@ -61,7 +61,7 @@ class Asks:
         return a
 
     def pending(self, channel: Channel | None = None) -> list[Ask]:
-        return [a for a in self._open if channel in (None, a.channel)]
+        return [a for a in self._open if not a.future.done() and channel in (None, a.channel)]
 
     def history(self) -> list[tuple[str, str, bool]]:
         return list(self._history)

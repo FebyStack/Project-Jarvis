@@ -301,3 +301,13 @@ async def test_agents_show_their_given_names(hud, pilot, fake):
     lines = screen_text(hud).splitlines()
     assert any("Nova coder sonnet-4" in l for l in lines)
     assert any("triage sonnet-4" in l for l in lines)
+
+
+async def test_an_ended_agent_shows_its_state_and_no_timer(hud, pilot, fake):   # the final review's M13
+    fake.push({"type": "agents", "items": [{"id": "c", "name": "coder", "call": "Nova", "model": "claude-sonnet-4",
+                                            "doing": "fixing export bug", "since": 748.0, "background": True,
+                                            "state": "done"}]})
+    await pilot.pause()
+    line = next(l for l in screen_text(hud).splitlines() if "Nova coder" in l)
+    assert "Nova coder sonnet-4 done" in line and "fixing" not in line and "04:12" not in line
+

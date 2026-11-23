@@ -224,3 +224,14 @@ async def test_only_a_worker_can_be_stopped(jarvis, bridge):
     assert bridge.stopped_tasks == [] and rows(jarvis)["t0"]["state"] == "working"
     assert (await jarvis.hook(call_from("t0", "Bash", {"command": "ls"})))["verdict"] == "allow"
     bridge.emit(turn("ok")); await t
+
+
+async def test_a_hushed_turn_does_not_swallow_another_workers_result(make, bridge_of, vault):   # the final review's M8
+    j = await make(speaker=(sp := FakeSpeaker())); b = bridge_of(j)
+    await workers(j, b, "t1", "t2")
+    b.emit(agent_done("t2", "completed", "Fixed.", tool_use_id="tu-t2"))
+    await j.stop_agent("t1")
+    b.emit(agent_done("t1", "stopped", "stopped", tool_use_id="tu-t1"))
+    b.emit({"kind": "turn_start"}); b.emit({"kind": "delta", "text": "Orin fixed it."}); b.emit(turn("Orin fixed it."))
+    assert ("feed", "Orin fixed it.") in sp.calls and ("say", "Orin fixed it.") in sp.calls
+    assert "Orin fixed it." in next(vault.raw.glob("*-fix-export-bug.md")).read_text()

@@ -236,6 +236,7 @@ def test_the_face_plist_runs_face_with_no_secrets():
     assert p["ProgramArguments"] == ["/Users/febrielotud/Developer/Project Jarvis/.venv/bin/jarvis", "face"]
     assert p["RunAtLoad"] is True and p["KeepAlive"] is True and p["LimitLoadToSessionType"] == "Aqua"
     assert "EnvironmentVariables" not in p
+    assert p["StandardErrorPath"] == "/Users/febrielotud/.jarvis/face.log"   # a crash leaves its traceback (M16)
 
 
 def test_importing_the_cli_or_the_daemon_never_loads_appkit():
@@ -243,3 +244,10 @@ def test_importing_the_cli_or_the_daemon_never_loads_appkit():
     code = "import sys, jarvis.cli, jarvis.daemon.core; print([m for m in ('AppKit', 'WebKit') if m in sys.modules])"
     out = subprocess.run([sys.executable, "-c", code], cwd=ROOT, capture_output=True, text=True, check=True)
     assert out.stdout.strip() == "[]"
+
+
+def test_the_hud_help_says_red_not_gold(capsys):   # the final review's M14
+    with pytest.raises(SystemExit):
+        main(["--help"])
+    out = capsys.readouterr().out
+    assert "the red terminal HUD" in out and "gold" not in out.lower()

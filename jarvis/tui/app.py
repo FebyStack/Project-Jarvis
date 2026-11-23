@@ -131,10 +131,12 @@ class Hud(App):
 
         agents = _grid()
         for a in v.agents:
-            style = IDLE if a.doing == "idle" else None
+            live = a.state in ("working", "needs_you")
+            doing = a.doing if live else a.state  # an ended row lingers as done, stopped or failed
             who = f"{a.call} {a.name}" if a.call and a.call.lower() != a.name else a.call or a.name
-            agents.add_row(Text(f"{who} {a.model.removeprefix('claude-')} {a.doing}", style=style),
-                           elapsed(a.since, self.now()) if a.background else "")
+            style = IDLE if doing == "idle" else None
+            agents.add_row(Text(f"{who} {a.model.removeprefix('claude-')} {doing}", style=style),
+                           elapsed(a.since, self.now()) if a.background and live else "")
         self.query_one("#agents", Static).update(agents)
 
         queue = _grid()

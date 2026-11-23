@@ -47,7 +47,8 @@ def _ordinary(word: str) -> bool:
 
 
 def match(heard: str, running: Collection[str]) -> str | None:
-    """The running name heard, or a close mis-hearing of it: same first letter, length within one, not an English word."""
+    """The running name heard, or a close mis-hearing of it: the same first letter, a length within one letter,
+    and not an English word."""
     heard = heard.lower()
     scored = sorted(((difflib.SequenceMatcher(None, heard, n.lower()).ratio(), n) for n in running), reverse=True)
     if not scored or scored[0][0] < config.NAME_SIMILARITY:

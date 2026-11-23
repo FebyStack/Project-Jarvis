@@ -508,10 +508,10 @@ class Jarvis:
         ended = kind == "agent_done" and owner is not None and ev.get("task_id") in owner.tracker.open_agents
         if owner:
             owner.tracker.feed(ev)
-        if ended and owner is not self._current:  # the front door will announce it in a turn of its own
-            self._causes.append(owner.id)
         if kind == "agent_done" and ev.get("task_id") in self._stopped and not (self._in_flight() or self._turn_open):
             self._hush_next = True
+        elif ended and owner is not self._current:  # the front door will announce it in a turn of its own
+            self._causes.append(owner.id)
         if kind == "agent_start":
             call, desc = "", ev.get("description") or ""
             if ev["agent"] not in FREE_AGENTS:
@@ -519,7 +519,7 @@ class Jarvis:
                 if owner:
                     owner.tracker.named(ev.get("tool_use_id"), call)
             self._agents[ev["task_id"]] = {"id": ev["task_id"], "name": ev["agent"], "call": call,
-                                           "model": agent_model(ev["agent"]), "doing": ev.get("description") or "",
+                                           "model": agent_model(ev["agent"]), "doing": desc,
                                            "since": self.clock(), "background": bool(ev.get("background")),
                                            "_tu": ev.get("tool_use_id"), "_desc": desc,
                                            "_req": owner.id if owner else None}
@@ -551,7 +551,8 @@ class Jarvis:
         """A turn nobody asked for has started: it belongs to the oldest request whose worker ended unannounced."""
         if self._turn_open:
             return
-        self._turn_open, self._unprompted_owner, self._hush, self._hush_next = True, None, self._hush_next, False
+        hush = self._hush_next and not self._causes  # another worker's news waits: better heard with the stop than lost
+        self._turn_open, self._unprompted_owner, self._hush, self._hush_next = True, None, hush, False
         while self._causes:
             rid = self._causes.popleft()
             if self._find(rid):
@@ -588,7 +589,7 @@ class Jarvis:
         self._turn_open, self._unprompted_owner, self._cancelling = False, None, False
         self._hush = self._hush_next = False
         self._causes.clear()
-        self._agents = {}
+        self._agents, self._named = {}, {}
         self._record_closed()
         self._publish_queue()
         self._publish_agents()

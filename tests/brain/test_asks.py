@@ -93,3 +93,11 @@ async def test_an_ask_remembers_which_agent_asked_and_until_when(trusted):
     a = asks.pending()[0]
     assert a.agent_id == "t1" and a.until == 610.0
     asks.answer("no"); await t
+
+
+async def test_an_answered_question_is_not_pending_even_before_its_waiter_resumes(asks):
+    """The final review's M5: a stopped worker's row must not read needs_you for one more loop tick."""
+    t = asyncio.create_task(asks.ask(ASK, "mac", "r1", "t1")); await asyncio.sleep(0)
+    asks.answer("no", ask_id=asks.pending()[0].id)
+    assert asks.pending() == [] and not t.done()
+    await t
