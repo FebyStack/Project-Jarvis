@@ -56,12 +56,22 @@ def test_a_name_phrase_at_the_end_of_a_sentence_counts():   # Febriel's live run
     assert match_named("Okay, yes Nova.", run) == ("yes", "Nova")
     assert match_named("Sorry, stop Orin.", run) == ("stop", "Orin")
     assert match_named("I said yes always to Nova", run) == ("always", "Nova")
+    assert match_named("um, no to Nova", run) == ("no", "Nova")
+    assert match_named("I said yes to Orin", run) == ("yes", "Orin")
+    assert match_named("Oh well, stop Nova.", run) == ("stop", "Nova")
     assert match_named("tell Nova to stop", run) is None and match_named("stop Nova for now", run) is None
     assert match_named("I know Nova", run) is None and match_named("casino Nova", run) is None
     for said in ("stop the music", "yes please", "no thanks", "I said no to her", "we have to stop working",
                  "let's say yes to everything", "okay, yes to each", "sorry, stop quiet"):
         for name in NAMES:
             assert match_named(said, {name}) is None, (said, name)
+
+
+def test_a_name_phrase_after_a_negation_or_a_question_counts_for_nothing():   # a stop cannot be undone
+    run = {"Nova", "Orin"}
+    for said in ("don't stop Nova", "do not stop Nova", "never stop Nova", "why did you stop Nova",
+                 "please dont stop orin", "no, don't stop Nova", "there's no Nova", "I don't mean stop Nova"):
+        assert match_named(said, run) is None, said
 
 
 def test_a_bare_yes_or_no_at_the_end_of_a_sentence_answers_nothing():
