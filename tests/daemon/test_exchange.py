@@ -100,3 +100,12 @@ def test_an_abandoned_request_can_still_be_recorded(tracker, vault):
     tracker.feed(turn("Started.")); assert not tracker.closed
     tracker.abandon("Claude restarted")
     assert tracker.closed and "Claude restarted" in tracker.finish("Started.", []).read_text()
+
+
+def test_the_task_note_names_its_agents(tracker, vault):
+    tracker.feed(tool("Agent", {"subagent_type": "triage"}, id="tuT")); tracker.feed(tool_result(GOOD_VERDICT))
+    tracker.feed(agent_start("t1", "coder", background=True, tool_use_id="tu1"))
+    tracker.named("tu1", "Nova"); tracker.named("tuT", "")
+    tracker.feed(turn("Started.")); tracker.feed(agent_done("t1", "completed", "Done."))
+    text = tracker.finish("Started.", []).read_text()
+    assert "- Nova · coder (" in text and "- jarvis (" in text

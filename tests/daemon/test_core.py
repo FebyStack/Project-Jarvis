@@ -176,11 +176,13 @@ async def test_a_background_triage_lets_the_front_door_dispatch_later(jarvis, br
 
 async def test_with_two_questions_open_a_bare_yes_is_not_guessed(jarvis, bridge, tmp_path):
     t = asyncio.create_task(jarvis.submit("make two files", "mac")); await bridge.got("make two files")
+    for e in (agent_start("t1", "coder", tool_use_id="tu1"), agent_start("t2", "coder", tool_use_id="tu2")):
+        bridge.emit(e)
     call = outside_write(bridge, tmp_path)
-    h1 = asyncio.create_task(jarvis.hook(call)); h2 = asyncio.create_task(jarvis.hook(call))
+    h1 = asyncio.create_task(jarvis.hook(call | {"agent_id": "t1"})); h2 = asyncio.create_task(jarvis.hook(call | {"agent_id": "t2"}))
     await until(lambda: len(jarvis.asks.pending()) == 2)
     r = await jarvis.submit("yes", "mac")
-    assert r.say.startswith("2 questions are waiting") and not h1.done() and not h2.done()
+    assert " each have a question." in r.say and not h1.done() and not h2.done()
     for a in jarvis.asks.pending():
         jarvis.answer("no", ask_id=a.id)
     await asyncio.gather(h1, h2); t.cancel()

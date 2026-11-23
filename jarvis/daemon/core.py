@@ -108,6 +108,7 @@ class Jarvis:
         self._current: _Request | None = None
         self._pending: list[_Request] = []  # turn over, background workers still running
         self._subs: list[asyncio.Queue] = []
+        self._named: dict[str | None, tuple[str, str]] = {}  # Agent tool_use_id -> (name, description) from the hook
         self._agents: dict[str, dict] = {}  # task id -> HUD row, plus "_tu" (its Agent tool_use_id)
         self._memory: deque[dict] = deque(maxlen=50)  # newest first
         self._limits = {"status": "ok", "weekly": None, "resets_at": None}
@@ -272,8 +273,9 @@ class Jarvis:
             case _:  # yes, no, always
                 ask = self.asks.answer(action, channel=channel)
                 if ask is None and len(waiting := self.asks.pending(channel)) > 1:
-                    return self._reply(channel, f"{len(waiting)} questions are waiting, so I won't guess which one you "
-                                                "mean. Answer each in the HUD.", False)
+                    who = [self._caller(a) for a in waiting]
+                    return self._reply(channel, f"{', '.join(who[:-1])} and {who[-1]} each have a question. Say yes or "
+                                                "no to one by name, or answer on its card.", False)
                 req = self._current if ask and self._current and ask.request_id == self._current.id else None
                 if req is None:  # no turn will follow: a background worker's or another session's question
                     return self._reply(channel, "Okay.", False)
@@ -466,11 +468,15 @@ class Jarvis:
         if ended and owner is not self._current:  # the front door will announce it in a turn of its own
             self._causes.append(owner.id)
         if kind == "agent_start":
-            call = "" if ev["agent"] in FREE_AGENTS else names.pick({r["call"] for r in self._agent_rows()})
+            call, desc = "", ev.get("description") or ""
+            if ev["agent"] not in FREE_AGENTS:
+                call, desc = self._named.pop(ev.get("tool_use_id"), None) or (self._pick(), desc)
+                if owner:
+                    owner.tracker.named(ev.get("tool_use_id"), call)
             self._agents[ev["task_id"]] = {"id": ev["task_id"], "name": ev["agent"], "call": call,
                                            "model": agent_model(ev["agent"]), "doing": ev.get("description") or "",
                                            "since": self.clock(), "background": bool(ev.get("background")),
-                                           "_tu": ev.get("tool_use_id"), "_desc": ev.get("description") or "",
+                                           "_tu": ev.get("tool_use_id"), "_desc": desc,
                                            "_req": owner.id if owner else None}
         elif kind == "agent_progress" and ev.get("task_id") in self._agents:
             self._agents[ev["task_id"]]["doing"] = ev.get("description") or ""
@@ -551,8 +557,8 @@ class Jarvis:
         decision = judge(tool, inp, cwd, self.gate)
         if decision.verdict == "never":
             return {"verdict": "deny", "reason": decision.reason}
+        sub = inp.get("subagent_type") or "general-purpose"
         if decision.verdict == "allow" and tool in ("Agent", "Task"):
-            sub = inp.get("subagent_type") or "general-purpose"
             ok, why = req.tracker.may_dispatch(sub) if req else (sub in FREE_AGENTS, NEED_TRIAGE)
             if not ok:
                 return {"verdict": "deny", "reason": why}
@@ -564,7 +570,15 @@ class Jarvis:
                 late = loop.time() - started >= self.asks.timeouts[channel]
                 return {"verdict": "deny", "reason": "No answer in time, so no." if late else "Febriel said no."}
         self._memory_event(tool, inp, cwd)
-        return {"verdict": "allow", "reason": decision.reason}
+        out = {"verdict": "allow", "reason": decision.reason}
+        if decision.verdict == "allow" and tool in ("Agent", "Task") and sub not in FREE_AGENTS:
+            call, desc = self._pick(), inp.get("description") or ""
+            self._named[payload.get("tool_use_id")] = (call, desc)
+            out["input"] = inp | {"description": f"{call}: {desc}", "prompt": f"Your name is {call}.\n\n{inp.get('prompt') or ''}"}
+        return out
+
+    def _pick(self) -> str:
+        return names.pick({r["call"] for r in self._agent_rows()} | {c for c, _ in self._named.values()})
 
     def _memory_event(self, tool: str, inp: dict, cwd: Path) -> None:
         raw = inp.get(VAULT_TOOLS.get(tool, ""))
@@ -587,10 +601,11 @@ class Jarvis:
                 continue
             self._announced.add(a.id)
             req = self._find(a.request_id)
+            text = f"{call} has a question. {a.question}" if (call := self._agents.get(a.agent_id, {}).get("call")) else a.question
             if req:
-                self._resolve(req, a.question, True)
+                self._resolve(req, text, True)
             else:
-                self._reply(a.channel, a.question, True)
+                self._reply(a.channel, text, True)
         self._publish_queue()
 
     # ---- voice -----------------------------------------------------------------------------------------------
@@ -753,6 +768,9 @@ class Jarvis:
                            since=a["since"], background=a["background"], title=title,
                            state=a.get("_state", "working"), channel=channel))
         return out
+
+    def _caller(self, ask) -> str:
+        return self._agents.get(ask.agent_id, {}).get("call") or "Jarvis"
 
     def _publish_agents(self) -> None:
         self._publish("agents", items=self._agent_rows())

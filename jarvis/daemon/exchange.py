@@ -34,6 +34,7 @@ class Tracker:
         self.summaries: list[str] = []
         self._agents: dict[str, dict] = {}  # Agent tool_use_id -> {"name", "model", "asked_model"}, in start order
         self._asked: dict[str, str | None] = {}  # Agent tool_use_id -> the tier it was asked for
+        self._calls: dict[str, str] = {}  # Agent tool_use_id -> the name its worker goes by
         self._reads: dict[str, str] = {}  # Read tool_use_id -> vault note, counted once the read succeeds
         self._turn_ended = self._finished = False
 
@@ -77,6 +78,9 @@ class Tracker:
         elif kind == "turn":
             self._turn_ended = True
 
+    def named(self, tool_use_id: str, call: str) -> None:
+        self._calls[tool_use_id] = call
+
     def _in_vault(self, path) -> str | None:
         if not isinstance(path, str):
             return None
@@ -113,7 +117,9 @@ class Tracker:
         if not self.is_task:
             return self.vault.log_exchange(Exchange(self.at, self.channel, self.asked, answered, self.notes_read))
         title = self.verdict.title if self.verdict else " ".join(self.asked.split()[:6])
-        agents = [("jarvis", config.FRONT_MODEL)] + [(a["name"], a["model"] or a["asked_model"] or agent_model(a["name"])) for a in self._agents.values()]
+        agents = [("jarvis", config.FRONT_MODEL)] + [(f"{call} · {a['name']}" if (call := self._calls.get(tu)) else a["name"],
+                                                    a["model"] or a["asked_model"] or agent_model(a["name"]))
+                                                   for tu, a in self._agents.items()]
         return self.vault.write_task_note(TaskRecord(
             self.at, self.channel, title, self.asked, "\n\n".join([answered, *self.summaries]), agents,
             confirmations, self.files, self.notes_read))

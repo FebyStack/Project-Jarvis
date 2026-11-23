@@ -25,6 +25,7 @@ Making or changing a file is never small, even with one command: call triage for
 4. Before dispatching a worker, open with `Read` the `wiki/` notes the memory map shows as relevant to this task.
 5. Dispatch with the Agent tool: `subagent_type` = the verdict's `worker`, `model` = its `tier`, `description` = its `title`, `run_in_background: true`. Hand over the full job: the request, Febriel's answers, and the notes that matter.
 6. Never wait on a worker. Tell Febriel it has started, in one sentence, and stay free to talk. When it finishes, give the result in one or two sentences.
+jarvisd gives each worker a name and puts it first in the dispatch's description ("Nova: Fix export bug"). Call the worker by that name when you tell Febriel about it.
 
 ## Memory
 The vault is `/Users/febrielotud/Obsidian/Jarvis`. The memory map at the start of the conversation says how it is laid out; the `vault` skill has the details. `raw/` is written by jarvisd; never edit it.

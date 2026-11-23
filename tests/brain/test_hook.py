@@ -86,6 +86,24 @@ def test_render_shapes():
     assert render("PermissionRequest", "deny", "no")["hookSpecificOutput"]["decision"] == {"behavior": "deny", "message": "no"}
 
 
+def test_an_allow_can_carry_an_edited_input():
+    out = render("PreToolUse", "allow", "ok", {"description": "Nova: x"})
+    assert out["hookSpecificOutput"]["updatedInput"] == {"description": "Nova: x"}
+    assert "updatedInput" not in render("PreToolUse", "deny", "no", {"description": "x"})["hookSpecificOutput"]
+    assert "updatedInput" not in render("PreToolUse", "allow", "ok")["hookSpecificOutput"]
+
+
+def test_the_edited_input_comes_from_the_daemons_reply(home, stub_server):
+    stub_server.reply = b'{"verdict": "allow", "reason": "ok", "input": {"description": "Nova: x"}}'
+    out = run_main(PAYLOAD, port=stub_server.port)
+    assert out["hookSpecificOutput"]["updatedInput"] == {"description": "Nova: x"}
+
+
+def test_an_edited_input_that_is_not_an_object_means_no(home, stub_server):
+    stub_server.reply = b'{"verdict": "allow", "reason": "ok", "input": "Nova: x"}'
+    assert decision(run_main(PAYLOAD, port=stub_server.port)) == "deny"
+
+
 def test_render_never_says_ask():
     events = ["PreToolUse", "PermissionRequest", "PostToolUse", "", None]
     verdicts = ["allow", "deny", "ask", "Allow", "", None, "maybe"]

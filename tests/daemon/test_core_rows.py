@@ -3,7 +3,9 @@ import asyncio
 from jarvis import config
 from jarvis.daemon.names import NAMES
 from tests.conftest import until
-from tests.daemon.events import GOOD_VERDICT, agent_done, agent_start, call_from, rows, tool, tool_result, turn
+from tests.conftest import FakeSpeaker
+from tests.daemon.events import (GOOD_VERDICT, agent_call, agent_done, agent_start, call_from, rows, tool, tool_result,
+                                  turn)
 
 
 async def start_worker(jarvis, bridge, channel="mac", workers=(("t1", "coder", "tu9"),), text="fix the export bug"):
@@ -99,3 +101,83 @@ async def test_an_ended_row_keeps_its_title_and_channel_after_its_request_is_gon
     await until(lambda: jarvis._find("1") is None)
     row = rows(jarvis)["t1"]
     assert row["state"] == "done" and row["channel"] == "phone" and row["title"] == "Fix export bug"
+
+
+async def triaged(jarvis, bridge, text="fix the export bug"):
+    t = asyncio.create_task(jarvis.submit(text, "mac")); await bridge.got(text)
+    bridge.emit(tool("Agent", {"subagent_type": "triage"})); bridge.emit(tool_result(GOOD_VERDICT))
+    return t
+
+
+async def test_the_name_is_chosen_when_the_dispatch_is_allowed(jarvis, bridge):
+    t = await triaged(jarvis, bridge)
+    out = await jarvis.hook(agent_call("coder", tool_use_id="tu9", description="Fix export bug", prompt="Do it."))
+    name = out["input"]["description"].split(":")[0]
+    assert name in NAMES and out["input"]["description"] == f"{name}: Fix export bug"
+    assert out["input"]["prompt"].startswith(f"Your name is {name}.\n\n") and out["input"]["subagent_type"] == "coder"
+    bridge.emit(agent_start("t1", "coder", background=True, tool_use_id="tu9"))
+    assert rows(jarvis)["t1"]["call"] == name and rows(jarvis)["t1"]["title"] == "Fix export bug"
+    bridge.emit(turn("Started.")); await t
+
+
+async def test_triage_and_a_refused_dispatch_get_no_name(jarvis, bridge):
+    t = asyncio.create_task(jarvis.submit("fix the export bug", "mac")); await bridge.got("fix the export bug")
+    out = await jarvis.hook(agent_call("triage", tool_use_id="tu0", description="Triage", prompt="Judge."))
+    assert out["verdict"] == "allow" and "input" not in out
+    denied = await jarvis.hook(agent_call("coder", tool_use_id="tu8", description="Fix", prompt="Do it."))
+    assert denied["verdict"] == "deny" and "input" not in denied and not jarvis._named
+    bridge.emit(tool("Agent", {"subagent_type": "triage"})); bridge.emit(tool_result(GOOD_VERDICT))
+    out = await jarvis.hook(agent_call("coder", tool_use_id="tu9", description="Fix", prompt="Do it."))
+    assert len(jarvis._named) == 1 and out["input"]["description"].split(":")[0] in NAMES
+    bridge.emit(turn("ok")); await t
+
+
+async def test_two_dispatches_before_either_starts_get_different_names(jarvis, bridge):
+    t = await triaged(jarvis, bridge)
+    a = await jarvis.hook(agent_call("coder", tool_use_id="tu1", description="A", prompt="p"))
+    b = await jarvis.hook(agent_call("researcher", tool_use_id="tu2", description="B", prompt="p"))
+    assert a["input"]["description"].split(":")[0] != b["input"]["description"].split(":")[0]
+    bridge.emit(turn("ok")); await t
+
+
+async def test_a_worker_the_hook_never_saw_still_gets_a_name(jarvis, bridge):
+    await start_worker(jarvis, bridge)
+    assert rows(jarvis)["t1"]["call"] in NAMES
+
+
+async def test_a_question_is_announced_with_the_name(make, bridge_of, tmp_path):
+    j = await make(speaker=(sp := FakeSpeaker())); b = bridge_of(j)
+    await start_worker(j, b)
+    name = rows(j)["t1"]["call"]
+    h = asyncio.create_task(j.hook(call_from("t1", "Write", outside_write(tmp_path))))
+    await until(lambda: j.asks.pending())
+    say = next(c[1] for c in sp.calls if c[0] == "say" and "Yes or no?" in c[1])
+    assert say.startswith(f"{name} has a question. ") and say.endswith(" Yes or no?")
+    j.answer("no"); await h
+
+
+async def test_jarvis_own_question_keeps_its_wording(make, bridge_of, tmp_path):
+    j = await make(speaker=(sp := FakeSpeaker())); b = bridge_of(j)
+    t = asyncio.create_task(j.submit("make a file", "mac")); await b.got("make a file")
+    h = asyncio.create_task(j.hook(call_from(None, "Write", outside_write(tmp_path))))
+    r = await t
+    assert "has a question" not in r.say and r.say.endswith("Yes or no?")
+    j.answer("no"); await h
+
+
+async def test_several_open_questions_are_named_not_counted(jarvis, bridge, tmp_path):
+    await start_worker(jarvis, bridge, workers=(("t1", "coder", "tu1"), ("t2", "researcher", "tu2"),
+                                                ("t3", "coder", "tu3")))
+    n = {k: rows(jarvis)[k]["call"] for k in ("t1", "t2", "t3")}
+    hs = [asyncio.create_task(jarvis.hook(call_from(k, "Write", outside_write(tmp_path)))) for k in ("t1", "t2")]
+    await until(lambda: len(jarvis.asks.pending()) == 2)
+    r = await jarvis.submit("yes", "mac")
+    assert r.say == (f"{n['t1']} and {n['t2']} each have a question. Say yes or no to one by name, or answer on its "
+                     "card.")
+    hs.append(asyncio.create_task(jarvis.hook(call_from("t3", "Write", outside_write(tmp_path)))))
+    await until(lambda: len(jarvis.asks.pending()) == 3)
+    r = await jarvis.submit("yes", "mac")
+    assert r.say.startswith(f"{n['t1']}, {n['t2']} and {n['t3']} each have a question. ")
+    for a in jarvis.asks.pending():
+        jarvis.answer("no", ask_id=a.id)
+    await asyncio.gather(*hs)

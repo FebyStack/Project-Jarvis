@@ -19,14 +19,16 @@ UNKNOWN_EVENT = "Jarvis does not judge this hook event, so the answer is no."
 _OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 
-def render(event, verdict, reason):
+def render(event, verdict, reason, input=None):
     allow = verdict == "allow" and event in EVENTS
     if event == "PermissionRequest":
         decision = {"behavior": "allow"} if allow else {"behavior": "deny", "message": reason}
         return {"hookSpecificOutput": {"hookEventName": event, "decision": decision}}
-    return {"hookSpecificOutput": {"hookEventName": "PreToolUse",
-                                   "permissionDecision": "allow" if allow else "deny",
-                                   "permissionDecisionReason": reason}}
+    out = {"hookEventName": "PreToolUse", "permissionDecision": "allow" if allow else "deny",
+           "permissionDecisionReason": reason}
+    if allow and input is not None:
+        out["updatedInput"] = input
+    return {"hookSpecificOutput": out}
 
 
 def _ask_jarvisd(payload):
@@ -40,24 +42,24 @@ def _ask_jarvisd(payload):
         if resp.status != 200:
             raise ValueError(resp.status)
         reply = json.loads(resp.read())
-    verdict, reason = reply["verdict"], reply["reason"]
-    if verdict not in ("allow", "deny") or not isinstance(reason, str):
+    verdict, reason, edited = reply["verdict"], reply["reason"], reply.get("input")
+    if verdict not in ("allow", "deny") or not isinstance(reason, str) or not (edited is None or isinstance(edited, dict)):
         raise ValueError("bad reply")
-    return verdict, reason
+    return verdict, reason, edited
 
 
 def main(stdin=sys.stdin, stdout=sys.stdout):
-    event, verdict, reason = "PreToolUse", "deny", NOT_RUNNING
+    event, verdict, reason, edited = "PreToolUse", "deny", NOT_RUNNING, None
     try:
         payload = json.load(stdin)
         event = payload["hook_event_name"]
         if event in EVENTS:
-            verdict, reason = _ask_jarvisd(payload)
+            verdict, reason, edited = _ask_jarvisd(payload)
         else:
             reason = UNKNOWN_EVENT
     except Exception:
         verdict = "deny"
-    stdout.write(json.dumps(render(event, verdict, reason)) + "\n")
+    stdout.write(json.dumps(render(event, verdict, reason, edited)) + "\n")
     return 0
 
 
