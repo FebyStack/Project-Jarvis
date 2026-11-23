@@ -19,3 +19,18 @@ def test_a_place_off_screen_is_pulled_back():
 
 def test_the_default_is_bottom_right():
     assert place.default(160, 1440, 900) == (1240, 40)
+
+
+def test_only_one_face_holds_the_lock(tmp_path):   # the final review's M10
+    first = place.single(tmp_path)
+    assert first is not None and place.single(tmp_path) is None
+    first.close()
+    again = place.single(tmp_path)
+    assert again is not None
+    again.close()
+
+
+def test_the_circle_takes_clicks_only_inside_its_round():   # M11: the square's corners pass clicks through
+    assert place.takes_click(80, 80, 0, 0, 160) and place.takes_click(159, 80, 0, 0, 160)
+    assert not place.takes_click(5, 5, 0, 0, 160) and not place.takes_click(150, 152, 0, 0, 160)
+    assert place.takes_click(1100, 220, 1020, 140, 160) and not place.takes_click(1025, 145, 1020, 140, 160)

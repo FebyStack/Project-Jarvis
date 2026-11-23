@@ -238,8 +238,13 @@ def main(argv: list[str] | None = None) -> int:
         run()
         return 0
     if args.cmd == "face":
+        from jarvis.face import place
+        if (lock := place.single(config.HOME_DIR)) is None:   # held until the face's process ends
+            print("jarvis face is already running.", file=sys.stderr)
+            return 0
         from jarvis.face.app import run
         run()
+        lock.close()
         return 0
     if args.cmd == "ask":
         return ask(args.text)

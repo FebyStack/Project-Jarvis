@@ -42,6 +42,9 @@ def plume(centre: P, screen: Rect, sizes: Sequence[tuple[float, float]]) -> Plum
             break
     frames = tuple(Rect(cx + edge - w if left else cx - edge, cy + low if up else cy - low - h, w, h)
                    for (w, h), (edge, low) in zip(sizes, spans))
+    if not fits:   # the last resort: on the screen, even over another bead, rather than a Yes nobody can reach
+        frames = tuple(Rect(min(max(f.x, screen.x), screen.x + screen.w - f.w),
+                            min(max(f.y, screen.y), screen.y + screen.h - f.h), f.w, f.h) for f in frames)
     anchors = tuple((f.x + f.w - 18 if left else f.x + 18, f.y + f.h - 18) for f in frames)
     half = config.CIRCLE_SIZE / 2
     rects = [Rect(cx - half, cy - half, config.CIRCLE_SIZE, config.CIRCLE_SIZE), *frames]

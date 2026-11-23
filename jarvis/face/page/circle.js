@@ -8,6 +8,7 @@
   var mode = 'idle', ringOn = false, off = false, paused = false, last = 0, gen = 0;
   var E = { idle: 0.12, listen: 0.45, work: 1, talk: 0.85, muted: 0, off: 0 };
   var FPS = { idle: 10, listen: 30, work: 30, talk: 30, muted: 0, off: 0 };    // 0: one still frame, no loop
+  var SLOW = 10;                           // at this many frames a second or fewer a timer drives, not the display
   var still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)');
   for (var i = 0; i < N; i++) p.push({ a: Math.random() * 6.283, r: Math.sqrt(Math.random()) * R, s: (Math.random() - .5) * .5, w: Math.random() * 6.283 });
   function rgb(hex) { return parseInt(hex.slice(1, 3), 16) + ',' + parseInt(hex.slice(3, 5), 16) + ',' + parseInt(hex.slice(5, 7), 16); }
@@ -57,7 +58,7 @@
     ring(0.55, 3.8, 0.47, 0.13, (0.12 + e * 0.3).toFixed(2), line);
     ring(1.16, -1.6, 0.6, 0.05, (0.1 + e * 0.25).toFixed(2), line);
     if (ringOn) {                          // the outer ring: Jarvis wants something; it pulses inside the panel
-      var pulse = 0.5 + 0.5 * Math.sin(t * 4);
+      var pulse = 0.5 + 0.5 * Math.sin(performance.now() / 250);   // its own clock: it pulses on a still circle too
       x.lineWidth = 9; x.strokeStyle = rgba(RED_DEEP, 0.5 + 0.4 * pulse);
       x.beginPath(); x.arc(0, 0, R * (1.22 + 0.015 * pulse), 0, 6.283); x.stroke();
       x.lineWidth = 3; x.strokeStyle = rgba(RED_RING, 0.6 + 0.4 * pulse); x.stroke();
@@ -68,8 +69,20 @@
   function start() {                       // restart drawing for the current mode; a new generation ends any old loop
     gen++; last = 0;
     if (paused) return;
-    if (!FPS[mode] || (still && still.matches)) { stillFrame(); return; }
-    loop(0, gen);
+    if (still && still.matches) { stillFrame(); return; }
+    if (!FPS[mode]) {                      // muted: still and dim; a question's ring still pulses, at the timer's rate
+      stillFrame();
+      if (ringOn) tick(gen, function () { draw(0); });
+      return;
+    }
+    if (FPS[mode] <= SLOW) tick(gen, frame); else loop(0, gen);
+  }
+  function tick(g, paint) {                // a timer, so the page does not wake at the display's 60-120 Hz
+    if (g !== gen) return;
+    var now = performance.now();
+    paint(last ? Math.min(Math.max(now - last, 1) / 16.667, 6) : 1);
+    last = now;
+    setTimeout(function () { tick(g, paint); }, 1000 / SLOW);
   }
   function loop(now, g) {
     if (g !== gen) return;
@@ -81,7 +94,7 @@
   }
   window.face = {
     show: function (o) {
-      var m = o.mode in E ? o.mode : mode, changed = m !== mode;
+      var m = o.mode in E ? o.mode : mode, changed = m !== mode || !!o.ring !== ringOn;   // a still frame redraws its ring
       mode = m; te = E[m]; off = m === 'off'; ringOn = !!o.ring; level = Math.min(1, Math.max(0, +o.level || 0));
       word.textContent = off && o.word ? String(o.word) : '';
       if (changed || (still && still.matches)) start();

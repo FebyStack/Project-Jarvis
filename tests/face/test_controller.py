@@ -164,3 +164,14 @@ async def test_anything_but_moved_from_the_page_is_dropped(rig, tmp_path, msg):
 async def test_moved_saves_the_place(rig, tmp_path):
     await rig.ctl.on_message({"type": "moved", "x": 10, "y": 20.5})
     assert place.load(tmp_path) == (10, 20.5)
+
+
+async def test_leaving_a_bead_is_heard_even_while_its_card_is_hidden(rig):   # the final review's M7
+    rig.clock[0] = 1100.0
+    await rig.push(snapshot(worker(since=1.0)))
+    rig.ctl.hover("t1", True)
+    await rig.push(agents(worker(since=1.0), *[worker(id=f"n{i}", since=50.0 + i) for i in range(5)]))
+    assert "t1" not in {c.id for c in rig.stacks[-1][0].cards}
+    rig.ctl.hover("t1", False)
+    await rig.push(agents(worker(since=1.0)))
+    assert not rig.stacks[-1][0].cards[0].open

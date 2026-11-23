@@ -111,3 +111,10 @@ def test_a_threads_bow_mirrors_with_the_plume():
         drawn = thread(anchor, centre, sway, "left")
         assert thread(across(anchor), across(centre), sway, "right") == tuple(pytest.approx(across(p)) for p in drawn)
         assert thread(over(anchor), over(centre), sway, "left") == tuple(pytest.approx(over(p)) for p in drawn)
+
+
+def test_a_plume_that_cannot_fit_still_keeps_every_bead_on_screen():   # the final review's M12, found at random
+    s = Rect(0, 25, 1280, 775)
+    sizes = [(300, 230), (182.8, 36), (300, 116), (237, 36), (300, 230), (110.5, 26)]
+    for f in plume((896.25, 136.87), s, sizes).frames:
+        assert s.x <= f.x and f.x + f.w <= s.x + s.w and s.y <= f.y and f.y + f.h <= s.y + s.h

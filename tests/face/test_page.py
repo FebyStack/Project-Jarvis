@@ -30,3 +30,8 @@ def test_the_colours_are_the_three_reds_and_no_gold():
 
 def test_the_page_files_ship_with_the_package():
     assert all((PAGE / n).is_file() for n in ("circle.html", "face.css", "circle.js"))
+
+
+def test_slow_frames_are_timed_by_a_timer_not_by_the_display():   # the final review's recommendation 3
+    src = (PAGE / "circle.js").read_text()
+    assert "setTimeout(" in src and "requestAnimationFrame(" in src

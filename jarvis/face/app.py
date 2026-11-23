@@ -12,12 +12,12 @@ import objc
 from AppKit import (
     NSAnimationContext, NSApp, NSApplication, NSApplicationActivationPolicyAccessory,
     NSApplicationDidChangeScreenParametersNotification, NSDistributedNotificationCenter, NSMakeRect,
-    NSNotificationCenter, NSScreen, NSSound, NSView, NSWindowDidMoveNotification, NSWorkspace,
+    NSEvent, NSNotificationCenter, NSScreen, NSSound, NSView, NSWindowDidMoveNotification, NSWorkspace,
     NSWorkspaceAccessibilityDisplayOptionsDidChangeNotification, NSWorkspaceScreensDidSleepNotification,
     NSWorkspaceScreensDidWakeNotification, NSWorkspaceSessionDidBecomeActiveNotification,
     NSWorkspaceSessionDidResignActiveNotification,
 )
-from Foundation import NSURL, NSObject, NSProcessInfo
+from Foundation import NSURL, NSObject, NSProcessInfo, NSTimer
 from PyObjCTools import AppHelper
 from Quartz import CGSessionCopyCurrentDictionary
 from WebKit import WKContentWorld, WKWebView, WKWebViewConfiguration
@@ -53,6 +53,9 @@ class Hub(NSObject, protocols=[objc.protocolNamed("WKNavigationDelegate")]):
 
     def settle_(self, _):
         self.app.settled()
+
+    def follow_(self, _):
+        self.app.follow()
 
     def webView_didFinishNavigation_(self, web, navigation):
         self.app.loaded()
@@ -99,6 +102,8 @@ class App:
         self.circle.setFrameOrigin_((x, y))
         self.circle.setFrameOrigin_(self._keep(x, y))
         self.circle.orderFrontRegardless()
+        self.pointer = NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(0.1, self.hub, "follow:", None, True)
+        self.pointer.setTolerance_(0.05)
         self.threads = self._new(Threads(self.circle))
         own, ws = NSNotificationCenter.defaultCenter(), NSWorkspace.sharedWorkspace().notificationCenter()
         for centre, name, sender in (
@@ -166,6 +171,14 @@ class App:
             self.settled()
         else:
             self.lay()
+
+    def follow(self) -> None:
+        """The square panel takes clicks only over the round circle: in its corners it ignores the mouse, so a click
+        there reaches the app beneath (the final review's M11). Asked ten times a second, never per frame."""
+        p, o = NSEvent.mouseLocation(), self.circle.frame().origin
+        through = not place.takes_click(p.x, p.y, o.x, o.y, SIZE)
+        if through != self.circle.ignoresMouseEvents():
+            self.circle.setIgnoresMouseEvents_(through)
 
     def settled(self) -> None:
         o = self.circle.frame().origin

@@ -224,11 +224,24 @@ async def test_a_voice_that_fails_to_start_does_not_stop_the_daemon(monkeypatch,
     assert stopped == [1]
 
 
-def test_face_is_a_command(monkeypatch):
+def test_face_is_a_command(monkeypatch, tmp_path):
     import sys, types
+    monkeypatch.setenv("JARVIS_HOME", str(tmp_path))
     calls = []
     monkeypatch.setitem(sys.modules, "jarvis.face.app", types.SimpleNamespace(run=lambda: calls.append(1)))
     assert main(["face"]) == 0 and calls == [1]
+
+
+def test_a_second_face_exits_at_once_with_one_line(monkeypatch, tmp_path, capsys):   # the final review's M10
+    import sys, types
+    from jarvis.face import place
+    monkeypatch.setenv("JARVIS_HOME", str(tmp_path))
+    calls = []
+    monkeypatch.setitem(sys.modules, "jarvis.face.app", types.SimpleNamespace(run=lambda: calls.append(1)))
+    held = place.single(tmp_path)
+    assert main(["face"]) == 0 and calls == []
+    assert len(capsys.readouterr().err.splitlines()) == 1
+    held.close()
 
 
 def test_the_face_plist_runs_face_with_no_secrets():

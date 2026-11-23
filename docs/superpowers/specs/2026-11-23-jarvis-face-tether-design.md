@@ -58,7 +58,7 @@ One per working agent, by the rules of §7.3 of the on-screen design (workers on
 - **Type:** the system font at 13 points. The timer and the countdown use the rounded design with fixed-width digits.
 - **Text colours:** `labelColor` and `secondaryLabelColor`. Never a hex value on a bead.
 - **Buttons:** Yes is filled system red; No and Always are plain glass capsules, 28 points high. Stop is a 22-point round button with a square. Every one acts on the first click without making the app active.
-- **Hover light (Claude's call):** a soft highlight follows the pointer across the glass, as visionOS does. If the system glass offers it, use that; otherwise one radial gradient layer.
+- **Hover (Claude's call):** the pointer opens a bead; there is no hover light. Dropped on 2026-11-23 in the Plan 4 fix wave: AppKit's glass offers none, and a drawn one would run Python on every pointer move.
 
 ### The mark
 
@@ -147,7 +147,7 @@ Nothing. One install is named before it runs: `pyobjc-framework-WebKit`. `pyobjc
 
 ## 13. Left to the builder
 
-The probes of Plan 4 Task 1. Exact spring curve. How the hover light is made. The alert sound (unchanged). Tests.
+The probes of Plan 4 Task 1. Exact spring curve. The alert sound (unchanged). Tests.
 
 ## 14. Not decided
 

@@ -4,10 +4,11 @@ Every string is set with setStringValue_ or setTitle_, so a label shows characte
 """
 
 import math
+import weakref
 
 import objc
 from AppKit import (
-    NSBackingStoreBuffered, NSBezelStyleCircular, NSBezelStylePush, NSButton, NSColor, NSControlSizeLarge,
+    NSBackingStoreBuffered, NSBezelStyleCircular, NSBezelStylePush, NSButton, NSColor, NSControlSizeLarge, NSEvent,
     NSFloatingWindowLevel, NSFont, NSFontDescriptorSystemDesignRounded, NSFontWeightRegular, NSFontWeightSemibold,
     NSImage, NSImageSymbolConfiguration, NSImageView, NSLineBreakByTruncatingTail, NSMakeRect, NSPanel,
     NSTextAlignmentLeft, NSTextAlignmentRight, NSTextField, NSTrackingActiveAlways, NSTrackingArea,
@@ -16,7 +17,7 @@ from AppKit import (
     NSWindowCollectionBehaviorFullScreenAuxiliary, NSWindowCollectionBehaviorIgnoresCycle,
     NSWindowCollectionBehaviorStationary, NSWindowStyleMaskBorderless, NSWindowStyleMaskNonactivatingPanel,
 )
-from Foundation import NSObject
+from Foundation import NSObject, NSPointInRect
 from Quartz import (
     CABasicAnimation, CALayer, CAMediaTimingFunction, CAShapeLayer, CATransaction, CGPathAddLineToPoint,
     CGPathCloseSubpath, CGPathCreateMutable, CGPathMoveToPoint, kCAMediaTimingFunctionEaseInEaseOut,
@@ -62,10 +63,30 @@ class Pane(NSView):
         return True
 
     def mouseEntered_(self, event):
+        self.zone = self.window().frame()   # where the pointer came in: opening may move the bead from under it
         self.press.act("in", self.identifier())
 
     def mouseExited_(self, event):
-        self.press.act("out", self.identifier())
+        NSObject.cancelPreviousPerformRequestsWithTarget_selector_object_(self, "pointerLeft:", None)
+        self.pointerLeft_(None)
+
+    def pointerLeft_(self, _):
+        """Out only once the pointer has left both the bead and where it came in, so a bead that moved while it
+        opened does not shut, move back under the pointer and open again (the final review's M6)."""
+        if self.window() is None:
+            return
+        p = NSEvent.mouseLocation()
+        if NSPointInRect(p, self.window().frame()):
+            return   # still on the bead: its next mouseExited_ decides
+        if NSPointInRect(p, self.zone):
+            self.performSelector_withObject_afterDelay_("pointerLeft:", None, 0.15)
+        else:
+            self.press.act("out", self.identifier())
+
+    def viewDidChangeEffectiveAppearance(self):
+        """Light, dark or Increase Contrast: the layers' resolved system red is resolved again (M16)."""
+        if (bead := getattr(self, "bead", lambda: None)()) is not None:
+            self.effectiveAppearance().performAsCurrentDrawingAppearance_(bead.recolor)
 
 
 class Button(NSButton):
@@ -143,6 +164,7 @@ class _Piece:
         self.holder.layer().setSpeed_(0.0 if on else 1.0)
 
     def close(self):
+        NSObject.cancelPreviousPerformRequestsWithTarget_(self.holder)
         if self.win.parentWindow():
             self.win.parentWindow().removeChildWindow_(self.win)
         self.win.close()
@@ -165,7 +187,7 @@ class Bead(_Piece):
     def __init__(self, parent, press, agent):
         super().__init__(parent, 18)
         red = NSColor.systemRedColor()
-        self.holder.press = press
+        self.holder.press, self.holder.zone = press, NSMakeRect(0, 0, 0, 0)
         self.holder.setIdentifier_(agent)
         self.holder.addTrackingArea_(NSTrackingArea.alloc().initWithRect_options_owner_userInfo_(
             NSMakeRect(0, 0, 0, 0), NSTrackingMouseEnteredAndExited | NSTrackingActiveAlways | NSTrackingInVisibleRect,
@@ -201,6 +223,8 @@ class Bead(_Piece):
         self.bar.setCornerRadius_(1)
         self.face.layer().addSublayer_(self.bar)
         self.sig = self.sig_key = self.bar_for = None
+        self.strokes = []
+        self.holder.bead = weakref.ref(self)   # last: an appearance change may recolour from now on
 
     def show(self, card, side, still):
         self.card = card
@@ -283,6 +307,13 @@ class Bead(_Piece):
         self.holder.layer().setBorderWidth_(1.5 if asking else 0.0)
         self.size = (W, H)
 
+    def recolor(self):
+        red = NSColor.systemRedColor().CGColor()
+        self.holder.layer().setBorderColor_(red)
+        self.bar.setBackgroundColor_(red)
+        for s in self.strokes:
+            s.setStrokeColor_(red)
+
     def _bar(self, card, side, W, y, width):
         CATransaction.begin()
         CATransaction.setDisableActions_(self.bar_for != card.ask_id)
@@ -300,7 +331,7 @@ class Bead(_Piece):
             return
         if self.sig is not None:
             self.sig.removeFromSuperview()
-        self.sig_key = key
+        self.sig_key, self.strokes = key, []
         if ended:
             img = NSImage.imageWithSystemSymbolName_accessibilityDescription_(ENDED.get(card.state, "stop.circle"), card.state)
             v = NSImageView.imageViewWithImage_(img.imageWithSymbolConfiguration_(
@@ -320,6 +351,7 @@ class Bead(_Piece):
                 s.setFillColor_(None)
                 s.setStrokeColor_(NSColor.systemRedColor().CGColor())
                 s.setLineWidth_(1.0)
+                self.strokes.append(s)
                 if not still:
                     s.addAnimation_forKey_(_loop("transform.rotation.z", 0.0, m.way * math.tau, (18 if asking else 6) + 3 * i), "turn")
                 box.addSublayer_(s)

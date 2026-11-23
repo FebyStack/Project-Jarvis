@@ -62,7 +62,8 @@ class Controller:
             await self.client.stop(agent)
 
     def hover(self, agent: str, on: bool) -> None:
-        if any(c.id == agent for c in self._cards()):
+        """Entering opens only a bead on show; leaving is always heard, so a hidden card never comes back stuck open."""
+        if not on or any(c.id == agent for c in self._cards()):
             self._apply({"type": "hover", "agent": agent, "on": on})
 
     async def on_message(self, msg: object) -> None:

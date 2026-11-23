@@ -152,3 +152,31 @@ def test_a_new_mac_question_alerts_once_and_a_phone_one_never():
     after = reduce(before, agents(asking()))
     assert new_alerts(before, after) and not new_alerts(after, reduce(after, agents(asking())))
     assert not new_alerts(before, reduce(before, agents(asking(channel="phone"))))
+
+
+def test_jarvis_working_on_a_request_is_work():   # the final review's M2: the front door's turn, a phone request
+    assert circle(view(agents(front("working")))).mode == "work"
+    assert circle(view(agents(front("idle")))).mode == "idle"
+
+
+def test_off_draws_no_ring():   # M1: tether design §9, everything vanishes while jarvisd is gone, offline or limited
+    assert not circle(view(agents(asking()), health(brain="offline"))).ring
+    jarvis_asks = front("needs_you", question="Delete?", ask_id="k", ask_until=1560.0)
+    assert circle(view(agents(jarvis_asks), state("IDLE", muted=True))) == Circle("muted", True, "", 0.0)
+
+
+def test_a_bead_shows_the_model_without_claude():   # M4
+    assert cards(view(agents(worker(model="claude-opus-5-5"))))[0].model == "opus-5-5"
+
+
+@pytest.mark.parametrize("event", [
+    {"type": "snapshot"}, {"type": "state"}, {"type": "level"}, {"type": "agents"}, {"type": "level", "rms": "loud"},
+    {"type": "snapshot", "state": "x", "health": 3, "agents": 5}, {"type": "agents", "items": 7}])
+def test_an_event_with_missing_or_broken_fields_never_breaks_it(event):   # M9: a jarvisd of another version
+    v = reduce(view(agents(worker())), event)
+    circle(v), stack(v, 1500.0)
+
+
+def test_a_snapshot_with_missing_fields_is_read_with_defaults():   # M9
+    v = view({"type": "snapshot", "state": {}, "agents": [worker()]})
+    assert (v.link, v.voice, v.brain, [c.id for c in cards(v)]) == ("online", "IDLE", "online", ["t1"])

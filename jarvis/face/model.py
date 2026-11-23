@@ -66,23 +66,33 @@ def _rows(view: FaceView, items) -> dict:
 
 
 def reduce(view: FaceView, event: dict) -> FaceView:
+    """A missing field takes its default; an event whose fields have the wrong shape is dropped (a jarvisd of
+    another version must not crash the face into a restart loop)."""
+    try:
+        return _reduce(view, event)
+    except (AttributeError, KeyError, TypeError, ValueError):
+        return view
+
+
+def _reduce(view: FaceView, event: dict) -> FaceView:
     match event.get("type"):
         case "link":
             ch = {"link": event["state"]}
             if event["state"] == "no daemon":
                 ch |= {"rows": (), "hovered": frozenset()}
         case "snapshot":
-            ch = {"link": "online", "voice": event["state"]["voice"], "muted": event["state"]["muted"],
-                  "brain": event["health"].get("brain", "online")} | _rows(view, event["agents"])
+            st = event.get("state") or {}
+            ch = {"link": "online", "voice": st.get("voice", "IDLE"), "muted": bool(st.get("muted")),
+                  "brain": (event.get("health") or {}).get("brain", "online")} | _rows(view, event.get("agents") or ())
         case "state":
-            ch = {"voice": event["voice"], "muted": event["muted"]}
+            ch = {"voice": event.get("voice", view.voice), "muted": bool(event.get("muted", view.muted))}
         case "health":
             ch = {"brain": event.get("brain", view.brain)}
         case "level":
-            rms = min(1.0, max(0.0, event["rms"]))
+            rms = min(1.0, max(0.0, float(event.get("rms", 0.0))))
             ch = {"speech": rms} if event.get("source") == "voice" else {"mic": rms}
         case "agents":
-            ch = _rows(view, event["items"])
+            ch = _rows(view, event.get("items") or ())
         case "hover":
             ids = {r["id"] for r in view.rows}
             ch = {"hovered": view.hovered | {event["agent"]} if event["on"] and event["agent"] in ids else view.hovered - {event["agent"]}}
@@ -98,13 +108,14 @@ def _workers(view: FaceView) -> list[dict]:
 def circle(view: FaceView) -> Circle:
     ring = any(r.get("state") == "needs_you" for r in view.rows)
     word = "NO DAEMON" if view.link == "no daemon" else {"offline": "OFFLINE", "down": "OFFLINE", "limit": "LIMIT"}.get(view.brain, "")
-    if word:
-        return Circle("off", ring, word, 0.0)
+    if word:   # no ring: there is no bead to answer on (tether design §9)
+        return Circle("off", False, word, 0.0)
     if view.voice == "SPEAKING":
         return Circle("talk", ring, "", view.speech)
     if view.voice == "LISTENING":
         return Circle("listen", ring, "", view.mic)
-    if view.voice == "THINKING" or any(r.get("state") in LIVE for r in _workers(view)):
+    jarvis = any(r["id"] == "jarvis" and r.get("state") == "working" for r in view.rows)   # a turn, the phone's too
+    if view.voice == "THINKING" or jarvis or any(r.get("state") in LIVE for r in _workers(view)):
         return Circle("work", ring, "", 0.0)
     return Circle("muted" if view.muted else "idle", ring, "", 0.0)
 
@@ -125,7 +136,8 @@ def _card(row: dict, view: FaceView, now: float) -> Card:
     live = state in LIVE
     is_open = bool(question) or (state == "working" and (row["id"] in view.hovered or now - since < config.CARD_POP_SECONDS))
     role = row.get("name", "")
-    return Card(row["id"], row.get("call") or role, role, row.get("model", ""), row.get("title", ""), row.get("doing", ""),
+    model = row.get("model", "").removeprefix("claude-")   # "coder · opus-5-5", as the HUD shows it
+    return Card(row["id"], row.get("call") or role, role, model, row.get("title", ""), row.get("doing", ""),
                 elapsed(since, now), state, question, row.get("ask_id"), live, is_open, left, left_text)
 
 
