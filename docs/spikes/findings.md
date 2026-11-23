@@ -708,3 +708,40 @@ Plan: `docs/superpowers/plans/2026-11-22-jarvis-holding-line-and-routing.md`.
 
   `--effort low` changed little. The front door therefore stays on **Sonnet at low effort**.
 - **Triage:** moved from Opus to Sonnet at medium effort. A weather lookup's first token went from 17 s of silence to 13 s, with the holding line filling the wait.
+
+## Bisaya listener (Bisaya plan Tasks 2–4, 2026-11-22)
+
+Plan: `docs/superpowers/plans/2026-11-22-jarvis-bisaya.md`. Scripts: `spikes/10-bisaya/` (`record.py`, `listeners.py`, `listen.py`, `judge.py`).
+- **Recordings:** 29 of Febriel's voice, 1.4–4.4 s each, through jarvisd's own 16 kHz mic path: 12 Bisaya, 6 mixed Bisaya-English (added on his ask), 8 English and 3 one-breath "Jarvis, <Bisaya>". He asked for lines to read, so Claude wrote them. They stay in the git-ignored `spikes/10-bisaya/data/`.
+- **Models:** okayed by Febriel: BuzzASR/cebuano (Whisper large-v3 fine-tune, MIT) and MMS `mms-1b-all` + `ceb` adapter (CC-BY-NC-4.0). Not okayed, so not tested: Whisper turbo and Omnilingual. Omnilingual does list `ceb_Latn`, but its package pins torch 2.8.0, builds kenlm from source and wants Homebrew libsndfile. The models live on his external SSD (`/Volumes/PortableSSD/Jarvis/`, exFAT), his choice: the internal disk had 11 GiB free.
+- **Judge:** a dry-run `claude -p` with Jarvis's own prompt (plus the Part 3 sentence), no tools, on the front door's model. Scored by hand against what he meant. The first pass ran on Haiku (the front door from f2f7472). The rows below are re-run on **Sonnet at low effort** (front door since bb0fd45).
+
+| Listener (beside Parakeet) | Bisaya /12 | Mixed /6 | English /8 | Wakes | Extra s at 5 s (max) | Memory | Licence |
+|---|---|---|---|---|---|---|---|
+| none (Parakeet alone), Sonnet | 8 | 3 | 8 | 3/3 | — | — | — |
+| none (Parakeet alone), Haiku | 3 | 2 | 7 | 3/3 | — | — | — |
+| BuzzASR fp16, transformers on MPS, Haiku | 10 | 5 | 7 | 3/3 | 1.53–1.69 (1.77) | ~3.8 GB | MIT |
+| MMS ceb fp16, MPS, Haiku | 7 | 3 | 7 | 3/3 | 0.26–0.33 (0.48) | ~2.6 GB | CC-BY-NC-4.0 |
+| BuzzASR MLX 8-bit / 4-bit, 30 s window | not judged | | | | 1.65 / 1.67 (1.9) | ~2.6 / ~1.7 GB | MIT |
+| BuzzASR MLX 8-bit, utterance + 1 s window | loops on 10 of 29 ("Open notes Open notes …") | | | | 0.2–0.5, looping up to 3 s | ~1.9 GB | MIT |
+| BuzzASR MLX 4-bit, ≥ 10 s window, Haiku | 10 | 5 | 7 | 3/3 | 0.56 (0.66) | ~1.65 GB | MIT |
+| **BuzzASR MLX 8-bit, ≥ 10 s window, Sonnet (winner)** | **11** | **6** | **8** | **3/3** | **0.61 (0.75)** | **~2.3 GB** | MIT |
+
+- **The winner, okayed by Febriel 2026-11-22:** BuzzASR converted to MLX at 8-bit (1.64 GB on the SSD). The encoder gets a window of at least 10 s instead of Whisper's padded 30 s: the 30 s window was where the time went, and quantizing alone saved none. It decodes with Whisper's Tagalog token (BuzzASR's own generation config does the same), greedy. It meets the Bisaya, English, wake and time bars. Memory (~2.3 GB) is over the ~1.5 GB bar; Febriel chose it over 4-bit (~1.65 GB, one mixed line worse).
+- **Memory figures** are the physical footprint the loaded listener keeps after the run, minus the footprint before loading (Python, numpy and torch already imported), with the torch and MLX caches cleared. RSS alone misses the GPU memory on this Mac.
+- **Load from the SSD**, cold: torch fp16 92–115 s, MLX 8-bit 42 s, 4-bit 29 s. Warm, under 1 s.
+- **Mishearings:**
+  - Parakeet: "Unsa ang panahon sa Cebu karon?" became "I'm not sure if I can do it."
+  - MMS: "lima ka gatos" became "5a000", and "Cebu" became "sibo".
+  - BuzzASR 10 s window: "Unsa na" became "11 na", and "alas otso" became "harap sotso". Sonnet still read both.
+- **Misses on the brain's side:**
+  - "Pakusga gamay ang volume" (louder) was read as "lower" with every listener and both models, even when the Bisaya ear wrote "kusgi gamay" correctly.
+  - On Haiku, the brain sometimes kept Parakeet's wrong words over a right Bisaya line ("Wedding mui check" for "Pwede nimo i-check").
+  - Haiku read "Open Notes" as the Obsidian vault; Sonnet opened Notes.
+- **For Part 3 (Tasks 5–7):**
+  - The winner is MLX, so it runs on Engines' single MLX thread, adding ~0.6 s to that queue.
+  - It needs `mlx-whisper` (0.4.3) as a main dependency (Febriel's okay).
+  - It is a converted local folder, not a Hub repo: mlx-examples `whisper/convert.py` (e52c128d11, 2025-12-15), `--torch-name-or-path <BuzzASR snapshot> -q --q-bits 8`, then rename `model.safetensors` to `weights.safetensors`. `jarvis models` cannot just download it.
+  - With the SSD unplugged, the Bisaya ear is "missing".
+  - The short-window decode is about 15 lines in `listeners._buzz_short`.
+- Re-run: `uv run python spikes/10-bisaya/listen.py --listener NAME` (MLX ones with `uv run --with mlx-whisper==0.4.3`), then `judge.py --listeners NAME` and `judge.py --measure`.
