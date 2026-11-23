@@ -12,9 +12,9 @@ NAMES = (
     "Nova", "Orin", "Vesper", "Kite", "Lumen", "Atlas", "Briar", "Cedar", "Delta", "Ember", "Fable", "Gale", "Harbor",
     "Osprey", "Juno", "Larch", "Myrtle", "Nimbus", "Onyx", "Pearl", "Quill", "Raven", "Tundra", "Wren", "Xenon",
     "Yarrow", "Zephyr", "Basil", "Cobalt", "Dune", "Echo", "Tiger", "Garnet", "Heron", "Iris", "Jasper", "Koda",
-    "Lark", "Nettle", "Neon", "Opal", "Pike", "Quartz", "Rowan", "Sage", "Thorn", "Ursa", "Lilac", "Willow", "Birch",
-    "Cinder", "Drift", "Fern", "Hazel", "Jade", "Kelp", "Linden", "Laurel", "Noor", "Jaguar", "Dahlia", "Quince",
-    "Lotus", "Tansy", "Umbra", "Violet", "Wisp", "Yucca", "Zinc", "Bryn", "Clove", "Dawn", "Eden", "Finch", "Grove",
+    "Lark", "Nettle", "Neon", "Opal", "Comet", "Quartz", "Rowan", "Sage", "Thorn", "Ursa", "Lilac", "Willow", "Birch",
+    "Cinder", "Drift", "Slate", "Hazel", "Jade", "Kelp", "Linden", "Laurel", "Noor", "Jaguar", "Dahlia", "Quince",
+    "Lotus", "Tansy", "Umbra", "Violet", "Wisp", "Yucca", "Zinc", "Bryn", "Clove", "Dawn", "Eden", "Topaz", "Grove",
 )
 
 

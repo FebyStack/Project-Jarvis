@@ -46,3 +46,10 @@ def test_without_the_word_list_only_the_exact_name_counts(monkeypatch, tmp_path)
         assert match("novah", ["Nova"]) is None and match("nova", ["Nova"]) == "Nova"
     finally:
         names._words.cache_clear()
+
+
+def test_every_name_and_its_b_v_p_f_twin_name_it_alone():   # Febriel's live run: Finch was heard as "pinch", a word
+    twin = str.maketrans("bvpf", "vbfp")
+    for n in NAMES:
+        for heard in {n.lower(), n[0].lower().translate(twin) + n[1:].lower()}:
+            assert match(heard, {n}) == n, (heard, n)

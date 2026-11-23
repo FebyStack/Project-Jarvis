@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 import pytest
 
@@ -250,3 +251,11 @@ async def test_a_stop_announced_first_is_hushed_and_the_next_result_is_heard(mak
     assert [e["text"] for e in seen() if e["type"] in ("reply", "reply_delta")] == ["Orin fixed it."] * 2
     note = next(vault.raw.glob("*-fix-export-bug.md")).read_text()
     assert "Orin fixed it." in note and "Nova was stopped." not in note
+
+
+async def test_a_name_phrase_that_names_nobody_is_logged_without_its_words(jarvis, bridge, caplog):   # Febriel's live run
+    await workers(jarvis, bridge, "t1", "t2")
+    caplog.set_level(logging.INFO, "jarvisd")
+    t = asyncio.create_task(jarvis.submit("Jarvis, yes, Pinch.", "mac")); await bridge.got("Jarvis, yes, Pinch.")
+    assert "name phrase matched no running agent (2 running)" in caplog.text and "pinch" not in caplog.text.lower()
+    bridge.emit(turn("Who?")); assert (await t).say == "Who?"

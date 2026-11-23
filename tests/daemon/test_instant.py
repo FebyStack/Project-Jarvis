@@ -2,7 +2,7 @@ from datetime import datetime
 
 import pytest
 
-from jarvis.daemon.instant import match, match_named, say_date, say_time
+from jarvis.daemon.instant import match, match_named, named_shape, say_date, say_time
 from jarvis.daemon.names import NAMES
 
 
@@ -40,6 +40,27 @@ def test_named_phrases():
     assert match_named("stop", run) is None and match_named("stop the music", run) is None
     assert match_named("stop Vesper", run) is None
     assert match_named("tell Nova to stop", run) is None
+
+
+def test_a_name_works_without_to():   # Febriel's live run: "Jarvis, yes to Finch" was heard as "yes, Pinch."
+    run = {"Nova", "Orin", "Fable"}
+    assert match_named("Jarvis, yes, Pable.", run) == ("yes", "Fable") and match_named("yes Nova", run) == ("yes", "Nova")
+    assert match_named("no Orin", run) == ("no", "Orin") and match_named("Hey Jarvis, no, nova.", run) == ("no", "Nova")
+    assert match_named("yes always Nova", run) == ("always", "Nova")
+    assert match_named("yes always to Nova", run) == ("always", "Nova")
+
+
+def test_a_plain_yes_or_no_never_names_an_agent():
+    for name in NAMES:
+        for said in ("yes please", "no thanks", "yes always", "Yes, always.", "no problem", "yes sir", "no way"):
+            assert match_named(said, {name}) is None, (said, name)
+
+
+def test_the_shape_of_a_name_phrase():
+    for said in ("yes, Pinch.", "Jarvis, stop Kelp", "no to Nobody", "yes always to Nova", "yes please"):
+        assert named_shape(said), said
+    for said in ("tell Nova to stop", "stop the music", "stop", "yes", "never mind", "what time is it"):
+        assert not named_shape(said), said
 
 
 def test_an_ordinary_word_is_never_a_running_name():   # Review Focus 2; the final review's I1

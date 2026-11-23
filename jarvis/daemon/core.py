@@ -246,6 +246,8 @@ class Jarvis:
             self.vault.log_exchange(Exchange(self.now(), channel, text, reply.say))
             self._last_activity = self.clock()
             return reply
+        if instant.named_shape(text):
+            log.info("name phrase matched no running agent (%d running)", len(named))
         rid = str(next(self._ids))
         req = _Request(rid, text, channel, Tracker(self.vault, rid, channel, text, self.now()))
         fut = asyncio.get_running_loop().create_future()
