@@ -1,5 +1,5 @@
-"""Names for running agents (Plan 4): short, unlike each other, none close enough to "Jarvis" to wake it, and none
-that a common English word could pass for."""
+"""Names for running agents (Plan 4): short, unlike each other, none close enough to "Jarvis" to wake it, none
+that a common English word could pass for, and none with a soft C, which Febriel's accent hears as an S."""
 import difflib
 import functools
 import random
@@ -9,11 +9,11 @@ from pathlib import Path
 from jarvis import config
 
 NAMES = (
-    "Nova", "Orin", "Vesper", "Kite", "Lumen", "Atlas", "Briar", "Cedar", "Delta", "Ember", "Fable", "Gale", "Harbor",
+    "Nova", "Orin", "Vesper", "Kite", "Lumen", "Atlas", "Briar", "Meadow", "Delta", "Ember", "Fable", "Gale", "Harbor",
     "Osprey", "Juno", "Larch", "Myrtle", "Nimbus", "Onyx", "Pearl", "Quill", "Raven", "Tundra", "Wren", "Xenon",
     "Yarrow", "Zephyr", "Basil", "Cobalt", "Dune", "Echo", "Tiger", "Garnet", "Heron", "Iris", "Jasper", "Koda",
     "Lark", "Nettle", "Neon", "Opal", "Comet", "Quartz", "Rowan", "Sage", "Thorn", "Ursa", "Lilac", "Willow", "Birch",
-    "Cinder", "Drift", "Slate", "Hazel", "Jade", "Kelp", "Linden", "Laurel", "Noor", "Jaguar", "Dahlia", "Quince",
+    "Orchid", "Drift", "Slate", "Hazel", "Jade", "Kelp", "Linden", "Laurel", "Noor", "Jaguar", "Dahlia", "Quince",
     "Lotus", "Tansy", "Umbra", "Violet", "Wisp", "Yucca", "Zinc", "Bryn", "Clove", "Dawn", "Eden", "Topaz", "Grove",
 )
 
@@ -28,7 +28,8 @@ def pick(in_use: Collection[str], rng: random.Random = random) -> str:
     return rng.choice([n for n in NAMES if f"{n} {number}" not in in_use]) + f" {number}"
 
 
-WORDS = Path("/usr/share/dict/words")
+# The 10,000 commonest English words: https://github.com/first20hours/google-10000-english
+WORDS = Path(__file__).with_name("common-words.txt")
 _ENDINGS = ("s", "es", "ed", "d", "er", "ing")
 _ALIKE = str.maketrans("vf", "bp")   # Febriel's Bisaya accent: b and v, p and f, are one first letter
 
@@ -42,14 +43,14 @@ def _words() -> str:
 
 
 def _ordinary(word: str) -> bool:
-    """An English word, or one with a plural or verb ending. Without the word list, every word counts as one."""
+    """A common English word, or one with a plural or verb ending. Without the word list, every word counts as one."""
     words = _words()
     return not words or any(f"\n{w}\n" in words for w in {word, *(word.removesuffix(e) for e in _ENDINGS)})
 
 
 def match(heard: str, running: Collection[str]) -> str | None:
     """The running name heard, or a close mis-hearing of it: the same first letter (b and v, p and f, alike), a
-    length within one letter, and not an English word."""
+    length within one letter, and not a common English word."""
     heard = heard.lower()
     scored = sorted(((difflib.SequenceMatcher(None, heard, n.lower()).ratio(), n) for n in running), reverse=True)
     if not scored or scored[0][0] < config.NAME_SIMILARITY:

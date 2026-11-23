@@ -81,7 +81,12 @@ def test_b_and_v_p_and_f_count_as_one_first_letter():   # Febriel's ruling: his 
     assert match_named("stop besper", {"Vesper", "Nova"}) == ("stop", "Vesper")
     assert match_named("yes to pable", {"Fable", "Nova"}) == ("yes", "Fable")
     assert match_named("stop vasil", {"Basil", "Nova"}) == ("stop", "Basil")
-    assert match_named("stop pinch", {"Finch", "Nova"}) is None and match_named("stop pern", {"Fern", "Nova"}) is None
+    assert match_named("stop fine", {"Pine", "Nova"}) is None
+
+
+def test_only_a_common_word_is_refused():   # Febriel's live run: Wisp was heard as "whisp"; his choice, the 10,000 commonest
+    assert match_named("yes to whisp", {"Wisp", "Nova"}) == ("yes", "Wisp")
+    assert match_named("stop pinch", {"Finch", "Nova"}) == ("stop", "Finch")
 
 
 COMMON = ("it that this now there here please all both everything everyone none one each either her him them ours "

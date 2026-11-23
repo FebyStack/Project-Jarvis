@@ -15,6 +15,7 @@ def test_the_list_is_long_and_its_names_cannot_be_confused():
     for n in NAMES:
         assert n.isalpha() and 4 <= len(n) <= 6 and not wake.sounds_like_name(n)
         assert n.lower() not in {"yes", "no", "stop", "always", "cancel", "mute", "status"}
+        assert not (n[0] == "C" and n[1] in "eiy"), n   # Febriel's live run: "stop Cedar" was heard as "stop, Sadar"
 
 
 def test_pick_avoids_names_in_use():
