@@ -2,6 +2,7 @@ import difflib
 import itertools
 import random
 
+from jarvis.daemon import names
 from jarvis.daemon.names import NAMES, match, pick
 from jarvis.voice import wake
 
@@ -36,3 +37,12 @@ def test_match_is_loose_but_only_among_the_running():
 
 def test_match_refuses_to_choose_between_two_close_names():
     assert match("nora", ["Nova", "Nori"]) is None
+
+
+def test_without_the_word_list_only_the_exact_name_counts(monkeypatch, tmp_path):
+    monkeypatch.setattr(names, "WORDS", tmp_path / "missing")
+    names._words.cache_clear()
+    try:
+        assert match("novah", ["Nova"]) is None and match("nova", ["Nova"]) == "Nova"
+    finally:
+        names._words.cache_clear()
