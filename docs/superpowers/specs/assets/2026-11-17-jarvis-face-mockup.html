@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jarvis on screen: mockup</title>
+<!-- Reference for the look only (design 2026-11-17, §7.2, §7.3, §7.9). Febriel confirmed the circle on 2026-11-17.
+     The loudness while talking is simulated here; the real one follows Jarvis's speech. Open in any browser. -->
+<style>
+  body { margin: 0; background: #0d0d0f; color: #e9e4e2; font: 12px/1.45 -apple-system, "Helvetica Neue", sans-serif; }
+  .desk { position: relative; height: 100vh; min-height: 640px; overflow: hidden; }
+  .stack { position: absolute; top: 14px; right: 14px; width: 262px; display: flex; flex-direction: column; gap: 8px; }
+  .card { background: #17171a; border: 0.5px solid #4a1513; border-radius: 10px; padding: 8px 10px; }
+  .card.asks { border: 1.5px solid #ff3b30; }
+  .card.over { border-color: #2c2c2f; color: #8f8784; }
+  .name { font-weight: 500; font-size: 13px; color: #ff5a4f; }
+  .over .name { color: #8f8784; }
+  .meta { color: #8f8784; font-size: 11px; }
+  .row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .q { color: #ffd9d5; margin: 4px 0 6px; }
+  button { background: transparent; border: 0.5px solid #7a2420; color: #ffb4ae; border-radius: 6px; font-size: 11px; padding: 2px 9px; cursor: pointer; }
+  button.yes, button.on { background: #c2241b; border-color: #c2241b; color: #fff; }
+  .more { color: #8f8784; font-size: 11px; text-align: right; }
+  .face { position: absolute; right: 320px; bottom: 60px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  canvas { width: 320px; height: 320px; }
+  .states { display: flex; gap: 8px; }
+</style>
+</head>
+<body>
+<div class="desk">
+  <div class="stack">
+    <div class="card asks">
+      <div class="row"><span class="name">Nova</span><span class="meta">coder · opus · 04:12</span></div>
+      <div>Fix export bug</div>
+      <div class="q">Run git push to origin main. Yes or no?</div>
+      <div class="row"><span><button class="yes">Yes</button> <button>No</button> <button>Always</button></span><button>Stop</button></div>
+    </div>
+    <div class="card"><div class="row"><span class="name">Orin</span><span class="meta">researcher · haiku · 00:38</span></div>
+      <div class="row"><span>Reading 3 pages on Tailscale ACLs</span><button>Stop</button></div></div>
+    <div class="card"><div class="row"><span class="name">Vesper</span><span class="meta">coder · sonnet · 01:55</span></div>
+      <div class="row"><span>Running the test suite</span><button>Stop</button></div></div>
+    <div class="card"><div class="row"><span class="name">Kite</span><span class="meta">researcher · sonnet · 02:10</span></div>
+      <div class="row"><span>Comparing two caption libraries</span><button>Stop</button></div></div>
+    <div class="card over"><div class="row"><span class="name">Lumen</span><span class="meta">coder · sonnet · done</span></div>
+      <div>Tidied the downloads folder</div></div>
+    <div class="more">+1 more working</div>
+  </div>
+  <div class="face">
+    <canvas id="orb" width="640" height="640"></canvas>
+    <div class="states">
+      <button data-s="idle">Idle</button><button data-s="listen">Listening</button>
+      <button data-s="work">Working</button><button data-s="talk">Talking</button>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  var c = document.getElementById('orb'), x = c.getContext('2d'), R = 250, N = 150, p = [], t = 0;
+  var e = 0.12, te = 0.12, st = 'idle', amp = 0, gain = 0;             // e: energy 0–1, eased toward the state's target
+  var rot = 0, wob = 0, spin = 0;   // phases, advanced a little each frame: a change of speed bends the motion, never jumps it
+  var E = { idle: 0.12, listen: 0.45, work: 1, talk: 0.85 };
+  for (var i = 0; i < N; i++) p.push({ a: Math.random() * 6.283, r: Math.sqrt(Math.random()) * R, s: (Math.random() - .5) * .5, w: Math.random() * 6.283 });
+  var bs = document.querySelectorAll('button[data-s]');
+  function pick(s) { st = s; te = E[s]; for (var i = 0; i < bs.length; i++) bs[i].className = bs[i].getAttribute('data-s') === s ? 'on' : ''; }
+  for (var b = 0; b < bs.length; b++) bs[b].addEventListener('click', function () { pick(this.getAttribute('data-s')); });
+  function ring(base, rate, k1, k2, al) {                             // one jagged, waveform-like ring
+    x.beginPath();
+    for (var k = 0; k <= 240; k++) {
+      var th = k / 240 * 6.283, n = Math.sin(k * k1 + spin * rate) * Math.sin(k * k2 - t * 1.7) + 0.5 * Math.sin(k * 0.9 + spin * rate * 2.3);
+      var rr = R * base + n * (3 + e * 14 + amp * 46), px = Math.cos(th) * rr, py = Math.sin(th) * rr;
+      if (k) x.lineTo(px, py); else x.moveTo(px, py);
+    }
+    x.strokeStyle = 'rgba(255,59,48,' + al + ')'; x.stroke();
+  }
+  function draw() {
+    e += (te - e) * 0.022;                                             // about two seconds to settle into a new state
+    rot += 0.016 * (0.25 + e * 1.6); wob += 0.016 * (0.8 + e * 6); spin += 0.016 * (1 + e * 3);
+    var ta = st === 'talk' ? Math.abs(Math.sin(t * 9)) * Math.abs(Math.sin(t * 2.3) + 0.4 * Math.sin(t * 5.1))
+           : st === 'listen' ? 0.35 * Math.abs(Math.sin(t * 4.2)) : 0;  // stand-in for the real loudness
+    gain += ((ta ? 1 : 0) - gain) * 0.03;                              // loudness fades in too
+    amp += (ta * gain - amp) * 0.25;
+    x.clearRect(0, 0, 640, 640); x.save(); x.translate(320, 320);
+    var sc = 1 + amp * 0.07, q = [];
+    for (var i = 0; i < N; i++) {
+      var n = p[i], a = n.a + rot * n.s;
+      var r = (n.r + Math.sin(wob + n.w) * (5 + e * 30) + Math.sin(t * 13 + n.w * 3) * e * 9) * sc;
+      if (r > R + 18) r = R + 18;
+      q.push([Math.cos(a) * r, Math.sin(a) * r]);
+    }
+    var th = 62 + e * 30; x.lineWidth = 1;
+    for (var i = 0; i < N; i++) for (var j = i + 1; j < N; j++) {
+      var dx = q[i][0] - q[j][0], dy = q[i][1] - q[j][1], d = Math.sqrt(dx * dx + dy * dy);
+      if (d < th) {
+        x.strokeStyle = 'rgba(255,59,48,' + ((0.25 + e * 0.45) * (1 - d / th)).toFixed(3) + ')';
+        var bend = 0.9 - e * 0.25;
+        x.beginPath(); x.moveTo(q[i][0], q[i][1]);
+        x.quadraticCurveTo((q[i][0] + q[j][0]) / 2 * bend, (q[i][1] + q[j][1]) / 2 * bend, q[j][0], q[j][1]); x.stroke();
+      }
+    }
+    x.fillStyle = '#ff6a5f';
+    for (var k = 0; k < N; k++) { x.beginPath(); x.arc(q[k][0], q[k][1], 1.6 + e * 1.2, 0, 6.283); x.fill(); }
+    x.lineWidth = 1.2;
+    ring(1.06, 3, 0.35, 0.11, (0.35 + e * 0.4).toFixed(2));
+    ring(0.82, -2.2, 0.21, 0.07, (0.15 + e * 0.3).toFixed(2));
+    ring(0.55, 3.8, 0.47, 0.13, (0.12 + e * 0.3).toFixed(2));
+    ring(1.16, -1.6, 0.6, 0.05, (0.1 + e * 0.25).toFixed(2));
+    x.restore();
+  }
+  var still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function loop() { t += 0.016; draw(); if (!still) requestAnimationFrame(loop); }
+  pick('idle'); loop();
+})();
+</script>
+</body>
+</html>

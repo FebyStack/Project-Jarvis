@@ -1,0 +1,546 @@
+<title>Jarvis Face Directions</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<!-- Reference for choosing the look of the agent toasts (2026-11-23). The circle is the one confirmed on 2026-11-17.
+     Agents, jobs and timings here are examples. The real cards are native AppKit; this page only shows form and motion. -->
+<style>
+/* Layout: the working desktop first, four directions as one segmented control over it, the chosen direction's facts beneath. */
+:root{
+  --bg:#f4f2f0; --panel:#fffefd; --fg:#1d1b1a; --fg2:#6d6763; --line:#ddd8d3; --seg:#e6e2de; --accent:#cf261b;
+  --hot:#ff3b30; --ink:#0a0a0b; --paper:#f4f1ee;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Helvetica,Arial,sans-serif;
+  --display:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",Helvetica,Arial,sans-serif;
+  --round:ui-rounded,"SF Pro Rounded",-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
+  --spring:cubic-bezier(.25,1.25,.4,1);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#151314;--panel:#211e1f;--fg:#f3efec;--fg2:#a8a19c;--line:#353031;--seg:#2a2627;--accent:#ff5a4f;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#151314;--panel:#211e1f;--fg:#f3efec;--fg2:#a8a19c;--line:#353031;--seg:#2a2627;--accent:#ff5a4f;color-scheme:dark}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 var(--font);padding-block:20px 40px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1120px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+h1{font:600 22px/1.2 var(--display);letter-spacing:-.01em;margin:0;text-wrap:balance}
+.lede{margin:4px 0 0;color:var(--fg2);max-width:68ch}
+.bar{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+.seg{display:inline-flex;flex-wrap:wrap;background:var(--seg);border-radius:9px;padding:2px}
+.seg button{border:0;background:none;font:500 13px var(--font);color:var(--fg);padding:6px 14px;border-radius:7px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--panel);box-shadow:0 1px 2px rgba(0,0,0,.18)}
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--fg);font:500 13px var(--font);padding:6px 12px;border-radius:8px;cursor:pointer}
+.btn:disabled{opacity:.45;cursor:default}
+.lab{color:var(--fg2);font-size:12px}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ---------- the desktop ---------- */
+.fit{position:relative;aspect-ratio:1120/680;max-width:100%;overflow:hidden;border-radius:12px;border:1px solid var(--line);background:var(--ink)}
+.stage{position:absolute;left:0;top:0;width:1120px;height:680px;transform-origin:0 0;overflow:hidden;font:13px/1.3 var(--font);
+  --wall:radial-gradient(60% 80% at 18% 28%,#43306b,transparent 70%),radial-gradient(55% 75% at 84% 72%,#7c2c3b,transparent 70%),radial-gradient(40% 50% at 70% 10%,#1f4a66,transparent 70%),#14121b;
+  --w-bg:#1f1e24;--w-bar:#2b2a31;--w-ln:#3a3942;--mb:rgba(20,18,26,.45);--mb-fg:#f2f2f4;
+  --g-bg:rgba(44,43,52,.52);--g-fg:#fff;--g-fg2:rgba(235,235,245,.64);--g-edge:rgba(255,255,255,.2);--g-top:rgba(255,255,255,.32);--g-btn:rgba(255,255,255,.15)}
+.stage[data-wall="light"]{
+  --wall:radial-gradient(60% 80% at 20% 30%,#ffd4ae,transparent 70%),radial-gradient(55% 75% at 82% 66%,#b3d3f6,transparent 70%),radial-gradient(40% 50% at 68% 8%,#f6c3d2,transparent 70%),#eef0f4;
+  --w-bg:#ffffff;--w-bar:#ecebee;--w-ln:#dedde2;--mb:rgba(255,255,255,.5);--mb-fg:#1d1d1f;
+  --g-bg:rgba(250,250,252,.6);--g-fg:#1d1d1f;--g-fg2:rgba(60,60,67,.7);--g-edge:rgba(255,255,255,.75);--g-top:rgba(255,255,255,.95);--g-btn:rgba(0,0,0,.08)}
+.wall{position:absolute;inset:0;background:var(--wall)}
+.menubar{position:absolute;inset:0 0 auto 0;height:24px;display:flex;justify-content:space-between;align-items:center;padding:0 14px;
+  background:var(--mb);color:var(--mb-fg);font-size:12px;-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);z-index:5}
+.menubar b{font-weight:600;margin-right:14px}.menubar span span{margin-right:14px}
+.win{position:absolute;left:60px;top:64px;width:800px;height:470px;border-radius:12px;background:var(--w-bg);overflow:hidden;z-index:1;
+  box-shadow:0 20px 60px rgba(0,0,0,.35),0 0 0 1px rgba(0,0,0,.12)}
+.win-bar{height:36px;background:var(--w-bar);display:flex;align-items:center;gap:7px;padding:0 13px}
+.win-bar i{width:11px;height:11px;border-radius:50%;background:var(--w-ln)}
+.win-body{padding:22px 28px;display:flex;flex-direction:column;gap:11px}
+.win-body i{height:8px;border-radius:4px;background:var(--w-ln)}
+#fx{position:absolute;inset:0;width:1120px;height:680px;pointer-events:none;z-index:2}
+.orb{position:absolute;right:40px;bottom:36px;width:150px;height:150px;z-index:3}
+.orb canvas{width:150px;height:150px;display:block}
+.orb::after{content:"";position:absolute;inset:6px;border-radius:50%;border:1.5px solid var(--hot);opacity:0}
+.stage[data-ask="1"] .orb::after{animation:ask 1.6s ease-out infinite}
+@keyframes ask{0%{transform:scale(.86);opacity:.9}100%{transform:scale(1.14);opacity:0}}
+
+/* ---------- one agent, shared by all four ---------- */
+#agents{position:absolute;top:34px;right:16px;z-index:4;display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.ag{position:relative;box-sizing:border-box;width:max-content;min-width:0;max-width:300px;color:var(--c-fg);transform-origin:100% 0;
+  transition:min-width .45s var(--spring),border-radius .3s,background-color .3s,opacity .4s}
+.ag[data-open="1"]{min-width:300px}
+.ag[data-state="done"],.ag[data-state="stopped"]{opacity:.62}
+.ag-head{position:relative;z-index:2;display:flex;align-items:center;gap:8px;height:36px;padding:0 10px 0 6px;white-space:nowrap}
+.sig{width:24px;height:24px;flex:none}
+.ag-id{display:flex;gap:6px;align-items:baseline;min-width:0}
+.nm{font-weight:600}
+.rl,.dl{color:var(--c-fg2)}
+.dl{overflow:hidden;text-overflow:ellipsis;max-width:160px}
+.tm{margin-left:auto;padding-left:6px;color:var(--c-fg2);font-family:var(--round);font-variant-numeric:tabular-nums}
+.stop{flex:none;width:22px;height:22px;border-radius:50%;border:0;padding:0;background:var(--c-btn);cursor:pointer;place-items:center}
+.stop::before{content:"";width:8px;height:8px;border-radius:2px;background:var(--c-fg)}
+.ag-body{position:relative;z-index:2;display:grid;grid-template-rows:0fr;width:0;min-width:100%;transition:grid-template-rows .45s var(--spring)}
+.ag[data-open="1"] .ag-body{grid-template-rows:1fr}
+.ag-in{overflow:hidden;min-height:0}
+.ag-pad{padding:0 12px 12px 38px}
+.ttl,.q{font-weight:600}
+.doing{color:var(--c-fg2)}
+.q{margin-top:8px}
+.acts{gap:6px;margin-top:10px}
+.acts button{height:28px;padding:0 14px;border-radius:14px;border:0;font:600 13px var(--font);background:var(--c-btn);color:var(--c-fg);cursor:pointer}
+.acts .yes{background:var(--hot);color:#fff}
+.cd{align-items:center;gap:8px;margin-top:10px}
+.cd i{flex:1;height:2px;border-radius:1px;background:var(--hot);transform-origin:0 50%;transform:scaleX(var(--left,1))}
+.cd span{color:var(--c-fg2);font-family:var(--round);font-variant-numeric:tabular-nums}
+.meta{color:var(--c-fg2)}
+.rl,.stop,.q,.acts,.cd,.meta{display:none}
+.ag[data-open="1"] .rl{display:inline}
+.ag[data-open="1"] .dl{display:none}
+.ag[data-open="1"][data-state="working"] .stop,.ag[data-state="asking"] .stop{display:grid}
+.ag[data-state="asking"] .q{display:block}
+.ag[data-state="asking"] .acts,.ag[data-state="asking"] .cd{display:flex}
+.more{color:var(--g-fg2);font-size:12px;padding:2px 8px;text-shadow:0 1px 6px rgba(0,0,0,.25)}
+#ridge{display:none}
+
+/* glass, used by Tether and Stack */
+.stage[data-dir="tether"] .ag,.stage[data-dir="stack"] .ag,.stage[data-dir="tether"] .more{
+  --c-fg:var(--g-fg);--c-fg2:var(--g-fg2);--c-btn:var(--g-btn);background:var(--g-bg);
+  -webkit-backdrop-filter:blur(28px) saturate(190%);backdrop-filter:blur(28px) saturate(190%);
+  box-shadow:inset 0 0 0 1px var(--g-edge),inset 0 1px 0 var(--g-top),0 10px 30px rgba(0,0,0,.22)}
+.stage[data-dir="tether"] .ag::before,.stage[data-dir="stack"] .ag::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity .2s;
+  background:radial-gradient(130px circle at var(--mx,50%) var(--my,0%),rgba(255,255,255,.24),transparent 70%)}
+.stage[data-dir="tether"] .ag:hover::before,.stage[data-dir="stack"] .ag:hover::before{opacity:1}
+.stage[data-dir="tether"] .ag[data-state="asking"],.stage[data-dir="stack"] .ag[data-state="asking"]{
+  background:color-mix(in srgb,var(--hot) 20%,var(--g-bg));box-shadow:inset 0 0 0 1.5px var(--hot),inset 0 1px 0 var(--g-top),0 10px 34px rgba(255,59,48,.28)}
+
+/* A. Tether: beads on silk threads around the circle */
+.stage[data-dir="tether"] #agents{inset:0;display:block;pointer-events:none}
+.stage[data-dir="tether"] .ag,.stage[data-dir="tether"] .more{position:absolute;pointer-events:auto;border-radius:18px;transform-origin:100% 100%}
+.stage[data-dir="tether"] .ag-head{flex-direction:row-reverse;padding:0 6px 0 10px}
+.stage[data-dir="tether"] .tm{margin:0 auto 0 0;padding:0 6px 0 0}
+.stage[data-dir="tether"] .ag-pad{padding:0 38px 12px 12px;text-align:right}
+.stage[data-dir="tether"] .acts{justify-content:flex-end}
+.stage[data-dir="tether"] .cd{flex-direction:row-reverse}
+.stage[data-dir="tether"] .cd i{transform-origin:100% 50%}
+.stage[data-dir="tether"] .more{border-radius:12px;padding:4px 10px;text-shadow:none}
+
+/* B. Island: black capsules that morph */
+.stage[data-dir="island"] .ag{--c-fg:#fff;--c-fg2:rgba(235,235,245,.62);--c-btn:#2c2c2e;background:#000;border-radius:18px;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.12),0 8px 24px rgba(0,0,0,.4)}
+.stage[data-dir="island"] .ag[data-open="1"]{border-radius:24px}
+.stage[data-dir="island"] .ag-head{padding:0 12px 0 8px}
+.stage[data-dir="island"] .dl,.stage[data-dir="island"] .cd i{display:none}
+.stage[data-dir="island"] .ag::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:2px;pointer-events:none;opacity:0;transition:opacity .3s;
+  background:conic-gradient(from 0deg,var(--hot) calc(var(--left,1)*360deg),transparent 0);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+.stage[data-dir="island"] .ag[data-state="asking"]::after{opacity:1}
+.stage[data-dir="island"] .more{background:#000;color:rgba(235,235,245,.62);border-radius:12px;padding:4px 10px;text-shadow:none}
+
+/* C. Pulse: one black sleeve, one live line per agent */
+.stage[data-dir="pulse"] #agents{gap:0;align-items:stretch;width:300px;padding:4px 0;background:var(--ink);border-radius:14px;overflow:hidden;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.09),0 12px 34px rgba(0,0,0,.4)}
+.stage[data-dir="pulse"] #ridge{display:block;position:absolute;left:0;top:0;z-index:1;pointer-events:none}
+.stage[data-dir="pulse"] .ag{--c-fg:var(--paper);--c-fg2:rgba(244,241,238,.52);--c-btn:rgba(255,255,255,.14);width:auto;max-width:none;min-width:0}
+.stage[data-dir="pulse"] .ag-head{height:34px;padding:0 12px}
+.stage[data-dir="pulse"] .sig,.stage[data-dir="pulse"] .dl{display:none}
+.stage[data-dir="pulse"] .nm{font-size:11px;letter-spacing:.09em;text-transform:uppercase}
+.stage[data-dir="pulse"] .tm{font-size:11px}
+.stage[data-dir="pulse"] .ag .rl{display:none}
+.stage[data-dir="pulse"] .meta{display:block}
+.stage[data-dir="pulse"] .ag-pad{padding:2px 12px 12px}
+.stage[data-dir="pulse"] .ag[data-state="asking"]{background:var(--hot);--c-fg:#fff;--c-fg2:rgba(255,255,255,.8);--c-btn:rgba(0,0,0,.2)}
+.stage[data-dir="pulse"] .ag[data-state="asking"] .yes{background:#fff;color:#c2241b}
+.stage[data-dir="pulse"] .ag[data-state="asking"] .cd i{background:#fff}
+.stage[data-dir="pulse"] .more{position:relative;z-index:2;text-align:right;padding:6px 12px;font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:rgba(244,241,238,.52);text-shadow:none}
+
+/* D. Stack: the macOS banner, played straight */
+.stage[data-dir="stack"] .ag{width:320px;max-width:none;min-width:0;border-radius:18px}
+.stage[data-dir="stack"] .ag-head{height:44px;padding:0 12px 0 10px}
+.stage[data-dir="stack"] .sig{width:28px;height:28px}
+.stage[data-dir="stack"] .ag-pad{padding:0 12px 12px 46px}
+
+/* ---------- facts ---------- */
+.info{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:28px;margin-top:6px}
+@media (max-width:720px){.info{grid-template-columns:minmax(0,1fr)}}
+h2{font:600 17px/1.25 var(--display);margin:0;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.tag{font:500 11px var(--font);letter-spacing:.06em;text-transform:uppercase;color:var(--accent);border:1px solid currentColor;border-radius:99px;padding:2px 8px}
+.thesis{font-size:16px;line-height:1.4;margin:8px 0 14px;max-width:60ch;text-wrap:balance}
+dl{margin:0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 16px}
+dt{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--fg2);padding-top:2px}
+dd{margin:0;max-width:62ch}
+.same ul{margin:10px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:7px;color:var(--fg2)}
+.same li{padding-left:14px;position:relative}
+.same li::before{content:"";position:absolute;left:0;top:.62em;width:5px;height:5px;border-radius:50%;background:var(--accent)}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Jarvis on screen: four ways the agents can show</h1>
+    <p class="lede">Same behaviour in all four, different form. It all runs: hover a toast, answer the question, stop an agent, add more. The red circle is the one you confirmed.</p>
+  </header>
+
+  <div class="bar">
+    <div class="seg" id="dirs" role="group" aria-label="Direction">
+      <button type="button" id="d-tether" data-dir="tether" aria-pressed="true">Tether</button>
+      <button type="button" id="d-island" data-dir="island" aria-pressed="false">Island</button>
+      <button type="button" id="d-pulse" data-dir="pulse" aria-pressed="false">Pulse</button>
+      <button type="button" id="d-stack" data-dir="stack" aria-pressed="false">Stack</button>
+    </div>
+    <button type="button" class="btn" id="b-add">Start an agent</button>
+    <button type="button" class="btn" id="b-ask">Agent asks</button>
+    <button type="button" class="btn" id="b-done">Agent finishes</button>
+    <button type="button" class="btn" id="b-reset">Reset</button>
+    <span class="lab">Jarvis</span>
+    <div class="seg" id="voice" role="group" aria-label="Jarvis voice state">
+      <button type="button" id="v-auto" data-v="auto" aria-pressed="true">Auto</button>
+      <button type="button" id="v-listen" data-v="listen" aria-pressed="false">Listening</button>
+      <button type="button" id="v-talk" data-v="talk" aria-pressed="false">Talking</button>
+    </div>
+    <span class="lab">Desktop</span>
+    <div class="seg" id="walls" role="group" aria-label="Desktop appearance">
+      <button type="button" id="w-dark" data-w="dark" aria-pressed="true">Dark</button>
+      <button type="button" id="w-light" data-w="light" aria-pressed="false">Light</button>
+    </div>
+  </div>
+
+  <div class="fit" id="fit">
+    <div class="stage" id="stage" data-dir="tether" data-wall="dark" data-ask="0">
+      <div class="wall"></div>
+      <div class="menubar"><span><b>Final Cut Pro</b><span>File</span><span>Edit</span><span>View</span><span>Window</span></span><span>Mon 23 Nov&nbsp;&nbsp;10:42</span></div>
+      <div class="win"><div class="win-bar"><i></i><i></i><i></i></div><div class="win-body" id="lines"></div></div>
+      <canvas id="fx" width="2240" height="1360"></canvas>
+      <div class="orb"><canvas id="orb" width="300" height="300" aria-label="Jarvis"></canvas></div>
+      <div id="agents"><canvas id="ridge"></canvas><div class="more" id="more" hidden></div></div>
+    </div>
+  </div>
+
+  <div class="info">
+    <section>
+      <h2><span id="i-name"></span><span class="tag" id="i-tag"></span></h2>
+      <p class="thesis" id="i-thesis"></p>
+      <dl>
+        <dt>Comes from</dt><dd id="i-from"></dd>
+        <dt>You see</dt><dd id="i-see"></dd>
+        <dt>Risk</dt><dd id="i-risk"></dd>
+        <dt>To build</dt><dd id="i-build"></dd>
+      </dl>
+    </section>
+    <section class="same">
+      <h2>Same in all four</h2>
+      <ul>
+        <li>A new agent pops open for four seconds, then shrinks to one line. Hover opens it again.</li>
+        <li>A question never shrinks, goes first, and counts as no after 60 seconds. The red line shows the time left.</li>
+        <li>Five at most. The rest are counted under them.</li>
+        <li>Every agent has its own silk mark, the same each time that name works for you.</li>
+        <li>One text size. Rank comes from weight, not size.</li>
+        <li>Red only on the mark, on a question, and on Yes.</li>
+        <li>Nothing here takes keyboard focus from the app in front.</li>
+        <li>With Reduce Motion on, marks, threads and lines hold still.</li>
+      </ul>
+    </section>
+  </div>
+</div>
+
+<script>
+(function () {
+  var $ = function (s) { return document.querySelector(s); };
+  var stage = $('#stage'), fit = $('#fit'), box = $('#agents'), more = $('#more');
+  var W = 1120, H = 680, CX = 1005, CY = 569, RIM = 64, RR = 82;
+  var still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var dir = 'tether', voice = 'auto', agents = [], shown = [], uid = 0, k = 1;
+
+  var INFO = {
+    tether: { name: 'Tether', tag: 'most Jarvis', thesis: 'Agents are tied to Jarvis. Each one buds out of the circle on a silk thread and hangs beside it.',
+      from: 'visionOS ornaments, which hang off their parent in glass, and the Obsidian graph the circle already is.',
+      see: 'A glass bead per agent. The thread carries a pulse while it works and burns bright when it asks. Stop cuts the thread and the bead falls back in.',
+      risk: 'It lives beside the circle, not in the top-right corner you approved. Five agents and an open question cover about 320 by 380 points there. Drag the circle and they all follow.',
+      build: 'One click-through panel around the circle. Each bead is a Liquid Glass view, each thread one shape layer.' },
+    island: { name: 'Island', tag: 'my pick', thesis: 'Each agent is a Live Activity. A black capsule that says only who and how long, and morphs open when it matters.',
+      from: 'The Dynamic Island on iPhone, made for exactly this: background work you glance at.',
+      see: 'Mark, name, timer. Hover or a question grows the capsule. Its red rim is the 60 seconds running out. Black in light and dark mode, so it keeps your near-black and red.',
+      risk: 'The most familiar of the three new ones. On a dark wallpaper a black capsule leans on its hairline edge. It could hang from the MacBook notch instead of the corner.',
+      build: 'Plain black layers with spring-animated bounds. No glass, so it is the lightest of the four.' },
+    pulse: { name: 'Pulse', tag: 'boldest', thesis: 'One black sleeve, one live line per agent. You read the room by how the lines move, before any word.',
+      from: 'The stacked pulsar plot of a record sleeve, and the first red-on-black Jarvis.',
+      see: 'A busy line is a busy agent, a flat line is waiting. Hover decodes a row into words. The row that asks turns solid red.',
+      risk: 'The least Apple of the four. Small capitals at 11 points. The line needs a real number from jarvisd: tool calls per second through the gate, which it sees but does not send yet.',
+      build: 'One black layer with one drawn plot, plus native rows. One new field on each agent row.' },
+    stack: { name: 'Stack', tag: 'the standard', thesis: 'macOS notification banners in Liquid Glass, done properly. Nothing to learn.',
+      from: 'Notification Centre on the Mac.',
+      see: 'A glass card per agent in the top-right corner, following light and dark mode. A question tints red and gets its buttons.',
+      risk: 'It reads as a system notification, in the same corner as the real ones. This is the look any agent app ships.',
+      build: 'Liquid Glass views in a stack. The least work, and the closest to Plan 4 as written.' }
+  };
+
+  var NAMES = ['Nova', 'Orin', 'Vesper', 'Kite', 'Lumen', 'Sable', 'Tarn'];
+  var JOBS = [
+    { role: 'coder', model: 'opus', title: 'Fix export bug', doing: ['Running the test suite', 'Editing export.py', 'Reading 4 files'], q: 'Run git push to origin main?' },
+    { role: 'researcher', model: 'haiku', title: 'Tailscale ACL rules', doing: ['Reading 3 pages on ACLs', 'Comparing two guides', 'Writing the summary'], q: 'Open tailscale.com in the browser?' },
+    { role: 'coder', model: 'sonnet', title: 'Tidy the Downloads folder', doing: ['Sorting 212 files', 'Checking for duplicates', 'Moving the videos'], q: 'Delete 14 duplicate files?' },
+    { role: 'researcher', model: 'sonnet', title: 'Caption libraries', doing: ['Comparing two caption libraries', 'Reading changelogs'], q: 'Download the sample pack, 38 MB?' },
+    { role: 'coder', model: 'sonnet', title: 'Rename clinic assets', doing: ['Renaming 64 images', 'Updating the links'], q: 'Overwrite 3 existing files?' },
+    { role: 'researcher', model: 'haiku', title: 'Flight times to Cebu', doing: ['Checking three airlines', 'Reading fare rules'], q: 'Open the airline site?' },
+    { role: 'coder', model: 'opus', title: 'Speed up the wake word', doing: ['Profiling the mic loop', 'Running benchmarks'], q: 'Restart jarvisd?' }
+  ];
+
+  function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
+  function clock(ms) { var s = Math.max(0, Math.floor(ms / 1000)), m = Math.floor(s / 60); s %= 60; return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s; }
+
+  /* ----- an agent ----- */
+  function make(i, age, state) {
+    var now = Date.now(), seed = 0, n = NAMES[i], c;
+    for (c = 0; c < n.length; c++) seed += n.charCodeAt(c) * (c + 3);
+    var a = { id: 'a' + (++uid), i: i, name: n, job: JOBS[i], t0: now - age, born: age ? 0 : now, state: 'working', askAt: 0, endAt: 0,
+      di: 0, lastDo: now, hover: false, dying: false, act: 0, r: null, b: null,
+      k: 3 + seed % 4, ph: (seed % 628) / 100, s1: 0.7 + (seed % 7) / 10, s2: 0.6 + (seed % 5) / 8, way: seed % 2 ? 1 : -1 };
+    var e = a.el = el('article', 'ag'), head = el('div', 'ag-head'), id = el('span', 'ag-id');
+    a.sig = el('canvas', 'sig'); a.sig.width = a.sig.height = 56;
+    id.appendChild(el('span', 'nm', a.name)); id.appendChild(el('span', 'rl', a.job.role + ' · ' + a.job.model));
+    a.dl = el('span', 'dl'); a.tm = el('span', 'tm');
+    var stop = el('button', 'stop'); stop.type = 'button'; stop.title = 'Stop'; stop.setAttribute('aria-label', 'Stop ' + a.name);
+    head.appendChild(a.sig); head.appendChild(id); head.appendChild(a.dl); head.appendChild(a.tm); head.appendChild(stop);
+    var body = el('div', 'ag-body'), inn = el('div', 'ag-in'), pad = el('div', 'ag-pad'), acts = el('div', 'acts'), cd = el('div', 'cd');
+    a.dg = el('div', 'doing');
+    ['Yes', 'No', 'Always'].forEach(function (t) { var b = el('button', t === 'Yes' ? 'yes' : 'ans', t); b.type = 'button'; acts.appendChild(b); });
+    cd.appendChild(el('i')); a.auto = el('span'); cd.appendChild(a.auto);
+    pad.appendChild(el('div', 'ttl', a.job.title)); pad.appendChild(el('div', 'meta', a.job.role + ' · ' + a.job.model)); pad.appendChild(a.dg); pad.appendChild(el('div', 'q', a.job.q)); pad.appendChild(acts); pad.appendChild(cd);
+    inn.appendChild(pad); body.appendChild(inn); e.appendChild(head); e.appendChild(body);
+    e.addEventListener('pointerenter', function () { a.hover = true; sync(a); });
+    e.addEventListener('pointerleave', function () { a.hover = false; sync(a); });
+    e.addEventListener('focusin', function () { a.hover = true; sync(a); });
+    e.addEventListener('focusout', function () { a.hover = false; sync(a); });
+    e.addEventListener('pointermove', function (ev) { var r = e.getBoundingClientRect(); e.style.setProperty('--mx', (ev.clientX - r.left) / k + 'px'); e.style.setProperty('--my', (ev.clientY - r.top) / k + 'px'); });
+    e.addEventListener('click', function (ev) {
+      var b = ev.target.closest('button'); if (!b) return;
+      if (b.className === 'stop') { a.state = 'stopped'; a.endAt = Date.now(); } else { a.state = 'working'; a.askAt = 0; }
+      render();
+    });
+    if (state === 'asking') { a.state = 'asking'; a.askAt = now; }
+    agents.push(a); box.insertBefore(e, more);
+    if (!age && dir !== 'tether' && !still) e.animate([{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'none' }], { duration: 420, easing: 'cubic-bezier(.25,1.25,.4,1)' });
+    return a;
+  }
+  function sync(a) {
+    var now = Date.now(), ended = a.state === 'done' || a.state === 'stopped';
+    var open = a.state === 'asking' || (a.state === 'working' && (a.hover || now - a.born < 4000));
+    a.el.dataset.state = a.state; a.el.dataset.open = open ? '1' : '0';
+    var d = a.job.doing[a.di % a.job.doing.length];
+    a.dl.textContent = ended ? a.job.title : d; a.dg.textContent = d;
+    a.tm.textContent = ended ? a.state : clock((a.endAt || now) - a.t0);
+  }
+  function ordered() {
+    var rank = function (s) { return s === 'asking' ? 0 : s === 'working' ? 1 : 2; };
+    return agents.filter(function (a) { return !a.dying; }).sort(function (a, b) {
+      return rank(a.state) - rank(b.state) || (a.state === 'asking' ? a.askAt - b.askAt : b.t0 - a.t0);
+    });
+  }
+  function render() {
+    var ord = ordered(), vis = ord.slice(0, 5), hid = ord.slice(5), before = null;
+    if (dir !== 'tether') { before = new Map(); agents.forEach(function (a) { before.set(a, a.el.offsetTop); }); }
+    vis.forEach(function (a) { a.el.hidden = false; box.insertBefore(a.el, more); });
+    hid.forEach(function (a) { a.el.hidden = true; });
+    shown = vis;
+    var w = hid.filter(function (a) { return a.state === 'working'; }).length, q = hid.filter(function (a) { return a.state === 'asking'; }).length;
+    var parts = []; if (q) parts.push('+' + q + ' more need you'); if (w) parts.push('+' + w + ' more working');
+    more.hidden = !parts.length; more.textContent = parts.join(' · ');
+    agents.forEach(sync);
+    box.hidden = !agents.length;
+    stage.dataset.ask = agents.some(function (a) { return a.state === 'asking'; }) ? '1' : '0';
+    if (before && !still) vis.forEach(function (a) {
+      var d = before.get(a) - a.el.offsetTop;
+      if (d) a.el.animate([{ transform: 'translateY(' + d + 'px)' }, { transform: 'none' }], { duration: 380, easing: 'cubic-bezier(.2,.9,.3,1)' });
+    });
+    var live = agents.filter(function (a) { return a.state === 'working' && !a.dying; }).length;
+    $('#b-add').disabled = agents.length >= NAMES.length; $('#b-ask').disabled = $('#b-done').disabled = !live;
+  }
+  function kill(a) {
+    a.dying = true;
+    var done = function () { a.el.remove(); agents.splice(agents.indexOf(a), 1); render(); };
+    if (still) done(); else a.el.animate([{ opacity: a.el.style.opacity || 0.62 }, { opacity: 0 }], { duration: 420, fill: 'forwards' }).onfinish = done;
+    render();
+  }
+  function tick() {
+    var now = Date.now(), changed = false;
+    agents.forEach(function (a) {
+      if (a.state === 'working' && now - a.lastDo > 5200) { a.di++; a.lastDo = now; }
+      if (a.state === 'asking' && now - a.askAt >= 60000) { a.state = 'working'; a.askAt = 0; changed = true; }
+      if ((a.state === 'done' || a.state === 'stopped') && !a.dying && now - a.endAt > 8000) kill(a);
+      sync(a);
+    });
+    if (changed) render();
+  }
+  function reset() {
+    agents.forEach(function (a) { a.el.remove(); }); agents = []; shown = [];
+    make(0, 252000, 'asking'); make(1, 38000); make(2, 115000); render();
+  }
+
+  /* ----- each agent's silk mark ----- */
+  function sigil(a, t) {
+    var g = a.sig.getContext('2d'), S = 56, c = S / 2, i, j;
+    g.clearRect(0, 0, S, S);
+    if (a.state === 'done' || a.state === 'stopped') {
+      g.strokeStyle = 'rgba(150,150,156,.95)'; g.lineWidth = 2.4; g.beginPath(); g.arc(c, c, 19, 0, 6.283); g.stroke();
+      g.beginPath();
+      if (a.state === 'done') { g.moveTo(19, 29); g.lineTo(25.5, 35); g.lineTo(37.5, 21.5); g.stroke(); } else { g.fillStyle = 'rgba(150,150,156,.95)'; g.fillRect(21, 21, 14, 14); }
+      return;
+    }
+    var ask = a.state === 'asking', rot = t * (ask ? 0.3 : 0.9) * a.way + a.ph, pul = ask ? 1 + 0.13 * Math.sin(t * 5) : 1;
+    g.lineWidth = 1.7;
+    for (j = 0; j < 3; j++) {
+      g.beginPath();
+      for (i = 0; i <= 72; i++) {
+        var th = i / 72 * 6.283, r = c * 0.88 * pul * (0.5 + 0.5 * Math.cos(a.k * th + rot * (j + 1) * 0.7 + j * 2.1));
+        var X = c + Math.cos(th + rot * 0.3) * r, Y = c + Math.sin(th + rot * 0.3) * r;
+        if (i) g.lineTo(X, Y); else g.moveTo(X, Y);
+      }
+      g.strokeStyle = 'rgba(255,59,48,' + (0.95 - j * 0.27) + ')'; g.stroke();
+    }
+  }
+
+  /* ----- A. Tether: place the beads around the circle and draw the threads ----- */
+  var fx = $('#fx').getContext('2d'), fxDirty = false, moreRow = { el: more, r: null, b: null };
+  function place() {
+    var y = CY + 22, above = 0, rows = shown.slice();
+    if (!more.hidden) rows.push(moreRow);
+    rows.forEach(function (a) {
+      var h = a.el.offsetHeight, top = y - h, near = (top <= CY && y >= CY) ? 0 : Math.min(Math.abs(top - CY), Math.abs(y - CY)), rx;
+      if (near < RR) rx = CX - Math.sqrt(RR * RR - near * near) - 6; else { rx = CX - 28 + above * 46; above++; }
+      rx = Math.min(rx, W - 16);
+      a.tr = W - rx; a.tb = H - y; y = top - 10;
+    });
+    agents.forEach(function (a) { if (a.dying) { a.tr = W - CX - 20; a.tb = H - CY - 18; } });
+    rows.concat(agents.filter(function (a) { return a.dying; })).forEach(function (a) {
+      if (a.r == null || still) { a.r = still ? a.tr : W - CX - 20; a.b = still ? a.tb : H - CY - 18; }
+      a.r += (a.tr - a.r) * 0.16; a.b += (a.tb - a.b) * 0.16;
+      a.el.style.right = a.r.toFixed(1) + 'px'; a.el.style.bottom = a.b.toFixed(1) + 'px';
+    });
+  }
+  function threads(t) {
+    fx.setTransform(2, 0, 0, 2, 0, 0); fx.clearRect(0, 0, W, H); fxDirty = true;
+    agents.forEach(function (a) {
+      if (a.el.hidden || a.r == null) return;
+      var sx = a.el.offsetLeft + a.sig.offsetLeft + 12, sy = a.el.offsetTop + a.sig.offsetTop + 12;
+      var dx = sx - CX, dy = sy - CY, d = Math.sqrt(dx * dx + dy * dy) || 1; if (d < RIM + 14) return;
+      var ux = dx / d, uy = dy / d, ex = CX + ux * RIM, ey = CY + uy * RIM, bx = sx - ux * 13, by = sy - uy * 13;
+      var sway = still ? 0 : 1, mx = (bx + ex) / 2 - uy * 12 + Math.sin(t * 1.3 + a.ph) * 6 * sway, my = (by + ey) / 2 + ux * 12 + Math.cos(t * 1.1 + a.ph) * 6 * sway;
+      var ask = a.state === 'asking', live = a.state === 'working';
+      fx.beginPath(); fx.moveTo(bx, by); fx.quadraticCurveTo(mx, my, ex, ey);
+      fx.strokeStyle = 'rgba(255,59,48,' + (a.dying ? 0.12 : ask ? 0.95 : live ? 0.6 : 0.22) + ')'; fx.lineWidth = ask ? 1.8 : 1; fx.stroke();
+      if (still || a.dying || !(ask || live)) return;
+      for (var n = 0; n < (ask ? 2 : 1); n++) {
+        var p = (t * (ask ? 0.9 : 0.4) + a.ph + n * 0.5) % 1, q = 1 - p;
+        fx.beginPath(); fx.arc(q * q * bx + 2 * q * p * mx + p * p * ex, q * q * by + 2 * q * p * my + p * p * ey, ask ? 2.6 : 2, 0, 6.283);
+        fx.fillStyle = '#ff6a5f'; fx.shadowColor = '#ff3b30'; fx.shadowBlur = 8; fx.fill(); fx.shadowBlur = 0;
+      }
+    });
+  }
+
+  /* ----- C. Pulse: one plot for the whole sleeve ----- */
+  var rc = $('#ridge'), rg = rc.getContext('2d');
+  function ridge(t) {
+    var cw = box.offsetWidth, ch = box.offsetHeight, x;
+    if (rc.width !== cw * 2 || rc.height !== ch * 2) { rc.width = cw * 2; rc.height = ch * 2; rc.style.width = cw + 'px'; rc.style.height = ch + 'px'; }
+    rg.setTransform(2, 0, 0, 2, 0, 0); rg.clearRect(0, 0, cw, ch);
+    shown.forEach(function (a) {
+      var base = a.el.offsetTop + 27, ask = a.state === 'asking', live = a.state === 'working', pts = [];
+      a.act += ((live ? 1 : 0) - a.act) * 0.05;
+      for (x = 0; x <= cw; x += 2) {
+        var u = x / cw, w = Math.min(1, Math.max(0, (u - 0.3) / 0.42)), env = Math.pow(Math.sin(Math.PI * w), 1.5);
+        var n = Math.abs(Math.sin(x * 0.21 + t * 3.1 * a.s1 + a.ph) + 0.6 * Math.sin(x * 0.47 - t * 4.3 + a.ph * 2) + 0.5 * Math.sin(x * 0.9 + t * 7 * a.s2)) / 2.1;
+        var beat = ask ? Math.exp(-Math.pow((u - 0.51) / 0.05, 2)) * (0.5 + 0.5 * Math.sin(t * 3.2)) * 9 : 0;
+        pts.push(base - n * env * a.act * 17 - beat);
+      }
+      rg.beginPath(); rg.moveTo(0, base); pts.forEach(function (py, i) { rg.lineTo(i * 2, py); }); rg.lineTo(cw, base); rg.closePath();
+      rg.fillStyle = ask ? '#ff3b30' : '#0a0a0b'; rg.fill();
+      rg.beginPath(); pts.forEach(function (py, i) { if (i) rg.lineTo(i * 2, py); else rg.moveTo(0, py); });
+      rg.strokeStyle = ask ? '#fff' : 'rgba(244,241,238,' + (live ? 0.92 : 0.3) + ')'; rg.lineWidth = 1; rg.stroke();
+    });
+  }
+
+  /* ----- the circle, as confirmed on 2026-11-17, drawn smaller ----- */
+  var ox = $('#orb').getContext('2d'), R = 105, K = R / 250, N = 150, P = [], e = 0.12, amp = 0, gain = 0, rot = 0, wob = 0, spin = 0;
+  var E = { idle: 0.12, listen: 0.45, work: 1, talk: 0.85 };
+  for (var i = 0; i < N; i++) P.push({ a: Math.random() * 6.283, r: Math.sqrt(Math.random()) * R, s: (Math.random() - 0.5) * 0.5, w: Math.random() * 6.283 });
+  function oring(t, base, rate, k1, k2, al) {
+    ox.beginPath();
+    for (var j = 0; j <= 240; j++) {
+      var th = j / 240 * 6.283, n = Math.sin(j * k1 + spin * rate) * Math.sin(j * k2 - t * 1.7) + 0.5 * Math.sin(j * 0.9 + spin * rate * 2.3);
+      var rr = R * base + n * (3 + e * 14 + amp * 46) * K, px = Math.cos(th) * rr, py = Math.sin(th) * rr;
+      if (j) ox.lineTo(px, py); else ox.moveTo(px, py);
+    }
+    ox.strokeStyle = 'rgba(255,59,48,' + al.toFixed(2) + ')'; ox.stroke();
+  }
+  function orb(t, st) {
+    e += (E[st] - e) * (still ? 1 : 0.022);
+    rot += 0.016 * (0.25 + e * 1.6); wob += 0.016 * (0.8 + e * 6); spin += 0.016 * (1 + e * 3);
+    var ta = st === 'talk' ? Math.abs(Math.sin(t * 9)) * Math.abs(Math.sin(t * 2.3) + 0.4 * Math.sin(t * 5.1)) : st === 'listen' ? 0.35 * Math.abs(Math.sin(t * 4.2)) : 0;
+    gain += ((ta ? 1 : 0) - gain) * 0.03; amp += (ta * gain - amp) * 0.25;
+    ox.clearRect(0, 0, 300, 300); ox.save(); ox.translate(150, 150);
+    var sc = 1 + amp * 0.07, q = [], a, b;
+    for (a = 0; a < N; a++) {
+      var n = P[a], an = n.a + rot * n.s, r = (n.r + Math.sin(wob + n.w) * (5 + e * 30) * K + Math.sin(t * 13 + n.w * 3) * e * 9 * K) * sc;
+      if (r > R + 18 * K) r = R + 18 * K;
+      q.push([Math.cos(an) * r, Math.sin(an) * r]);
+    }
+    var th = (62 + e * 30) * K, bend = 0.9 - e * 0.25; ox.lineWidth = 0.8;
+    for (a = 0; a < N; a++) for (b = a + 1; b < N; b++) {
+      var dx = q[a][0] - q[b][0], dy = q[a][1] - q[b][1], d = Math.sqrt(dx * dx + dy * dy);
+      if (d < th) {
+        ox.strokeStyle = 'rgba(255,59,48,' + ((0.25 + e * 0.45) * (1 - d / th)).toFixed(3) + ')';
+        ox.beginPath(); ox.moveTo(q[a][0], q[a][1]);
+        ox.quadraticCurveTo((q[a][0] + q[b][0]) / 2 * bend, (q[a][1] + q[b][1]) / 2 * bend, q[b][0], q[b][1]); ox.stroke();
+      }
+    }
+    ox.fillStyle = '#ff6a5f';
+    for (a = 0; a < N; a++) { ox.beginPath(); ox.arc(q[a][0], q[a][1], 0.9 + e * 0.6, 0, 6.283); ox.fill(); }
+    ox.lineWidth = 1;
+    oring(t, 1.06, 3, 0.35, 0.11, 0.35 + e * 0.4); oring(t, 0.82, -2.2, 0.21, 0.07, 0.15 + e * 0.3);
+    oring(t, 0.55, 3.8, 0.47, 0.13, 0.12 + e * 0.3); oring(t, 1.16, -1.6, 0.6, 0.05, 0.1 + e * 0.25);
+    ox.restore();
+  }
+
+  /* ----- the loop ----- */
+  var T = 0;
+  function frame() {
+    T += 0.016;
+    var busy = agents.some(function (a) { return !a.dying && (a.state === 'working' || a.state === 'asking'); });
+    orb(T, voice !== 'auto' ? voice : busy ? 'work' : 'idle');
+    var now = Date.now();
+    agents.forEach(function (a) {
+      sigil(a, still ? a.ph : T);
+      if (a.state === 'asking') { var left = Math.max(0, 1 - (now - a.askAt) / 60000); a.el.style.setProperty('--left', left.toFixed(4)); a.auto.textContent = 'No in ' + Math.ceil(left * 60) + ' s'; }
+    });
+    if (dir === 'tether') { place(); threads(T); } else if (fxDirty) { fx.setTransform(1, 0, 0, 1, 0, 0); fx.clearRect(0, 0, 2240, 1360); fxDirty = false; }
+    if (dir === 'pulse') ridge(still ? 1 : T);
+    if (!still) requestAnimationFrame(frame);
+  }
+
+  /* ----- controls ----- */
+  function press(group, btn) { Array.prototype.forEach.call(group.querySelectorAll('button'), function (b) { b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'); }); }
+  function setDir(d) {
+    dir = d; stage.dataset.dir = d;
+    agents.forEach(function (a) { a.r = a.b = null; a.el.style.right = a.el.style.bottom = ''; });
+    moreRow.r = moreRow.b = null; more.style.right = more.style.bottom = '';
+    var I = INFO[d];
+    $('#i-name').textContent = I.name; $('#i-tag').textContent = I.tag; $('#i-thesis').textContent = I.thesis;
+    $('#i-from').textContent = I.from; $('#i-see').textContent = I.see; $('#i-risk').textContent = I.risk; $('#i-build').textContent = I.build;
+    render();
+  }
+  $('#dirs').addEventListener('click', function (ev) { var b = ev.target.closest('button'); if (b) { press(this, b); setDir(b.dataset.dir); } });
+  $('#voice').addEventListener('click', function (ev) { var b = ev.target.closest('button'); if (b) { press(this, b); voice = b.dataset.v; } });
+  $('#walls').addEventListener('click', function (ev) { var b = ev.target.closest('button'); if (b) { press(this, b); stage.dataset.wall = b.dataset.w; } });
+  $('#b-add').addEventListener('click', function () {
+    for (var n = 0; n < NAMES.length; n++) if (!agents.some(function (a) { return a.i === n; })) { make(n, 0); break; }
+    render();
+  });
+  $('#b-ask').addEventListener('click', function () {
+    var a = ordered().filter(function (x) { return x.state === 'working'; }).pop(); if (a) { a.state = 'asking'; a.askAt = Date.now(); render(); }
+  });
+  $('#b-done').addEventListener('click', function () {
+    var a = ordered().filter(function (x) { return x.state === 'working'; }).pop(); if (a) { a.state = 'done'; a.endAt = Date.now(); render(); }
+  });
+  $('#b-reset').addEventListener('click', reset);
+
+  var lines = $('#lines'), widths = [38, 72, 64, 81, 55, 0, 46, 77, 69, 58, 84, 33, 0, 62, 74, 51];
+  widths.forEach(function (w) { var l = el('i'); l.style.width = w + '%'; l.style.opacity = w ? 1 : 0; lines.appendChild(l); });
+  function scale() { k = fit.clientWidth / W; stage.style.transform = 'scale(' + k + ')'; }
+  scale(); window.addEventListener('resize', scale);
+  if (window.ResizeObserver) new ResizeObserver(scale).observe(fit);
+
+  reset(); setDir('tether');
+  setInterval(tick, 250);
+  if (still) { frame(); setInterval(frame, 1000); } else requestAnimationFrame(frame);
+})();
+</script>
