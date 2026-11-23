@@ -25,3 +25,19 @@ def agent_done(task_id, status, summary, tool_use_id="tu1"):
 
 def turn(text, is_error=False, cancelled=False, session_id="fake-session"):
     return {"kind": "turn", "text": text, "is_error": is_error, "session_id": session_id, "cancelled": cancelled}
+
+
+def rows(j):
+    return {r["id"]: r for r in j._agent_rows()}
+
+
+def call_from(agent_id, tool_name, tool_input):
+    payload = {"hook_event_name": "PreToolUse", "session_id": "fake-session", "cwd": "/tmp",
+               "tool_name": tool_name, "tool_input": tool_input}
+    return payload | {"agent_id": agent_id} if agent_id else payload
+
+
+def agent_call(subagent_type, tool_use_id, description, prompt):
+    return {"hook_event_name": "PreToolUse", "session_id": "fake-session", "cwd": "/tmp", "tool_name": "Agent",
+            "tool_use_id": tool_use_id,
+            "tool_input": {"subagent_type": subagent_type, "description": description, "prompt": prompt}}

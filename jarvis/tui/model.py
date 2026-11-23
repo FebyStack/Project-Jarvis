@@ -16,6 +16,9 @@ class AgentRow:
     doing: str
     since: float
     background: bool
+    call: str = ""
+    title: str = ""
+    state: str = "working"
 
 
 @dataclass(frozen=True)
@@ -81,7 +84,8 @@ def _fields(event: dict) -> dict:
 
 
 def _agents(items) -> tuple[AgentRow, ...]:
-    return tuple(AgentRow(**i) for i in items)
+    known = AgentRow.__dataclass_fields__
+    return tuple(AgentRow(**{k: v for k, v in i.items() if k in known}) for i in items)
 
 
 def _queue(items) -> tuple[QueueRow, ...]:

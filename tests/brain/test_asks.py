@@ -85,3 +85,11 @@ async def test_question_ids_never_repeat_across_restarts(trusted):
         t = asyncio.create_task(a.ask(ASK, "mac", "r")); await asyncio.sleep(0)
         ids.add(a.pending()[0].id); a.answer("no"); await t
     assert len(ids) == 3
+
+
+async def test_an_ask_remembers_which_agent_asked_and_until_when(trusted):
+    asks = Asks(trusted, {"mac": 60.0, "phone": 600.0}, lambda: None, clock=lambda: 10.0)
+    t = asyncio.create_task(asks.ask(ASK, "phone", "r1", "t1")); await asyncio.sleep(0)
+    a = asks.pending()[0]
+    assert a.agent_id == "t1" and a.until == 610.0
+    asks.answer("no"); await t

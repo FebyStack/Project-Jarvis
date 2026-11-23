@@ -1,5 +1,6 @@
 """Open yes/no questions: one Future each, answered by channel or id, or timed out as no."""
 import asyncio
+import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Callable, Literal
@@ -16,18 +17,21 @@ class Ask:
     pattern: str
     channel: Channel
     request_id: str
+    agent_id: str = ""
+    until: float = 0.0
     future: asyncio.Future = field(repr=False, compare=False, default=None)
 
 
 class Asks:
-    def __init__(self, trusted: TrustedList, timeouts: dict[str, float], on_change: Callable[[], None]):
-        self.trusted, self.timeouts, self.on_change = trusted, timeouts, on_change
+    def __init__(self, trusted: TrustedList, timeouts: dict[str, float], on_change: Callable[[], None],
+                 clock: Callable[[], float] = time.monotonic):
+        self.trusted, self.timeouts, self.on_change, self.clock = trusted, timeouts, on_change, clock
         self._open: list[Ask] = []  # oldest first
         self._history: list[tuple[str, str, bool]] = []
 
-    async def ask(self, decision: Decision, channel: Channel, request_id: str) -> bool:
+    async def ask(self, decision: Decision, channel: Channel, request_id: str, agent_id: str = "") -> bool:
         a = Ask(uuid.uuid4().hex[:12], decision.reason + ". Yes or no?", decision.pattern, channel, request_id,
-                asyncio.get_running_loop().create_future())
+                agent_id, self.clock() + self.timeouts[channel], asyncio.get_running_loop().create_future())
         self._open.append(a)
         self.on_change()
         try:

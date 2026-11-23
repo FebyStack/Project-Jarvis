@@ -14,7 +14,7 @@ from typing import Protocol
 from jarvis import config
 from jarvis.brain.asks import Asks
 from jarvis.brain.judge import judge, load_config
-from jarvis.daemon import instant
+from jarvis.daemon import instant, names
 from jarvis.daemon.exchange import FREE_AGENTS, NEED_TRIAGE, Tracker, agent_model
 from jarvis.daemon.state import Event, State, StateMachine
 from jarvis.memory import scribe
@@ -99,7 +99,7 @@ class Jarvis:
         self._mic = "off"
         self._hearing: set[asyncio.Task] = set()  # requests started by heard(), kept so they are not collected
         self.gate = load_config()
-        self.asks = Asks(self.gate.trusted, ask_timeouts, self._asks_changed)
+        self.asks = Asks(self.gate.trusted, ask_timeouts, self._asks_changed, clock)
         self.bridge = bridge_factory(self._on_event, vault.memory_map)
         self.sweeper = Sweeper(vault, config.HOME_DIR)
         self._ids = itertools.count(1)
@@ -190,6 +190,10 @@ class Jarvis:
                 if was and not self._offline:
                     self._wake.set()
         self._publish_health(full)
+        if gone := [k for k, a in self._agents.items() if now - a.get("_ended", now) >= config.CARD_LINGER_SECONDS]:
+            for k in gone:
+                del self._agents[k]
+            self._publish_agents()
 
     def _sweep_step(self, now: float, quiet: bool) -> None:
         """The idle sweep: only when quiet and the brain is usable; a day log is marked swept only if scribe worked."""
@@ -347,7 +351,7 @@ class Jarvis:
         text = "Cancelled." if ev["cancelled"] else ev["text"]
         req.tracker.feed(ev)
         req.answer = text
-        self._agents = {k: a for k, a in self._agents.items() if a["background"]}
+        self._agents = {k: a for k, a in self._agents.items() if a["background"] or "_ended" in a}
         self._current = None
         self._last_activity = self.clock()
         self._resolve(req, text, text.rstrip().endswith("?"), speak=not ev["cancelled"])  # cancel() said it already
@@ -462,13 +466,17 @@ class Jarvis:
         if ended and owner is not self._current:  # the front door will announce it in a turn of its own
             self._causes.append(owner.id)
         if kind == "agent_start":
-            self._agents[ev["task_id"]] = {"id": ev["task_id"], "name": ev["agent"], "model": agent_model(ev["agent"]),
-                                           "doing": ev.get("description") or "", "since": self.clock(),
-                                           "background": bool(ev.get("background")), "_tu": ev.get("tool_use_id")}
+            call = "" if ev["agent"] in FREE_AGENTS else names.pick({r["call"] for r in self._agent_rows()})
+            self._agents[ev["task_id"]] = {"id": ev["task_id"], "name": ev["agent"], "call": call,
+                                           "model": agent_model(ev["agent"]), "doing": ev.get("description") or "",
+                                           "since": self.clock(), "background": bool(ev.get("background")),
+                                           "_tu": ev.get("tool_use_id"), "_desc": ev.get("description") or "",
+                                           "_req": owner.id if owner else None}
         elif kind == "agent_progress" and ev.get("task_id") in self._agents:
             self._agents[ev["task_id"]]["doing"] = ev.get("description") or ""
-        elif kind == "agent_done" and self._agents.get(ev.get("task_id"), {}).get("background"):
-            del self._agents[ev["task_id"]]
+        elif kind == "agent_done" and ev.get("task_id") in self._agents:
+            self._agents[ev["task_id"]]["_ended"] = self.clock()
+            self._agents[ev["task_id"]]["_state"] = {"completed": "done", "stopped": "stopped"}.get(ev.get("status"), "failed")
         elif kind == "tool" and ev.get("parent"):
             for a in self._agents.values():
                 if a["_tu"] == ev["parent"] and ev.get("model"):
@@ -548,7 +556,7 @@ class Jarvis:
             channel = req.channel if req else "mac"
             loop = asyncio.get_running_loop()
             started = loop.time()
-            if not await self.asks.ask(decision, channel, req.id if req else ""):
+            if not await self.asks.ask(decision, channel, req.id if req else "", payload.get("agent_id") or ""):
                 late = loop.time() - started >= self.asks.timeouts[channel]
                 return {"verdict": "deny", "reason": "No answer in time, so no." if late else "Febriel said no."}
         self._memory_event(tool, inp, cwd)
@@ -569,6 +577,7 @@ class Jarvis:
         self._publish("memory", op=op, path=rel)
 
     def _asks_changed(self) -> None:
+        self._publish_agents()
         for a in self.asks.pending():
             if a.id in self._announced:
                 continue
@@ -721,9 +730,24 @@ class Jarvis:
         return self._health_body()
 
     def _agent_rows(self) -> list[dict]:
-        front = {"id": "jarvis", "name": "jarvis", "model": config.FRONT_MODEL, "since": self._last_activity,
-                 "doing": "working on your request" if self._current else "idle", "background": False}
-        return [front] + [{k: v for k, v in a.items() if k != "_tu"} for a in self._agents.values()]
+        def row(id: str, **extra) -> dict:
+            ask = next((q for q in self.asks.pending() if q.agent_id == (id if id != "jarvis" else "")), None)
+            state = "needs_you" if ask else extra.pop("state")
+            return extra | {"id": id, "state": state, "question": ask and ask.question, "ask_id": ask and ask.id,
+                            "ask_until": ask and ask.until}
+
+        front = {"name": "jarvis", "call": "Jarvis", "model": config.FRONT_MODEL, "since": self._last_activity,
+                 "doing": "working on your request" if self._current else "idle", "background": False,
+                 "title": "", "state": "working" if self._current else "idle",
+                 "channel": self._current.channel if self._current else "mac"}
+        out = [row("jarvis", **front)]
+        for id, a in self._agents.items():
+            req = self._find(a["_req"]) if a["_req"] else None
+            verdict = req.tracker.verdict if req else None
+            out.append(row(id, name=a["name"], call=a["call"], model=a["model"], doing=a["doing"],
+                           since=a["since"], background=a["background"], title=verdict.title if verdict else a["_desc"],
+                           state=a.get("_state", "working"), channel=req.channel if req else "mac"))
+        return out
 
     def _publish_agents(self) -> None:
         self._publish("agents", items=self._agent_rows())

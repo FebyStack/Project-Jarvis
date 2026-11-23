@@ -78,3 +78,11 @@ def test_levels_keep_the_last_28():
 def test_levels_clear_when_the_mic_goes_off():
     v = reduce(reduce(View.empty(), SNAPSHOT), {"type": "level", "rms": 0.5}); assert v.levels == (0.5,)
     assert reduce(v, {"type": "health", "mic": "muted"}).levels == ()
+
+
+def test_the_terminal_hud_still_reads_the_richer_rows():
+    row = {"id": "t1", "name": "coder", "call": "Nova", "model": "opus", "doing": "x", "since": 0.0, "background": True,
+           "title": "Fix it", "state": "working", "question": None, "ask_id": None, "ask_until": None, "channel": "mac"}
+    v = reduce(View.empty(), SNAPSHOT | {"agents": [row]})
+    assert v.agents[0].call == "Nova" and v.agents[0].title == "Fix it" and v.agents[0].state == "working"
+    v = reduce(v, {"type": "agents", "items": [row | {"surprise": 1}]}); assert v.agents[0].id == "t1"
