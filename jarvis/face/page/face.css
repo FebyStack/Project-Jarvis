@@ -1,0 +1,7 @@
+/* the circle panel is 160 points square; the word sits in its lower part */
+html, body { margin: 0; background: transparent; overflow: hidden; }
+#face { position: relative; width: 160px; height: 160px; }
+canvas { width: 160px; height: 160px; display: block; }
+#word { position: absolute; left: 12px; right: 12px; bottom: 30px; text-align: center; overflow: hidden;
+  white-space: nowrap; text-overflow: ellipsis; font: 11px/1.2 -apple-system, "Helvetica Neue", sans-serif;
+  color: #8F8784; text-shadow: 0 0 4px #6B1512; }
