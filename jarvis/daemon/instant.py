@@ -1,7 +1,10 @@
 """Instant answers (spec §6.2): the fixed phrases jarvisd answers itself, before anything reaches Claude Code."""
 import re
+from collections.abc import Collection
 from datetime import datetime
 from typing import Literal
+
+from jarvis.daemon import names
 
 Action = Literal["time", "date", "mute", "unmute", "cancel", "repeat", "status", "yes", "no", "always"]
 
@@ -18,10 +21,23 @@ _ANSWERS: dict[str, Action] = {"yes": "yes", "no": "no", "yes always": "always"}
 _LEAD = re.compile(r"^(?:(?:hey jarvis|jarvis|please)(?: |$))+")
 
 
+def _normal(utterance: str) -> str:
+    return _LEAD.sub("", " ".join(re.sub(r"[^a-z0-9' ]", "", utterance.lower()).split()))
+
+
 def match(utterance: str, pending: bool) -> Action | None:
-    text = " ".join(re.sub(r"[^a-z0-9' ]", "", utterance.lower()).split())
-    text = _LEAD.sub("", text)
+    text = _normal(utterance)
     return _PHRASES.get(text) or (_ANSWERS.get(text) if pending else None)
+
+
+NamedAction = Literal["stop", "yes", "no", "always"]
+_NAMED = re.compile(r"(?:(?P<stop>stop)|(?P<yes>yes) to|(?P<no>no) to|(?P<always>yes always) to) (?P<name>[a-z']+)")
+
+
+def match_named(utterance: str, running: Collection[str]) -> tuple[NamedAction, str] | None:
+    m = _NAMED.fullmatch(_normal(utterance))
+    name = m and names.match(m["name"], running)
+    return (next(k for k, v in m.groupdict().items() if v and k != "name"), name) if name else None
 
 
 _ACKS = {"okay", "ok", "huh", "thanks", "thank you", "got it", "cool", "alright", "all right", "great", "nice"}
