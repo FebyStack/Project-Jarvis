@@ -1,4 +1,4 @@
-"""The threads (tether design §5): one click-through panel, one red silk line from each bead's mark to the circle's rim."""
+"""The threads (tether design §5): one click-through panel, one red silk line from each threaded bead's mark to the circle's rim."""
 
 import math
 

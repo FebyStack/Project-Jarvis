@@ -266,12 +266,13 @@ class App:
             self.chip = None
         p = tether.plume(centre, screen, [x.size for x in pieces])
         lines = []
-        for bead, anchor in zip(pieces[:len(self.cards)], p.anchors):
-            was = None
-            if bead.frame is not None:
-                o = bead.win.frame().origin
-                was = (bead.anchor[0] + o.x - bead.frame.x, bead.anchor[1] + o.y - bead.frame.y)
-            lines.append((bead.card.id, was, anchor, bead.card.state))
+        for bead, anchor, threaded in zip(pieces[:len(self.cards)], p.anchors, p.threaded):
+            if threaded:
+                was = None
+                if bead.frame is not None:
+                    o = bead.win.frame().origin
+                    was = (bead.anchor[0] + o.x - bead.frame.x, bead.anchor[1] + o.y - bead.frame.y)
+                lines.append((bead.card.id, was, anchor, bead.card.state))
             bead.anchor = anchor
         moves = [(x, r) for x, r in zip(pieces, p.frames) if r != x.frame]
         if moves or gone:

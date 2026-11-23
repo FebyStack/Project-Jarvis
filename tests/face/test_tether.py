@@ -55,6 +55,8 @@ def test_every_bead_is_on_the_screen(centre, sizes):
 def test_no_thread_crosses_another_bead(centre, sizes):
     p = plume(centre, SCREEN, sizes)
     for i, anchor in enumerate(p.anchors):
+        if not p.threaded[i]:
+            continue
         for sway in (-6, 0, 6):
             (sx, sy), (mx, my), (ex, ey) = thread(anchor, centre, sway, p.side)
             for t in (k / 19 for k in range(20)):
@@ -152,15 +154,16 @@ def holds(centre, screen, sizes):
     out = [f for f in p.frames if beyond(p, f)]
     assert p.frames[len(p.frames) - len(out):] == tuple(out)   # once wrapped, every later item follows, the chip last
     assert [f.y for f in out] == sorted((f.y for f in out), reverse=p.grow == "down")
+    assert p.threaded == tuple(not beyond(p, f) for f in p.frames)   # the outer column hangs free
     for i, anchor in enumerate(p.anchors):
+        if not p.threaded[i]:
+            continue
         for sway in (-6, 0, 6):
             (sx, sy), (mx, my), (ex, ey) = thread(anchor, centre, sway, p.side)
             for t in (k / 19 for k in range(20)):
                 q = 1 - t
                 point = (q * q * sx + 2 * q * t * mx + t * t * ex, q * q * sy + 2 * q * t * my + t * t * ey)
-                for j, f in enumerate(p.frames):
-                    if j != i and inside(point, f):   # only a further column's thread, behind a nearer bead
-                        assert beyond(p, p.frames[i]) and not beyond(p, f)
+                assert not any(inside(point, f) for j, f in enumerate(p.frames) if j != i)
     return p
 
 
@@ -183,4 +186,5 @@ def test_beads_that_do_not_fit_one_column_wrap_into_a_second_further_out():
         assert any(beyond(p, f) for f in p.frames)
     p = holds((1320, 120), Rect(0, 0, 1440, 875), LIVE)
     assert [beyond(p, f) for f in p.frames] == [False] * 4 + [True] * 2
+    assert p.threaded == (True,) * 4 + (False,) * 2   # beads in the outer column, the chip with them, hang free
     assert p.frames[4].x + p.frames[4].w == p.frames[0].x - config.CARD_GAP and p.frames[4].y == p.frames[0].y
