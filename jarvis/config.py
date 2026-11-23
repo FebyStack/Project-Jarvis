@@ -40,6 +40,7 @@ KEY_GRACE_SECONDS = 0.8  # Febriel's é/ñ/⌥← chords: 87–603 ms after the 
 HOLD_SECONDS = 1.5  # a mac request with nothing said by then gets a holding line (2026-11-22)
 FRONT_MODEL, FRONT_EFFORT = "sonnet", "low"  # the front door; Haiku started its replies about twice as slowly (1.4–2.0 s against 0.75–0.9 s to the first token, 2026-11-22)
 MIC_REOPEN_DELAY = 0.3
+WARM_SECONDS = 120.0  # unused this long, the voice makes a line nobody hears: swapped out, it delayed a reply 3-11 s (2026-11-23)
 FIRST_CHUNK_CHARS = 60
 STT_MODEL = "mlx-community/parakeet-tdt-0.6b-v2"
 TTS_MODEL = "mlx-community/Kokoro-82M-bf16"

@@ -1,7 +1,9 @@
+import asyncio
 import threading
 
 import numpy as np
 
+from jarvis import config
 from jarvis.voice.engines import Engines, ModelsMissing
 
 
@@ -84,3 +86,25 @@ def test_the_voice_detector_can_forget_what_it_heard(monkeypatch):
     predict = vad()
     assert predict(np.zeros(480, dtype=np.int16)) == 0.9
     predict.reset(); assert FakeVAD.resets == 1
+
+
+async def test_an_unused_voice_is_kept_warm(monkeypatch):
+    monkeypatch.setattr(config, "WARM_SECONDS", 0.05)  # macOS swaps an idle voice out; its first reply then waits 3-11 s
+    f = Fakes()
+    e = engines(f)
+    await e.load()
+    await asyncio.sleep(0.18)
+    e.close()
+    assert f.calls.count("synth") >= 3 and f.calls.count("transcribe") == 1  # load's warm-up, then the keeper's
+
+
+async def test_a_voice_in_use_gets_no_warm_up(monkeypatch):
+    monkeypatch.setattr(config, "WARM_SECONDS", 0.05)
+    f = Fakes()
+    e = engines(f)
+    await e.load()
+    for _ in range(6):
+        await e.synth("Hi.")
+        await asyncio.sleep(0.03)
+    e.close()
+    assert f.calls.count("synth") == 7  # load's one and the six replies
