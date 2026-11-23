@@ -816,11 +816,11 @@ The face ran as the login agent `com.febriel.jarvis-face` against the real jarvi
 | 22 | Pass (demo face): a name's mark is the same when it comes back, different from the others'. |
 | 23 | Pass. Febriel: "it's the one" he chose. |
 
-**Bugs found live and fixed** (each with a failing test first where one could be written): a bead stuck open after the pointer left (b922987); voice names (1a257ae, 4b96059, and a name phrase at the end of a sentence); **a pre-Plan-4 race in jarvisd**, where a worker dispatched in a turn of its own after background triage was refused "Call triage before dispatching a worker" (35b8232, 8166e71); an answer recorded only when the waiting call resumed (38a4f0b); the plume overflow (4e22d0f).
+**Bugs found live and fixed** (each with a failing test first where one could be written): a bead stuck open after the pointer left (b922987); voice names (1a257ae, 4b96059; a name phrase at the end of a sentence after a short lead-in only, 4748cac + 3b4b831, so "don't stop Nova" never stops Nova); the outer column hangs free (13e0739); **a pre-Plan-4 race in jarvisd**, where a worker dispatched in a turn of its own after background triage was refused "Call triage before dispatching a worker" (35b8232, 8166e71); an answer recorded only when the waiting call resumed (38a4f0b); the plume overflow (4e22d0f).
 
 **New from the live run (Febriel):** Ctrl-Option-J hides and shows the face; a question while hidden brings it back (e588d47).
 
 **Still open:**
-- "Yeah", "yep" and "mm-hmm" do not answer a question (Plan 3's strict yes/no list); his "Yeah." at 16:48 went to the front door. His call whether to widen it.
+- "Yeah", "yep" and "mm-hmm" do not answer a question (Plan 3's strict yes/no list); his "Yeah." at 16:48 went to the front door. Febriel: keep it strict.
 - Locked, the face is not at zero (1.8 %).
 - The second column has no room on a 1280×775 screen with the circle mid-screen; the old best effort applies there.

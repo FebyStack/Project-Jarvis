@@ -126,11 +126,11 @@ Probe results are in `docs/spikes/findings.md`, "Plan 4 probes". Where this tabl
 **Interfaces:**
 - Produces: the two packages; a "Plan 4 probes" section in the findings; if a probe contradicts this plan, an "Amendments after Task 1" table under "Decisions this plan makes" (where it disagrees with a task, it wins).
 
-- [ ] **Step 1: Check Plan 3 landed as planned.** `Jarvis.level`, `Jarvis.set_mic`, the `level` and `state` events, `Player`, `VoiceSpeaker` and `tests/conftest.py` exist with the shapes Plan 3 names, or its amendments say how they differ. Note any difference in the amendments table. Run `uv run pytest -q` and record the count as this plan's baseline.
+- [x] **Step 1: Check Plan 3 landed as planned.** `Jarvis.level`, `Jarvis.set_mic`, the `level` and `state` events, `Player`, `VoiceSpeaker` and `tests/conftest.py` exist with the shapes Plan 3 names, or its amendments say how they differ. Note any difference in the amendments table. Run `uv run pytest -q` and record the count as this plan's baseline.
 
-- [ ] **Step 2: Name the install to Febriel, then** `uv add pyobjc-framework-Cocoa pyobjc-framework-WebKit` (Cocoa is already installed; this declares it), `uv sync`. Run `uv run python -c "import AppKit, WebKit, Quartz; import objc; objc.lookUpClass('NSGlassEffectView')"` → no error; `uv run pytest -q` → baseline.
+- [x] **Step 2: Name the install to Febriel, then** `uv add pyobjc-framework-Cocoa pyobjc-framework-WebKit` (Cocoa is already installed; this declares it), `uv sync`. Run `uv run python -c "import AppKit, WebKit, Quartz; import objc; objc.lookUpClass('NSGlassEffectView')"` → no error; `uv run pytest -q` → baseline.
 
-- [ ] **Step 3: Run the probes**
+- [x] **Step 3: Run the probes**
 
 | # | Probe | Bar | Changes |
 |---|---|---|---|
@@ -143,9 +143,9 @@ Probe results are in `docs/spikes/findings.md`, "Plan 4 probes". Where this tabl
 | P7 | `evaluateJavaScript` against `callAsyncJavaScript` with arguments for pushing a payload holding quotes, `</script>`, U+2028 and an emoji | The page receives the exact string | Task 10 |
 | P8 | 👤 Six child panels changing frame together in one animation group of 0.45 s with the timing curve (0.25, 1.25, 0.4, 1), their thread paths animating beside them, while the circle is wild | Smooth to the eye, the overshoot is visible, threads stay attached to their beads, no frame where a bead and its thread part. If not: a 60-a-second timer with a spring, running only while something moves | Task 10 |
 
-- [ ] **Step 4: Write "Plan 4 probes" into `docs/spikes/findings.md`**, and the amendments table here where a bar was missed. If P1 ends over budget after its fallbacks, or P3 ends without usable glass, stop and bring it to Febriel before Task 9.
+- [x] **Step 4: Write "Plan 4 probes" into `docs/spikes/findings.md`**, and the amendments table here where a bar was missed. If P1 ends over budget after its fallbacks, or P3 ends without usable glass, stop and bring it to Febriel before Task 9.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add pyproject.toml uv.lock spikes/10-face docs/spikes/findings.md docs/superpowers/plans/2026-11-17-jarvis-plan-4-on-screen.md
@@ -173,7 +173,7 @@ NamedAction = Literal["stop", "yes", "no", "always"]     # instant.py
 def match_named(utterance: str, running: Collection[str]) -> tuple[NamedAction, str] | None
 ```
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 def test_the_list_is_long_and_its_names_cannot_be_confused():
@@ -210,9 +210,9 @@ def test_named_phrases():
     assert match_named("tell Nova to stop", run) is None  # only the four exact shapes
 ```
 
-- [ ] **Step 2: Run** `uv run pytest tests/daemon/test_names.py tests/daemon/test_instant.py -q` → the new ones fail.
-- [ ] **Step 3: Implement.** `match`: the running name with the highest `difflib` ratio to the heard word, if it is ≥ `NAME_SIMILARITY` and at least 0.1 above the next best. `match_named` normalises the utterance as `instant.match` does (lower case, punctuation dropped, a leading "hey jarvis", "jarvis" or "please" dropped) and accepts only `stop <word>`, `yes to <word>`, `no to <word>`, `yes always to <word>`.
-- [ ] **Step 4: Run** → pass. **Step 5: Commit** `git commit -m "feat: agents get names, and a name can be stopped or answered"`
+- [x] **Step 2: Run** `uv run pytest tests/daemon/test_names.py tests/daemon/test_instant.py -q` → the new ones fail.
+- [x] **Step 3: Implement.** `match`: the running name with the highest `difflib` ratio to the heard word, if it is ≥ `NAME_SIMILARITY` and at least 0.1 above the next best. `match_named` normalises the utterance as `instant.match` does (lower case, punctuation dropped, a leading "hey jarvis", "jarvis" or "please" dropped) and accepts only `stop <word>`, `yes to <word>`, `no to <word>`, `yes always to <word>`.
+- [x] **Step 4: Run** → pass. **Step 5: Commit** `git commit -m "feat: agents get names, and a name can be stopped or answered"`
 
 ---
 
@@ -241,7 +241,7 @@ def test_named_phrases():
 
 A row whose agent ended keeps its final state for `CARD_LINGER_SECONDS`, then `tick()` drops it and publishes. `agent_done` with status `completed` is `done`; any other status is `failed`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 async def test_a_workers_row_has_what_a_card_needs(jarvis, bridge):
@@ -266,8 +266,8 @@ def test_the_terminal_hud_still_reads_the_richer_rows():      # tui/model.py: a 
     # without error, AgentRow has call/title/state, and an unknown extra key is ignored
 ```
 
-- [ ] **Step 2: Run** → fail. **Step 3: Implement.** `Jarvis.hook` passes `payload.get("agent_id") or ""` to `asks.ask`. The name is picked here at `agent_start` for now (Task 4 moves the choice earlier). `tui/model.py`: `AgentRow` gains `call`, `title`, `state` with defaults, and `_agents` drops keys `AgentRow` does not have.
-- [ ] **Step 4: Run** `uv run pytest -q` → all pass. **Step 5: Commit** `git commit -m "feat: agent rows carry a name, a job, a state and their question"`
+- [x] **Step 2: Run** → fail. **Step 3: Implement.** `Jarvis.hook` passes `payload.get("agent_id") or ""` to `asks.ask`. The name is picked here at `agent_start` for now (Task 4 moves the choice earlier). `tui/model.py`: `AgentRow` gains `call`, `title`, `state` with defaults, and `_agents` drops keys `AgentRow` does not have.
+- [x] **Step 4: Run** `uv run pytest -q` → all pass. **Step 5: Commit** `git commit -m "feat: agent rows carry a name, a job, a state and their question"`
 
 ---
 
@@ -281,7 +281,7 @@ def test_the_terminal_hud_still_reads_the_richer_rows():      # tui/model.py: a 
 - Consumes: the rows of Task 3.
 - Produces: `Jarvis.hook` may return `{"verdict": "allow", "reason": str, "input": dict}`; `hook.render(event, verdict, reason, input=None)` adds `"updatedInput": input` to a `PreToolUse` allow; `Tracker.named(tool_use_id: str, call: str) -> None`; the task note's agent lines read `- Nova · coder (opus)`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 async def test_the_name_is_chosen_when_the_dispatch_is_allowed(jarvis, bridge):
@@ -310,11 +310,11 @@ async def test_several_open_questions_are_named_not_counted():
     # answer on its card."  Three: "Nova, Orin and Kite each have a question. …"
 ```
 
-- [ ] **Step 2: Run** → fail.
-- [ ] **Step 3: Implement.** The hook client reads an optional `input` from `jarvisd`'s reply and fails closed as before if it is not a dict. The edited input is the original with only `description` and `prompt` changed. Replace the sentence "… questions are waiting, so I won't guess which one you mean. Answer each in the HUD." with the named one above.
-- [ ] **Step 4: `jarvis.md`**, under "Everything else: triage first", one line: `jarvisd gives each worker a name and puts it first in the dispatch's description ("Nova: Fix export bug"). Call the worker by that name when you tell Febriel about it.` The part above the marker stays within 60 lines.
-- [ ] **Step 5: If P4 found the edited input is ignored**, build what P4 found instead, in this order, and keep every test above except the two about `updatedInput`: a `PostToolUse` hook entry for `Agent` whose reply adds the context "jarvisd named this worker Nova."; else a `[jarvisd]` notice queued like a request with no reply shown or spoken; else nothing reaches the model and `jarvisd` puts "Nova: " in front of a worker's announcement itself (§7.4's fallback).
-- [ ] **Step 6: Run** `uv run pytest -q` → pass. **Step 7: Commit** `git commit -m "feat: a worker is named at dispatch, and Jarvis and the notes use the name"`
+- [x] **Step 2: Run** → fail.
+- [x] **Step 3: Implement.** The hook client reads an optional `input` from `jarvisd`'s reply and fails closed as before if it is not a dict. The edited input is the original with only `description` and `prompt` changed. Replace the sentence "… questions are waiting, so I won't guess which one you mean. Answer each in the HUD." with the named one above.
+- [x] **Step 4: `jarvis.md`**, under "Everything else: triage first", one line: `jarvisd gives each worker a name and puts it first in the dispatch's description ("Nova: Fix export bug"). Call the worker by that name when you tell Febriel about it.` The part above the marker stays within 60 lines.
+- [x] **Step 5: If P4 found the edited input is ignored**, build what P4 found instead, in this order, and keep every test above except the two about `updatedInput`: a `PostToolUse` hook entry for `Agent` whose reply adds the context "jarvisd named this worker Nova."; else a `[jarvisd]` notice queued like a request with no reply shown or spoken; else nothing reaches the model and `jarvisd` puts "Nova: " in front of a worker's announcement itself (§7.4's fallback).
+- [x] **Step 6: Run** `uv run pytest -q` → pass. **Step 7: Commit** `git commit -m "feat: a worker is named at dispatch, and Jarvis and the notes use the name"`
 
 ---
 
@@ -345,7 +345,7 @@ In `submit`, before the fixed phrases: `match_named(text, running)` where `runni
 
 Each is written to the day's log like the other instant answers.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 async def test_a_stopped_agent_can_do_nothing_more(jarvis, bridge):               # Review Focus 3
@@ -375,8 +375,8 @@ async def test_stop_route(client):                            # 200 {"stopped": 
                                                               # {"agent": 5} → 400; no token → 401
 ```
 
-- [ ] **Step 2: Run** → fail. **Step 3: Implement.** If P5 showed the gate cannot tell one worker's calls from another's, do not build one-click stop: `stop_agent` returns False for every id, `POST /stop` accepts `{"all": true}` and calls `cancel()`, and Task 7's cards say "This stops all N running agents" and need a second click (§7.6). Record that in the amendments table.
-- [ ] **Step 4: Run** `uv run pytest -q` → pass. **Step 5: Commit** `git commit -m "feat: one agent can be stopped, and answered by name"`
+- [x] **Step 2: Run** → fail. **Step 3: Implement.** If P5 showed the gate cannot tell one worker's calls from another's, do not build one-click stop: `stop_agent` returns False for every id, `POST /stop` accepts `{"all": true}` and calls `cancel()`, and Task 7's cards say "This stops all N running agents" and need a second click (§7.6). Record that in the amendments table.
+- [x] **Step 4: Run** `uv run pytest -q` → pass. **Step 5: Commit** `git commit -m "feat: one agent can be stopped, and answered by name"`
 
 ---
 
@@ -390,7 +390,7 @@ async def test_stop_route(client):                            # 200 {"stopped": 
 - Consumes: Plan 3's `Player`, `VoiceSpeaker`, `Jarvis.level`.
 - Produces: `Player.on_level: Callable[[float], None]` (default does nothing; called on the audio thread about every 90 ms while sound goes out, with the RMS of that stretch, 0–1); `Speaker.on_level`, set by the core; `Jarvis.level(rms: float, source: Literal["mic", "voice"] = "mic")`; the `level` event gains `"source"`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 def test_the_player_reports_the_loudness_of_what_it_plays()   # a full-scale square wave → levels near 1.0; silence → 0.0;
@@ -400,7 +400,7 @@ async def test_speech_levels_reach_subscribers_marked_voice() # speaker.on_level
 async def test_mic_levels_are_marked_mic()                    # level(0.4) → source "mic"
 ```
 
-- [ ] **Step 2: Run** → fail. **Step 3: Implement.** **Step 4: Run** → pass. **Step 5: Commit** `git commit -m "feat: jarvisd reports how loud its own speech is"`
+- [x] **Step 2: Run** → fail. **Step 3: Implement.** **Step 4: Run** → pass. **Step 5: Commit** `git commit -m "feat: jarvisd reports how loud its own speech is"`
 
 ---
 
@@ -454,7 +454,7 @@ The countdown: `left = clamp((ask_until - now) / ASK_TIMEOUT[channel], 0, 1)`. `
 
 A hover for an id that has no row is dropped, and a row that leaves takes its hover with it.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 def test_only_workers_are_cards()                 # rows: jarvis idle, triage, scribe, coder, researcher → 2 cards
@@ -493,8 +493,8 @@ def test_unknown_or_missing_fields_do_not_break_it()   # a row without "call" or
 def test_a_new_mac_question_alerts_once_and_a_phone_one_never()
 ```
 
-- [ ] **Step 2: Run** → fail. **Step 3: Implement** (`reduce` in the style of `jarvis/tui/model.py`; `Client` moves unchanged plus `stop`). **Step 4: Run** `uv run pytest -q` → pass.
-- [ ] **Step 5: Commit** `git commit -m "feat: the face's model: what the circle does and which five beads show"`
+- [x] **Step 2: Run** → fail. **Step 3: Implement** (`reduce` in the style of `jarvis/tui/model.py`; `Client` moves unchanged plus `stop`). **Step 4: Run** `uv run pytest -q` → pass.
+- [x] **Step 5: Commit** `git commit -m "feat: the face's model: what the circle does and which five beads show"`
 
 ---
 
@@ -536,7 +536,7 @@ What it accepts, and nothing else:
 | a bead | `hover(agent, on)` | reduces a `hover` event; an id with no card is dropped |
 | the page | `{"type": "moved", "x": number, "y": number}` | `place.save` |
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 async def test_events_become_a_circle_and_a_stack(ctl, fake)  # a snapshot → show_circle once, show_stack once
@@ -564,8 +564,8 @@ def test_place_round_trips_and_survives_a_broken_file(tmp_path)   # save then lo
 def test_a_place_off_screen_is_pulled_back()                 # (5000, -30) on 1440×900 → inside
 ```
 
-- [ ] **Step 2: Run** → fail. **Step 3: Implement.** **Step 4: Run** → pass.
-- [ ] **Step 5: Commit** `git commit -m "feat: the face's controller, and the circle remembers where it sits"`
+- [x] **Step 2: Run** → fail. **Step 3: Implement.** **Step 4: Run** → pass.
+- [x] **Step 5: Commit** `git commit -m "feat: the face's controller, and the circle remembers where it sits"`
 
 ---
 
@@ -580,7 +580,7 @@ def test_a_place_off_screen_is_pulled_back()                 # (5000, -30) on 14
 - Consumes: the circle payload of Task 8.
 - Produces: `window.face.show(payload)` (an object, already parsed) and `window.face.pause(on)`; one message, `window.webkit.messageHandlers.face.postMessage({type: "moved", x, y})`.
 
-- [ ] **Step 1: Write the failing tests** (they read the files; nothing is rendered)
+- [x] **Step 1: Write the failing tests** (they read the files; nothing is rendered)
 
 ```python
 def test_the_page_has_the_policy_and_loads_only_its_own_files():
@@ -606,9 +606,9 @@ def test_the_colours_are_the_three_reds_and_no_gold():
 def test_the_page_files_ship_with_the_package()             # importlib.resources.files("jarvis.face") / "page" has all three
 ```
 
-- [ ] **Step 2: Run** → fail.
-- [ ] **Step 3: Write the page**, taking the circle and its animation from the 2026-11-17 mockup file. About 150 points, lines between near ones, four jagged rings, exactly as the mockup's script draws them, with its `energy` per mode (`idle` 0.12, `listen` 0.45, `work` 1.0, `talk` 0.85, `muted` and `off` 0 with no motion), `amp` taken from `level`. A change of mode eases in over `FACE_EASE_SECONDS` and never jumps (§7.2): energy moves toward its target a little each frame; every speed that depends on energy advances its own phase per frame (the mockup's `rot`, `wob`, `spin`), never `clock × speed`; loudness fades in through a gain. A pulsing outer ring when `ring` is true, grey instead of red and the word underneath when `mode` is `off`. It draws at `FACE_FPS` (10 a second in `idle` if Task 1 said so), stops while `pause(true)`, and honours `prefers-reduced-motion`. The word is set with `textContent`. Dragging the circle posts `moved` on release.
-- [ ] **Step 4: Run** → pass. **Step 5: Commit** `git commit -m "feat: the face's page: the circle"`
+- [x] **Step 2: Run** → fail.
+- [x] **Step 3: Write the page**, taking the circle and its animation from the 2026-11-17 mockup file. About 150 points, lines between near ones, four jagged rings, exactly as the mockup's script draws them, with its `energy` per mode (`idle` 0.12, `listen` 0.45, `work` 1.0, `talk` 0.85, `muted` and `off` 0 with no motion), `amp` taken from `level`. A change of mode eases in over `FACE_EASE_SECONDS` and never jumps (§7.2): energy moves toward its target a little each frame; every speed that depends on energy advances its own phase per frame (the mockup's `rot`, `wob`, `spin`), never `clock × speed`; loudness fades in through a gain. A pulsing outer ring when `ring` is true, grey instead of red and the word underneath when `mode` is `off`. It draws at `FACE_FPS` (10 a second in `idle` if Task 1 said so), stops while `pause(true)`, and honours `prefers-reduced-motion`. The word is set with `textContent`. Dragging the circle posts `moved` on release.
+- [x] **Step 4: Run** → pass. **Step 5: Commit** `git commit -m "feat: the face's page: the circle"`
 
 ---
 
@@ -652,7 +652,7 @@ The plume, with the circle in the lower right (the other three cases are its mir
 
 `curve` is the rose `r = (1 - depth) + depth * cos(petals * θ + offsets[layer])` with `depth` between 0.30 and 0.50, so `r` stays between 0 and 1.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 CORNERS = [(1300, 120), (140, 120), (1300, 780), (140, 780), (720, 450)]     # on a 1440×900 screen
@@ -676,8 +676,8 @@ def test_every_name_in_the_list_has_its_own_mark()           # len({mark(n) for 
 def test_a_curve_is_closed_and_inside_the_unit_circle()      # every name, every layer
 ```
 
-- [ ] **Step 2: Run** → fail. **Step 3: Implement.** If two names in the list share a mark, widen what the checksum feeds (more depth steps) until none do; do not change the list. **Step 4: Run** → pass.
-- [ ] **Step 5: Commit** `git commit -m "feat: where each bead hangs, and a mark for every name"`
+- [x] **Step 2: Run** → fail. **Step 3: Implement.** If two names in the list share a mark, widen what the checksum feeds (more depth steps) until none do; do not change the list. **Step 4: Run** → pass.
+- [x] **Step 5: Commit** `git commit -m "feat: where each bead hangs, and a mark for every name"`
 
 ---
 
@@ -692,7 +692,7 @@ def test_a_curve_is_closed_and_inside_the_unit_circle()      # every name, every
 - Consumes: `Controller`, `place`, `tether`, `mark`, the page.
 - Produces: `jarvis face`; `jarvis.face.app.run() -> None`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 def test_face_is_a_command(monkeypatch)                      # main(["face"]) calls jarvis.face.app.run once
@@ -713,15 +713,15 @@ def test_a_bead_uses_the_systems_colours():                  # tether design §4
     assert all(c in src for c in ("systemRedColor", "labelColor", "secondaryLabelColor"))
 ```
 
-- [ ] **Step 2: Run** → fail.
-- [ ] **Step 3: Implement**, with what Task 1 measured. The app is an accessory (no Dock icon). Every panel is borderless, transparent, non-activating, at the floating level, on all Spaces and over full-screen apps, and can never become key or main.
+- [x] **Step 2: Run** → fail.
+- [x] **Step 3: Implement**, with what Task 1 measured. The app is an accessory (no Dock icon). Every panel is borderless, transparent, non-activating, at the floating level, on all Spaces and over full-screen apps, and can never become key or main.
   - **`app.py`: the shell.** The circle's panel, `CIRCLE_SIZE` square at `place.load` or `place.default`, holding a web view with a clear background, loaded with `loadFileURL` allowed to read only the `page` folder. The asyncio side (`Client`, `Controller.run`, the once-a-second `tick`) runs on its own thread; `show_circle`, `show_stack` and `play` hop to the main thread; button clicks, hover and the page's message hop to the asyncio thread. `show_circle` hands the payload to the page the way P7 found exact. `play` plays `/System/Library/Sounds/Glass.aiff`. The token is read with `load_token(config.HOME_DIR)` and stays on the Python side. On `moved`, on a screen change, and on every `show_stack`, it asks `tether.plume` for the frames (the circle's centre, the main screen's visible frame, each bead's fitting size, plus the chip's when `more_text` is not empty) and applies them. `pause(true)` goes to the page and every layer animation stops when the screens sleep or the session locks; they resume on wake.
   - **`beads.py`: one bead.** A panel exactly the bead's size, a child of the circle's panel so it follows a drag. Its content is an `NSGlassEffectView` with 18-point corners (or what P3 chose) holding native labels and buttons laid out as tether design §4, mirrored by `Plume.side`. Every string is set with `setStringValue_` or `setTitle_`. Fonts: the system font at 13 points, semibold for the name and the question; the timer and the countdown in the rounded design with fixed-width digits. Colours: `labelColor`, `secondaryLabelColor`, `systemRedColor`. Asking: the glass's tint is system red at 20 % and a 1.5-point red edge. Yes has a system-red bezel; No, Always and Stop are plain. Every view answers `acceptsFirstMouse_` with true, so one click acts while another app is in front. A tracking area (`mouseEnteredAndExited`, `activeAlways`) reports hover. Buttons carry accessibility labels ("Yes to Nova", "Stop Nova"). The mark is three shape layers from `mark.curve`, turning by layer animation at three speeds while working, slowly and breathing while asking, replaced by the `checkmark.circle` or `stop.circle` symbol in `secondaryLabelColor` when ended. The countdown line is a layer whose width moves to `left` over one second, linearly.
   - **`threads.py`: the threads.** One panel with `ignoresMouseEvents` true, a child of the circle's panel, framed to `Plume.field`. One shape layer per bead with a thread, its path from `tether.thread`, in `#FF3B30`, drawn as tether design §5: width and opacity by state, a slow sway as a repeating path animation between two `sway` values, the travelling dots as small layers animated along the path. Stopped or failed: `strokeEnd` runs to zero toward the circle in 0.25 s. No thread for the chip.
   - **Moving.** A new bead starts at the circle's centre, invisible. Every change of frames runs in one animation group of `FACE_MOVE_SECONDS` with the timing curve (0.25, 1.25, 0.4, 1); thread paths animate with the same duration and curve. A bead that leaves travels back to the centre, fades, and closes. If P8 found that jerky, drive the frames from a 60-a-second timer with a spring, only while something moves.
   - **Reduce Motion** (`accessibilityDisplayShouldReduceMotion`, and its change notice): frames change with a 0.2 s cross-fade, no sway, no dots, marks still. **Increase Contrast**: threads fully opaque.
-- [ ] **Step 4: `launchd/README.md`**: load and unload commands for the face agent, as for jarvisd; that it needs no permission; that it reconnects by itself when jarvisd restarts.
-- [ ] **Step 5: Run** `uv run pytest -q` → pass. **Step 6: Commit** `git commit -m "feat: jarvis face: the circle floats and the agents hang from it"`
+- [x] **Step 4: `launchd/README.md`**: load and unload commands for the face agent, as for jarvisd; that it needs no permission; that it reconnects by itself when jarvisd restarts.
+- [x] **Step 5: Run** `uv run pytest -q` → pass. **Step 6: Commit** `git commit -m "feat: jarvis face: the circle floats and the agents hang from it"`
 
 ---
 
@@ -731,7 +731,7 @@ def test_a_bead_uses_the_systems_colours():                  # tether design §4
 - Modify: `jarvis/tui/jarvis.tcss`, `jarvis/tui/app.py`
 - Test: `tests/tui/test_app.py` (add)
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 def test_the_theme_is_red_and_holds_no_gold():
@@ -744,8 +744,8 @@ async def test_agents_show_their_given_names(hud, pilot, fake):
 async def test_still_fits_80_by_24(hud)
 ```
 
-- [ ] **Step 2: Run** → fail. **Step 3: Implement.** Text `RED`, active `RED_ACTIVE`, idle and borders `RED_DIM`, read from `config` in `app.py`. An AGENTS line is `<call or role> <role if named> <model> <doing>`.
-- [ ] **Step 4: Run** `uv run pytest -q` → pass. **Step 5: Commit** `git commit -m "feat: the terminal HUD is red and calls agents by name"`
+- [x] **Step 2: Run** → fail. **Step 3: Implement.** Text `RED`, active `RED_ACTIVE`, idle and borders `RED_DIM`, read from `config` in `app.py`. An AGENTS line is `<call or role> <role if named> <model> <doing>`.
+- [x] **Step 4: Run** `uv run pytest -q` → pass. **Step 5: Commit** `git commit -m "feat: the terminal HUD is red and calls agents by name"`
 
 ---
 
@@ -754,9 +754,9 @@ async def test_still_fits_80_by_24(hud)
 **Files:**
 - Modify: `docs/spikes/findings.md`, `docs/superpowers/specs/2026-11-10-jarvis-design.md`, `docs/superpowers/specs/2026-11-17-jarvis-screen-hud-design.md`, `PROJECT.md`, this plan (amendments)
 
-- [ ] **Step 1: Load the face agent** (`launchd/README.md`), restart jarvisd. The circle appears bottom-right.
+- [x] **Step 1: Load the face agent** (`launchd/README.md`), restart jarvisd. The circle appears bottom-right.
 
-- [ ] **Step 2: 👤 Run the rows, record each in the findings.** A row that fails gets a failing test first where one can be written, then the fix, then the row again.
+- [x] **Step 2: 👤 Run the rows, record each in the findings.** A row that fails gets a failing test first where one can be written, then the fix, then the row again.
 
 | # | Do | Pass when |
 |---|---|---|
@@ -784,7 +784,7 @@ async def test_still_fits_80_by_24(hud)
 | 22 | Run the same agent name twice (two jobs a while apart) | Its mark is the same both times, and different from the other agents' marks. |
 | 23 | Febriel looks at it beside the mockup's Tether | He says it is the one he chose. |
 
-- [ ] **Step 3: Amend the specs**, each change dated: in the main design, §7 points to the on-screen design and says red replaces gold; §8's tree gains `face/` and the second login agent; §15's lists gain `POST /stop`, the richer `agents` rows and `level`'s `source`; §6.2's instant table gains the name phrases. In the on-screen design: a note at its top that the tether design amends it, and what the probes settled (how the model learns a name, how one worker is ended, the frame rates and budgets as measured). In the tether design: its two open points (one panel per bead or one large panel; system glass or the fallback) as the probes settled them.
-- [ ] **Step 4: Update `PROJECT.md`** and copy this plan and its results to Obsidian (`Astro/Claude Code/Jarvis Plan 4 On Screen.md`, `Jarvis Plan 4 Results.md`), linked from `[[Jarvis On Screen Design]]` and `[[Jarvis Face Tether Design]]`. Write `DESIGN.md` from the built face (`/impeccable document`), as the tether design's contract asks.
-- [ ] **Step 5: One review pass over the whole branch**, the Review Focus list first. Findings go to Febriel before any fix.
-- [ ] **Step 6: Commit** `git commit -m "docs: Plan 4 results, spec amendments and PROJECT.md status"`
+- [x] **Step 3: Amend the specs**, each change dated: in the main design, §7 points to the on-screen design and says red replaces gold; §8's tree gains `face/` and the second login agent; §15's lists gain `POST /stop`, the richer `agents` rows and `level`'s `source`; §6.2's instant table gains the name phrases. In the on-screen design: a note at its top that the tether design amends it, and what the probes settled (how the model learns a name, how one worker is ended, the frame rates and budgets as measured). In the tether design: its two open points (one panel per bead or one large panel; system glass or the fallback) as the probes settled them.
+- [x] **Step 4: Update `PROJECT.md`** and copy this plan and its results to Obsidian (`Astro/Claude Code/Jarvis Plan 4 On Screen.md`, `Jarvis Plan 4 Results.md`), linked from `[[Jarvis On Screen Design]]` and `[[Jarvis Face Tether Design]]`. Write `DESIGN.md` from the built face (`/impeccable document`), as the tether design's contract asks.
+- [x] **Step 5: One review pass over the whole branch**, the Review Focus list first. Findings go to Febriel before any fix.
+- [x] **Step 6: Commit** `git commit -m "docs: Plan 4 results, spec amendments and PROJECT.md status"`
