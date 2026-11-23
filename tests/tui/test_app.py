@@ -16,11 +16,12 @@ QUEUE_WITH_NEEDS_YOU = {"type": "queue", "items": [
 
 class FakeClient:
     def __init__(self):
-        self.asked, self.answers, self.cancelled = [], [], 0
+        self.asked, self.answers, self.stops, self.cancelled = [], [], [], 0
         self.q = asyncio.Queue(); self.q.put_nowait(SNAPSHOT)
 
     async def ask(self, text): self.asked.append(text)
     async def answer(self, reply, ask_id): self.answers.append((reply, ask_id))
+    async def stop(self, agent_id): self.stops.append(agent_id)
     async def cancel(self): self.cancelled += 1
     def push(self, event): self.q.put_nowait(event)
 
@@ -181,10 +182,12 @@ async def test_client_speaks_the_api_with_the_token():
 
     app = web.Application()
     app.router.add_post("/ask", post); app.router.add_post("/answer", post); app.router.add_post("/cancel", post)
+    app.router.add_post("/stop", post)
     app.router.add_get("/events", events)
     async with TestServer(app, host="127.0.0.1") as server:
         c = Client("tok", base=str(server.make_url("")).rstrip("/"), retry=0.01)
         await c.ask("hello"); await c.answer("yes", "k1"); await c.cancel()
+        assert await c.stop("t1") == {"say": "ok"}
         stream = c.events()
         assert [await anext(stream) for _ in range(3)] == [
             {"type": "link", "state": "connecting"}, SNAPSHOT, {"type": "link", "state": "no daemon"}]
@@ -192,12 +195,13 @@ async def test_client_speaks_the_api_with_the_token():
     assert seen[:3] == [("/ask", "Bearer tok", {"text": "hello", "channel": "mac"}),
                         ("/answer", "Bearer tok", {"answer": "yes", "ask_id": "k1", "channel": "mac"}),
                         ("/cancel", "Bearer tok", None)]
-    assert seen[3][:2] == ("/events", "Bearer tok")
+    assert seen[3] == ("/stop", "Bearer tok", {"agent": "t1"})
+    assert seen[4][:2] == ("/events", "Bearer tok")
 
 
 async def test_client_survives_a_daemon_that_is_down():
     c = Client("t", base=f"http://127.0.0.1:{free_port()}")
-    assert await c.ask("hello") is None; await c.answer("no", "k1"); await c.cancel(); await c.close()
+    assert await c.ask("hello") is None; await c.answer("no", "k1"); await c.cancel(); assert await c.stop("t1") is None; await c.close()
 
 
 async def test_text_from_the_daemon_is_never_markup(hud, pilot, fake):

@@ -1,12 +1,9 @@
 """The gold terminal HUD: a thin client of jarvisd that redraws one View (spec §7)."""
 
-import asyncio
-import json
 import time
-from collections.abc import AsyncIterator, Callable
+from collections.abc import Callable
 from pathlib import Path
 
-import aiohttp
 from rich.console import Group
 from rich.table import Table
 from rich.text import Text
@@ -17,6 +14,7 @@ from textual.widgets import Input, OptionList, Static
 from textual.widgets.option_list import Option
 
 from jarvis import config
+from jarvis.remote.client import Client  # noqa: F401  (re-exported)
 from jarvis.tui.model import LEVELS, MIC_ON, View, elapsed, needs_you, reduce
 
 SKILLS_DIR = Path(__file__).resolve().parents[2] / ".claude" / "skills"
@@ -34,55 +32,6 @@ NOTICES = {
 
 
 ANSWER_DELAY = 0.4  # seconds a lone y/n/a waits for a second letter before it counts as an answer
-
-
-class Client:
-    """jarvisd's local API (Task 11) on the `mac` channel. Errors mean the daemon is away; the HUD shows that."""
-
-    def __init__(self, token: str, base: str = f"http://127.0.0.1:{config.PORT}", retry: float = 2.0):
-        self.base, self.retry = base, retry
-        self.headers = {"Authorization": f"Bearer {token}"}
-        self._session: aiohttp.ClientSession | None = None
-
-    @property
-    def session(self) -> aiohttp.ClientSession:
-        if self._session is None:
-            self._session = aiohttp.ClientSession(headers=self.headers, timeout=aiohttp.ClientTimeout(total=None, connect=5))
-        return self._session
-
-    async def _post(self, path: str, body: dict | None = None) -> dict | None:
-        try:
-            async with self.session.post(self.base + path, json=body) as r:
-                return await r.json()
-        except (aiohttp.ClientError, OSError, ValueError):
-            return None
-
-    async def ask(self, text: str) -> dict | None:
-        return await self._post("/ask", {"text": text, "channel": "mac"})
-
-    async def answer(self, reply: str, ask_id: str | None) -> None:
-        await self._post("/answer", {"answer": reply, "ask_id": ask_id, "channel": "mac"})
-
-    async def cancel(self) -> None:
-        await self._post("/cancel")
-
-    async def events(self) -> AsyncIterator[dict]:
-        """Daemon events, plus `link` events of our own; reconnects every `retry` seconds."""
-        yield {"type": "link", "state": "connecting"}
-        while True:
-            try:
-                async with self.session.ws_connect(self.base + "/events") as ws:
-                    async for msg in ws:
-                        if msg.type is aiohttp.WSMsgType.TEXT:
-                            yield json.loads(msg.data)
-            except (aiohttp.ClientError, OSError, ValueError):
-                pass
-            yield {"type": "link", "state": "no daemon"}
-            await asyncio.sleep(self.retry)
-
-    async def close(self) -> None:
-        if self._session is not None:
-            await self._session.close()
 
 
 def skills(folder: Path) -> list[tuple[str, str]]:
