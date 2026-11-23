@@ -44,6 +44,21 @@ Left to the builder by the design (§10), settled here. Claude's calls.
 14. **A stopped or failed agent's thread is cut at once**; a done one's fades (tether design §5).
 15. **In code a bead is a `Card` and the plume a `Stack`**, as `CARD_MAX` and the rows already say.
 
+## Amendments after Task 1
+
+Probe results are in `docs/spikes/findings.md`, "Plan 4 probes". Where this table disagrees with a task, it wins.
+
+| Probe | Found | Changes |
+|---|---|---|
+| P4 | `updatedInput` on an `Agent` allow is honoured, foreground and background | Decision 2 stands; Task 4 Step 5 (fallbacks) not built |
+| P5 | The hook's `agent_id` is the worker's `task_id`; a denied worker ends itself in ~4 s | One-click stop is built; Task 5 Step 3's stop-all fallback is not |
+| P6 | A `stop_task` control request ends one worker at once (`task_notification` status `stopped`) | Decision 3: the gate first, then `Bridge.stop_task`; no `[jarvisd]` notice. `agent_done` status `stopped` → row state `stopped` (Task 3) |
+| P5/P6 | The front door announces a stopped worker on its own | Task 5 hushes the front door's next self-started turn when a stopped worker ends outside a turn |
+| P1 | The mockup's one stroke per line costs ~20 % of a core working; batched by 12 opacity steps ~14–18 % | Task 9 draws batched only; idle at 10 fps; muted and off draw one still frame |
+| P1a | App Nap freezes an accessory app's timers after ~90 s | Task 10 holds an `NSProcessInfo` activity (user-initiated, idle sleep allowed) |
+| P7 | `callAsyncJavaScript` with arguments is exact | Task 10 pushes the payload that way |
+| — | A page cannot move its own window | Dragging the circle is native (Task 10); the page posts no messages at all; the shell hands `{"type": "moved", x, y}` to `Controller.on_message` |
+
 ## File structure
 
 | File | Responsibility |
