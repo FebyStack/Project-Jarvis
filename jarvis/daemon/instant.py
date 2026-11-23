@@ -31,17 +31,18 @@ def match(utterance: str, pending: bool) -> Action | None:
 
 
 NamedAction = Literal["stop", "yes", "no", "always"]
-_NAMED = re.compile(r"(?:(?P<stop>stop)|(?P<always>yes always)(?: to)?|(?P<yes>yes)(?: to)?|(?P<no>no)(?: to)?) "
-                    r"(?P<name>[a-z']+)")
+_NAMED = re.compile(r"(?:^| )(?:(?P<stop>stop)|(?P<always>yes always)(?: to)?|(?P<yes>yes)(?: to)?|(?P<no>no)(?: to)?) "
+                    r"(?P<name>[a-z']+)$")
 
 
 def named_shape(utterance: str) -> bool:
-    """Stop, yes, no or yes always (to) and one word: a name phrase, whether or not the word names anyone."""
-    return bool(_NAMED.fullmatch(_normal(utterance)))
+    """Stop, yes, no or yes always (to) and one word, at the end of what he said: a name phrase, whether or not the
+    word names anyone."""
+    return bool(_NAMED.search(_normal(utterance)))
 
 
 def match_named(utterance: str, running: Collection[str]) -> tuple[NamedAction, str] | None:
-    m = _NAMED.fullmatch(_normal(utterance))
+    m = _NAMED.search(_normal(utterance))
     name = m and names.match(m["name"], running)
     return (next(k for k, v in m.groupdict().items() if v and k != "name"), name) if name else None
 
