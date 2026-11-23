@@ -1,23 +1,23 @@
-/* Gold on black (spec §7): text #D4AF37, active #FFD700, idle and borders #8A7424. */
-Screen { background: black; color: #D4AF37; }
+/* Red on black: text #C2241B, active #FF3B30, idle and borders #6B1512. */
+Screen { background: black; color: #C2241B; }
 
-#header { height: 3; border: heavy #8A7424; padding: 0 1; }
-#title { width: 1fr; color: #FFD700; text-style: bold; }
+#header { height: 3; border: heavy #6B1512; padding: 0 1; }
+#title { width: 1fr; color: #FF3B30; text-style: bold; }
 #link { width: auto; }
 
 .panels { height: 1fr; }
-.panel { height: 1fr; border: heavy #8A7424; border-title-color: #D4AF37; border-title-style: bold; padding: 0 1; overflow: hidden; }
+.panel { height: 1fr; border: heavy #6B1512; border-title-color: #C2241B; border-title-style: bold; padding: 0 1; overflow: hidden; }
 #voice, #queue { width: 32; }
 #agents, #memory { width: 1fr; }
 
-#notice { height: 1fr; border: heavy #FFD700; padding: 1 2; color: #FFD700; text-style: bold; display: none; }
+#notice { height: 1fr; border: heavy #FF3B30; padding: 1 2; color: #FF3B30; text-style: bold; display: none; }
 
 #question { height: auto; padding: 0 1; display: none; }
 
-#skills { height: auto; max-height: 8; background: black; border: heavy #FFD700; display: none; }
-#skills > .option-list--option-highlighted { background: #8A7424; color: black; }
+#skills { height: auto; max-height: 8; background: black; border: heavy #FF3B30; display: none; }
+#skills > .option-list--option-highlighted { background: #6B1512; color: black; }
 
-#ask { height: 3; background: black; color: #D4AF37; border: heavy #8A7424; }
-#ask:focus { border: heavy #FFD700; }
+#ask { height: 3; background: black; color: #C2241B; border: heavy #6B1512; }
+#ask:focus { border: heavy #FF3B30; }
 
-#footer { height: 1; padding: 0 1; color: #D4AF37; }
+#footer { height: 1; padding: 0 1; color: #C2241B; }

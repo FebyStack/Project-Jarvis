@@ -1,6 +1,7 @@
 import asyncio
 import json
 import socket
+from pathlib import Path
 
 import pytest
 from aiohttp import web
@@ -8,6 +9,8 @@ from aiohttp.test_utils import TestServer
 
 from jarvis.tui.app import Client, Hud, skills
 from tests.tui.events import SNAPSHOT
+
+TUI = Path(__file__).resolve().parents[2] / "jarvis" / "tui"
 
 QUEUE_WITH_NEEDS_YOU = {"type": "queue", "items": [
     {"id": "a", "title": "fix export bug", "status": "running"},
@@ -281,3 +284,20 @@ async def test_still_fits_80_by_24(hud, pilot, fake):
     footer = next(l for l in screen_text(hud).splitlines() if "MIC ● on, no key" in l)
     assert "LIMITS ● 100%" in footer and len(footer.rstrip()) <= 80
     assert hud.query_one("#footer").region.right <= 80
+
+
+def test_the_theme_is_red_and_holds_no_gold():
+    text = (TUI / "jarvis.tcss").read_text().upper() + (TUI / "app.py").read_text().upper()
+    assert "#D4AF37" not in text and "#FFD700" not in text and "#8A7424" not in text
+    assert all(c in text for c in ("#FF3B30", "#C2241B", "#6B1512"))
+
+
+async def test_agents_show_their_given_names(hud, pilot, fake):
+    row = {"since": 748.0, "background": True, "model": "claude-sonnet-4", "doing": "fixing export bug"}
+    fake.push({"type": "agents", "items": [
+        {"id": "c", "name": "coder", "call": "Nova", **row},
+        {"id": "t", "name": "triage", "call": "", **row}]})
+    await pilot.pause()
+    lines = screen_text(hud).splitlines()
+    assert any("Nova coder sonnet-4" in l for l in lines)
+    assert any("triage sonnet-4" in l for l in lines)

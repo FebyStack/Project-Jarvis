@@ -1,4 +1,4 @@
-"""The gold terminal HUD: a thin client of jarvisd that redraws one View (spec §7)."""
+"""The red terminal HUD: a thin client of jarvisd that redraws one View (spec §7)."""
 
 import time
 from collections.abc import Callable
@@ -18,7 +18,7 @@ from jarvis.remote.client import Client  # noqa: F401  (re-exported)
 from jarvis.tui.model import LEVELS, MIC_ON, View, elapsed, needs_you, reduce
 
 SKILLS_DIR = Path(__file__).resolve().parents[2] / ".claude" / "skills"
-ACTIVE, IDLE = "#FFD700", "#8A7424"
+ACTIVE, IDLE = config.RED_ACTIVE, config.RED_DIM
 MARKS = {"running": ("▶", "running", ACTIVE), "waiting": ("◦", "waiting", IDLE), "needs_you": ("?", "NEEDS YOU", f"bold {ACTIVE}")}
 OFF_WORDS = {"", "off", "n/a", "not linked"}
 BARS = "▁▂▃▄▅▆▇█"
@@ -132,7 +132,8 @@ class Hud(App):
         agents = _grid()
         for a in v.agents:
             style = IDLE if a.doing == "idle" else None
-            agents.add_row(Text(f"{a.name:<8} {a.model.removeprefix('claude-'):<9} {a.doing}", style=style),
+            who = f"{a.call} {a.name}" if a.call and a.call.lower() != a.name else a.call or a.name
+            agents.add_row(Text(f"{who} {a.model.removeprefix('claude-')} {a.doing}", style=style),
                            elapsed(a.since, self.now()) if a.background else "")
         self.query_one("#agents", Static).update(agents)
 
