@@ -130,6 +130,8 @@ def _card(row: dict, view: FaceView, now: float) -> Card:
 
 
 def stack(view: FaceView, now: float) -> Stack:
+    if circle(view).mode == "off":   # tether design §9: every bead goes while jarvisd is gone, offline or limited
+        return Stack((), 0, 0)
     rows = _workers(view) + [r for r in view.rows if r["id"] == "jarvis" and r.get("state") == "needs_you"]
     asking = sorted((r for r in rows if r.get("state") == "needs_you"), key=_asked)
     working = sorted((r for r in rows if r.get("state") == "working"), key=lambda r: -r.get("since", 0.0))

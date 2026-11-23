@@ -128,6 +128,13 @@ def test_a_lost_daemon_clears_every_card():
     assert stack(reduce(v, link("no daemon")), 1500.0) == Stack((), 0, 0)
 
 
+
+@pytest.mark.parametrize("brain", ["offline", "down", "limit"])
+def test_an_offline_or_limited_brain_shows_no_cards_until_it_is_back(brain):
+    v = view(agents(worker(), asking(id="t2")), health(brain=brain))
+    assert circle(v).mode == "off" and stack(v, 1500.0) == Stack((), 0, 0)
+    assert len(cards(reduce(v, health(brain="online")))) == 2
+
 def test_a_snapshot_replaces_what_was_shown():
     v = view(agents(worker(id="a")), link("no daemon"), snapshot(worker(id="b")))
     assert [c.id for c in cards(v)] == ["b"] and circle(v).mode == "work"

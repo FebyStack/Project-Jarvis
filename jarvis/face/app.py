@@ -1,6 +1,7 @@
 """`jarvis face`: the circle's panel and web view, the beads and threads around it, and the asyncio side."""
 
 import asyncio
+import json
 import os
 import signal
 import threading
@@ -80,7 +81,7 @@ class App:
         self.hub, self.press = Hub.alloc().init(), Press.alloc().init()
         self.hub.app, self.press.act = self, self.act
         self.sound = NSSound.alloc().initWithContentsOfFile_byReference_("/System/Library/Sounds/Glass.aiff", True)
-        self.beads, self.chip, self.cards, self.more, self.payload, self.gen = {}, None, (), "", None, 0
+        self.beads, self.chip, self.cards, self.more, self.payload, self.off, self.gen = {}, None, (), "", None, False, 0
         self.held = {"lock"} if (CGSessionCopyCurrentDictionary() or {}).get("CGSSessionScreenIsLocked") else set()
         self.circle = panel(NSMakeRect(0, 0, SIZE, SIZE))
         view = NSView.alloc().initWithFrame_(NSMakeRect(0, 0, SIZE, SIZE))
@@ -134,7 +135,7 @@ class App:
             code, args, None, WKContentWorld.pageWorld(), None)
 
     def show_circle(self, payload: str) -> None:
-        self.payload = payload
+        self.payload, self.off = payload, json.loads(payload)["mode"] == "off"
         self._js("window.face.show(JSON.parse(p))", {"p": payload})
 
     def loaded(self) -> None:
@@ -255,7 +256,7 @@ class App:
             if gen == self.gen:
                 self.threads.place(p.field)
 
-        if self.held:   # nobody sees it, and window animations wait for the screen
+        if self.held or self.off:   # nobody sees it and window animations wait for the screen; or jarvisd went away
             for x, r in moves:
                 x.win.setFrame_display_(_rect(r), False)
                 x.win.setAlphaValue_(1.0)
