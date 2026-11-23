@@ -337,6 +337,17 @@ async def test_stopping_records_every_open_request(make, bridge_of, vault):     
     assert "still thinking" in day_log(vault) and (await asyncio.wait_for(b, 1)).say.startswith("Jarvis is stopping")
 
 
+async def test_a_workers_question_stopping_answers_no_is_listed_in_the_note(make, bridge_of, vault, tmp_path):
+    j = await make(); bridge = bridge_of(j)
+    a = asyncio.create_task(j.submit("fix the export bug", "mac")); await bridge.got("fix the export bug")
+    task_with_background_worker(bridge); await a
+    h = asyncio.create_task(j.hook(outside_write(bridge, tmp_path) | {"agent_id": "t1"}))
+    await until(lambda: j.asks.pending())
+    await j.stop()
+    assert "Yes or no? — no" in next(vault.raw.glob("*-fix-export-bug.md")).read_text().split("## Confirmations")[1]
+    assert (await h)["verdict"] == "deny"
+
+
 async def test_never_mind_stops_background_work_too(jarvis, bridge, vault):                        # finding 8
     a = asyncio.create_task(jarvis.submit("fix the export bug", "mac")); await bridge.got("fix the export bug")
     task_with_background_worker(bridge); await a
@@ -397,3 +408,27 @@ async def test_an_empty_turn_of_its_own_is_not_announced_or_logged(jarvis, bridg
     while not any(e["type"] == "reply" for e in seen):
         seen.append(await anext(events))
     assert [e["text"] for e in seen if e["type"] == "reply"] == [say_time(NOW)] and "(worker finished)" not in day_log(vault)
+
+
+@pytest.mark.parametrize("when", ["in its turn", "after its turn"])
+@pytest.mark.parametrize("reply", ["yes", None])
+async def test_a_background_workers_question_is_listed_in_its_requests_note(make, bridge_of, vault, tmp_path, when, reply):
+    """Febriel's 16:38 run: Cedar, a background coder, asked "rm …?" and it timed out."""
+    j = await make(ask_timeouts={"mac": 0.2, "phone": 0.2}); bridge = bridge_of(j)
+    t = asyncio.create_task(j.submit("fix the export bug", "mac")); await bridge.got("fix the export bug")
+    for e in (tool("Agent", {"subagent_type": "triage"}), tool_result(GOOD_VERDICT),
+              agent_start("t1", "coder", background=True, tool_use_id="tuC")):
+        bridge.emit(e)
+    if when == "after its turn":
+        bridge.emit(turn("Started.")); await t
+    h = asyncio.create_task(j.hook(outside_write(bridge, tmp_path) | {"agent_id": "t1"}))
+    await until(lambda: j.asks.pending())
+    if when == "in its turn":
+        bridge.emit(turn("Started.")); await t
+    if reply:
+        j.answer(reply, ask_id=j.asks.pending()[0].id)
+    await h
+    for e in (agent_done("t1", "completed", "Did it.", tool_use_id="tuC"), {"kind": "turn_start"}, turn("Done.")):
+        bridge.emit(e)
+    note = next(vault.raw.glob("*-fix-export-bug.md")).read_text()
+    assert f"Yes or no? — {'yes' if reply else 'no'}" in note.split("## Confirmations")[1], note

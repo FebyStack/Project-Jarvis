@@ -34,15 +34,19 @@ class Asks:
                 agent_id, self.clock() + self.timeouts[channel], asyncio.get_running_loop().create_future())
         self._open.append(a)
         self.on_change()
+        expiry = asyncio.get_running_loop().call_later(self.timeouts[channel], self._settle, a, False)
         try:
-            yes = await asyncio.wait_for(a.future, self.timeouts[channel])
-        except asyncio.TimeoutError:
-            yes = False
+            return await a.future
         finally:
+            expiry.cancel()
             self._open.remove(a)
-        self._history.append((request_id, a.question, yes))
-        self.on_change()
-        return yes
+            self.on_change()
+
+    def _settle(self, a: Ask, yes: bool) -> None:
+        """Answered or timed out: listed at once, so a note written in the same step has it."""
+        if not a.future.done():
+            a.future.set_result(yes)
+            self._history.append((a.request_id, a.question, yes))
 
     def answer(self, reply: Literal["yes", "no", "always"], channel: Channel | None = None,
                ask_id: str | None = None) -> Ask | None:
@@ -57,7 +61,7 @@ class Asks:
             return None
         if reply == "always" and a.pattern:
             self.trusted.add(a.pattern)
-        a.future.set_result(reply in ("yes", "always"))
+        self._settle(a, reply in ("yes", "always"))
         return a
 
     def pending(self, channel: Channel | None = None) -> list[Ask]:
