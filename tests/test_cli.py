@@ -238,10 +238,23 @@ def test_a_second_face_exits_at_once_with_one_line(monkeypatch, tmp_path, capsys
     monkeypatch.setenv("JARVIS_HOME", str(tmp_path))
     calls = []
     monkeypatch.setitem(sys.modules, "jarvis.face.app", types.SimpleNamespace(run=lambda: calls.append(1)))
+    monkeypatch.setattr(sys.stderr, "isatty", lambda: True)
     held = place.single(tmp_path)
     assert main(["face"]) == 0 and calls == []
     assert len(capsys.readouterr().err.splitlines()) == 1
     held.close()
+
+
+def test_the_login_agents_second_face_says_so_once_and_takes_over(monkeypatch, tmp_path, capsys):   # re-review N5
+    import sys, threading, types
+    from jarvis.face import place
+    monkeypatch.setenv("JARVIS_HOME", str(tmp_path))
+    calls = []
+    monkeypatch.setitem(sys.modules, "jarvis.face.app", types.SimpleNamespace(run=lambda: calls.append(1)))
+    held = place.single(tmp_path)
+    threading.Timer(0.2, held.close).start()   # the face started by hand quits
+    assert main(["face"]) == 0 and calls == [1]   # stderr is face.log, not a terminal: it waited, then ran
+    assert capsys.readouterr().err.splitlines() == ["jarvis face is already running."]
 
 
 def test_the_face_plist_runs_face_with_no_secrets():

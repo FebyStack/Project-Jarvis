@@ -51,4 +51,4 @@ Unload it (the circle goes away and does not come back at login):
 launchctl bootout gui/$(id -u)/com.febriel.jarvis-face && rm ~/Library/LaunchAgents/com.febriel.jarvis-face.plist
 ```
 
-Only one face runs at a time: a second `jarvis face` says so in one line on stderr and exits. While one you started by hand is up, the agent's copy does that every 10 seconds (one line each in `face.log`) and takes over once yours quits. Because the agent keeps it alive, quitting the face's process brings it straight back; unload the agent to put it away.
+Only one face runs at a time: a second `jarvis face` says so in one line on stderr and exits. While one you started by hand is up, the agent's copy says so once in `face.log`, waits, and takes over the moment yours quits. Because the agent keeps it alive, quitting the face's process brings it straight back; unload the agent to put it away.

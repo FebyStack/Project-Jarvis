@@ -241,7 +241,9 @@ def main(argv: list[str] | None = None) -> int:
         from jarvis.face import place
         if (lock := place.single(config.HOME_DIR)) is None:   # held until the face's process ends
             print("jarvis face is already running.", file=sys.stderr)
-            return 0
+            if sys.stderr.isatty():
+                return 0
+            lock = place.single(config.HOME_DIR, wait=True)   # the login agent's copy: one line, then it takes over
         from jarvis.face.app import run
         run()
         lock.close()

@@ -136,7 +136,7 @@ def _card(row: dict, view: FaceView, now: float) -> Card:
     live = state in LIVE
     is_open = bool(question) or (state == "working" and (row["id"] in view.hovered or now - since < config.CARD_POP_SECONDS))
     role = row.get("name", "")
-    model = row.get("model", "").removeprefix("claude-")   # "coder · opus-5-5", as the HUD shows it
+    model = (row.get("model") or "").removeprefix("claude-")   # "coder · opus-5-5", as the HUD shows it
     return Card(row["id"], row.get("call") or role, role, model, row.get("title", ""), row.get("doing", ""),
                 elapsed(since, now), state, question, row.get("ask_id"), live, is_open, left, left_text)
 

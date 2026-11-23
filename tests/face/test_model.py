@@ -169,6 +169,12 @@ def test_a_bead_shows_the_model_without_claude():   # M4
     assert cards(view(agents(worker(model="claude-opus-5-5"))))[0].model == "opus-5-5"
 
 
+def test_a_row_with_no_model_shows_none():   # re-review N3
+    assert cards(view(agents(worker(model=None))))[0].model == ""
+    row = worker(); row.pop("model", None)
+    assert cards(view(agents(row)))[0].model == ""
+
+
 @pytest.mark.parametrize("event", [
     {"type": "snapshot"}, {"type": "state"}, {"type": "level"}, {"type": "agents"}, {"type": "level", "rms": "loud"},
     {"type": "snapshot", "state": "x", "health": 3, "agents": 5}, {"type": "agents", "items": 7}])

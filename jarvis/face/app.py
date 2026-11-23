@@ -102,8 +102,8 @@ class App:
         self.circle.setFrameOrigin_((x, y))
         self.circle.setFrameOrigin_(self._keep(x, y))
         self.circle.orderFrontRegardless()
-        self.pointer = NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(0.1, self.hub, "follow:", None, True)
-        self.pointer.setTolerance_(0.05)
+        self.pointer = None
+        self.follow()
         self.threads = self._new(Threads(self.circle))
         own, ws = NSNotificationCenter.defaultCenter(), NSWorkspace.sharedWorkspace().notificationCenter()
         for centre, name, sender in (
@@ -174,11 +174,18 @@ class App:
 
     def follow(self) -> None:
         """The square panel takes clicks only over the round circle: in its corners it ignores the mouse, so a click
-        there reaches the app beneath (the final review's M11). Asked ten times a second, never per frame."""
+        there reaches the app beneath (the final review's M11). Asked 60 times a second near the circle, 10 elsewhere,
+        and not at all while the face is held."""
         p, o = NSEvent.mouseLocation(), self.circle.frame().origin
         through = not place.takes_click(p.x, p.y, o.x, o.y, SIZE)
         if through != self.circle.ignoresMouseEvents():
             self.circle.setIgnoresMouseEvents_(through)
+        self.pointer = None
+        if not self.held:
+            every = place.follow_every(p.x, p.y, o.x, o.y, SIZE)
+            self.pointer = NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(
+                every, self.hub, "follow:", None, False)
+            self.pointer.setTolerance_(every / 10)
 
     def settled(self) -> None:
         o = self.circle.frame().origin
@@ -193,6 +200,10 @@ class App:
         self.held = self.held | {reason} if on else self.held - {reason}
         if bool(self.held) != was:
             self._js("window.face.pause(p)", {"p": bool(self.held)})
+            if self.held and self.pointer:
+                self.pointer.invalidate()
+            elif not self.held:
+                self.follow()
             for piece in (*self.beads.values(), *([self.chip] if self.chip else []), self.threads):
                 piece.hold(bool(self.held))
 

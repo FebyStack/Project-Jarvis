@@ -34,3 +34,14 @@ def test_the_circle_takes_clicks_only_inside_its_round():   # M11: the square's 
     assert place.takes_click(80, 80, 0, 0, 160) and place.takes_click(159, 80, 0, 0, 160)
     assert not place.takes_click(5, 5, 0, 0, 160) and not place.takes_click(150, 152, 0, 0, 160)
     assert place.takes_click(1100, 220, 1020, 140, 160) and not place.takes_click(1025, 145, 1020, 140, 160)
+
+
+def test_outside_the_square_the_panel_already_takes_clicks():   # re-review N2: no lag when the pointer comes in
+    assert place.takes_click(-30, 80, 0, 0, 160) and place.takes_click(80, 400, 0, 0, 160)
+    assert place.takes_click(-1, -1, 0, 0, 160) and not place.takes_click(1, 1, 0, 0, 160)
+
+
+def test_the_pointer_is_followed_fast_only_near_the_circle():   # re-review N2
+    assert place.follow_every(80, 80, 0, 0, 160) == place.follow_every(2, 2, 0, 0, 160) == 1 / 60
+    assert place.follow_every(80, 80 + 80 + place.NEAR, 0, 0, 160) == 1 / 60
+    assert place.follow_every(80, 80 + 80 + place.NEAR + 1, 0, 0, 160) == 0.1 == place.follow_every(900, 900, 0, 0, 160)

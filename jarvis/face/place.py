@@ -33,17 +33,29 @@ def default(size, screen_w, screen_h) -> tuple[float, float]:
     return screen_w - size - MARGIN, MARGIN
 
 
+NEAR = 40   # points from the circle's edge within which the pointer is followed at the display's pace
+
+
 def takes_click(px, py, x, y, size) -> bool:
-    """Whether the pointer is over the round circle in its square panel at (x, y): the corners pass clicks through."""
-    return math.hypot(px - x - size / 2, py - y - size / 2) <= size / 2
+    """Whether the circle's square panel at (x, y) takes the mouse: everywhere but its corners, which pass clicks
+    through, so it already takes them when the pointer reaches the circle from outside the square."""
+    inside = x <= px <= x + size and y <= py <= y + size
+    return not inside or math.hypot(px - x - size / 2, py - y - size / 2) <= size / 2
 
 
-def single(home: Path):
-    """The one-face lock, held while the returned file stays open; None while another face holds it."""
+def follow_every(px, py, x, y, size) -> float:
+    """Seconds until the pointer is asked again: a 60th near the circle, where a click must not reach the corners'
+    app beneath, a tenth elsewhere."""
+    return 1 / 60 if math.hypot(px - x - size / 2, py - y - size / 2) <= size / 2 + NEAR else 0.1
+
+
+def single(home: Path, wait: bool = False):
+    """The one-face lock, held while the returned file stays open; None while another face holds it, unless it waits
+    until that face lets go."""
     home.mkdir(parents=True, exist_ok=True)
     f = open(home / "face.lock", "a")
     try:
-        fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        fcntl.flock(f, fcntl.LOCK_EX | (0 if wait else fcntl.LOCK_NB))
     except BlockingIOError:
         f.close()
         return None
