@@ -35,9 +35,10 @@ def plume(centre: P, screen: Rect, sizes: Sequence[tuple[float, float]]) -> Plum
     left = cx > screen.x + screen.w / 2
     up = cy < screen.y + screen.h / 2
     reach = (screen.x + screen.w - cx if left else cx - screen.x) - 16
+    far = cx - screen.x if left else screen.x + screen.w - cx
     room = screen.y + screen.h - cy if up else cy - screen.y
     for step in (config.TETHER_STEP, 0):
-        spans, fits = _spans(sizes, up, reach, {1: room, -1: screen.h - room}, step)
+        spans, fits = _spans(sizes, up, reach, far, {1: room, -1: screen.h - room}, step)
         if fits:
             break
     frames = tuple(Rect(cx + edge - w if left else cx - edge, cy + low if up else cy - low - h, w, h)
@@ -53,15 +54,17 @@ def plume(centre: P, screen: Rect, sizes: Sequence[tuple[float, float]]) -> Plum
     return Plume(frames, anchors, "left" if left else "right", "up" if up else "down", Rect(x0, y0, x1 - x0, y1 - y0))
 
 
-def _spans(sizes, up, reach, rooms, step):
+def _spans(sizes, up, reach, far, rooms, step):
     """Each bead's circle-side edge and lower edge, the circle's centre at the origin and the beads up and to its left.
 
     Branch 1 grows up from the first bead; a bead with no room there hangs in branch -1, below the first bead, which
     is worked out flipped so it grows up too. A bead beyond the ring sits far enough right for its thread to clear the
-    bead before it in its branch.
+    bead before it in its branch. On the last try (no step), a bead with room in neither branch wraps, with everything
+    after it, into a column just left of all before it, growing up from the first bead's height; its thread runs to
+    the circle behind the nearer column, the only way there is.
     """
     at, prev, beyond = {1: -22, -1: 22 + config.CARD_GAP}, {}, {1: 0, -1: 0}
-    spans, fits = [], True
+    spans, fits, out = [], True, None
 
     def edge(d, h):
         b = at[d]
@@ -75,8 +78,16 @@ def _spans(sizes, up, reach, rooms, step):
             e = max(e, (pe + 6) * (b + lift) / (phi if pe + 6 <= 0 else plo) + 18)
         return e
 
-    for h in (h for _, h in sizes):
-        d = next((d for d in ((1, -1) if spans else (1,)) if at[d] + h <= rooms[d] and edge(d, h) <= reach), None)
+    for w, h in sizes:
+        d = None if out is not None else next(
+            (d for d in ((1, -1) if spans else (1,)) if at[d] + h <= rooms[d] and edge(d, h) <= reach), None)
+        if d is None and spans and not step:
+            if out is None or at[1] + h > rooms[1]:
+                out, at[1] = min(e - pw for (e, _), (pw, _) in zip(spans, sizes)) - config.CARD_GAP, -22
+            fits = fits and at[1] + h <= rooms[1] and out - w >= -far
+            spans.append((out, at[1]))
+            at[1] += h + config.CARD_GAP
+            continue
         if d is None:
             fits, d = False, 1
         e, b = min(edge(d, h), reach), at[d]

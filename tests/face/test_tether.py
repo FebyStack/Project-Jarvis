@@ -3,6 +3,7 @@ import math
 import pytest
 
 from jarvis import config
+from jarvis.face import place
 from jarvis.face.tether import Rect, plume, thread
 
 SCREEN = Rect(0, 0, 1440, 900)
@@ -118,3 +119,68 @@ def test_a_plume_that_cannot_fit_still_keeps_every_bead_on_screen():   # the fin
     sizes = [(300, 230), (182.8, 36), (300, 116), (237, 36), (300, 230), (110.5, 26)]
     for f in plume((896.25, 136.87), s, sizes).frames:
         assert s.x <= f.x and f.x + f.w <= s.x + s.w and s.y <= f.y and f.y + f.h <= s.y + s.h
+
+
+LIVE = [(300, 150)] * 5 + [(150, 24)]   # row 9: five tall questions and "+2 more need you"
+SCREENS = [SCREEN, Rect(0, 0, 1512, 982), Rect(0, 0, 1440, 875)]   # the last: a 1440x900 display under its menu bar
+
+
+def homes(s):
+    """The circle's default place, the same 40 points in at each other corner, and the middle."""
+    dx, dy = place.default(config.CIRCLE_SIZE, s.w, s.h)
+    x, y = dx + config.CIRCLE_SIZE / 2, dy + config.CIRCLE_SIZE / 2
+    return [(s.x + x, s.y + y), (s.x + s.w - x, s.y + y), (s.x + x, s.y + s.h - y), (s.x + s.w - x, s.y + s.h - y),
+            (s.x + s.w / 2, s.y + s.h / 2)]
+
+
+def beyond(p, f):
+    """Whether `f` hangs in a column further out than the first bead's."""
+    first = p.frames[0]
+    return f.x + f.w < first.x if p.side == "left" else f.x > first.x + first.w
+
+
+def holds(centre, screen, sizes):
+    """Every rule of the plume, a column further out included; returns the plume."""
+    p = plume(centre, screen, sizes)
+    assert [(f.w, f.h) for f in p.frames] == list(sizes)
+    for i, a in enumerate(p.frames):
+        assert gap(centre, a) > config.TETHER_RIM
+        assert not any(overlap(a, b) for b in p.frames[i + 1:])
+        assert screen.x <= a.x and a.x + a.w <= screen.x + screen.w and screen.y <= a.y and a.y + a.h <= screen.y + screen.h
+    assert (p.side, p.grow) == ("left" if centre[0] > screen.x + screen.w / 2 else "right",
+                                "up" if centre[1] < screen.y + screen.h / 2 else "down")
+    out = [f for f in p.frames if beyond(p, f)]
+    assert p.frames[len(p.frames) - len(out):] == tuple(out)   # once wrapped, every later item follows, the chip last
+    assert [f.y for f in out] == sorted((f.y for f in out), reverse=p.grow == "down")
+    for i, anchor in enumerate(p.anchors):
+        for sway in (-6, 0, 6):
+            (sx, sy), (mx, my), (ex, ey) = thread(anchor, centre, sway, p.side)
+            for t in (k / 19 for k in range(20)):
+                q = 1 - t
+                point = (q * q * sx + 2 * q * t * mx + t * t * ex, q * q * sy + 2 * q * t * my + t * t * ey)
+                for j, f in enumerate(p.frames):
+                    if j != i and inside(point, f):   # only a further column's thread, behind a nearer bead
+                        assert beyond(p, p.frames[i]) and not beyond(p, f)
+    return p
+
+
+@pytest.mark.parametrize("screen", SCREENS)
+def test_five_tall_questions_and_a_chip_fit_wherever_the_circle_starts(screen):
+    for centre in homes(screen):
+        holds(centre, screen, LIVE)
+
+
+def test_on_a_full_size_screen_five_tall_questions_need_no_second_column():
+    for screen in SCREENS[:2]:
+        for centre in homes(screen):
+            p = holds(centre, screen, LIVE)
+            assert not any(beyond(p, f) for f in p.frames)
+
+
+def test_beads_that_do_not_fit_one_column_wrap_into_a_second_further_out():
+    for centre in homes(SCREEN):
+        p = holds(centre, SCREEN, [(300, 150)] * 7)
+        assert any(beyond(p, f) for f in p.frames)
+    p = holds((1320, 120), Rect(0, 0, 1440, 875), LIVE)
+    assert [beyond(p, f) for f in p.frames] == [False] * 4 + [True] * 2
+    assert p.frames[4].x + p.frames[4].w == p.frames[0].x - config.CARD_GAP and p.frames[4].y == p.frames[0].y
