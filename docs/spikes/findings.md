@@ -785,3 +785,42 @@ Throwaway face in `spikes/10-face/`: `probe.py` (the circle's panel with a web v
 **P1 on the built face** (2026-11-23 14:00–14:15, `spikes/10-face/demo.py`, the shipped page, 60 s runs, steady between rounds): idle (no beads, 10 fps by timer) 7.2–7.6 %; working with five beads 22.0–23.0 %; talking 22.2–22.7 %; memory 159–177 MB. Working splits evenly: Python (the web view's host side) 7.3 %, WebKit GPU 7.6 %, WebContent 7.2 %. The circle alone at 30 fps costs 19.4 %; five beads add ~3 %. At 20 fps working is 18.6–18.9 %; a canvas at 1× pixels saves nothing (the cost is per frame, not per pixel). Threads, marks and their motion are Core Animation, drawn by WindowServer, so the plan's "no sway" fallback would not help. **Febriel kept 30 fps and raised the budgets: working and talking ≤ 25 % of one core, idle ≤ 8 %; memory ≤ 200 MB stands.**
 
 **New requirement from the live probes (Febriel, 2026-11-23):** Ctrl-Option-J hides and shows the face; hidden means circle, beads and threads all gone; a question that opens while it is hidden brings it back.
+
+## Plan 4 results (Task 12, live with Febriel, 2026-11-23 14:35–17:10)
+
+The face ran as the login agent `com.febriel.jarvis-face` against the real jarvisd (restarted on the Plan 4 code with Febriel's okay). A scratch repo with a local bare remote (`~/jarvis-scratch`) made every "yes" harmless.
+
+| # | Result |
+|---|---|
+| 1 | Pass. Calm idle, swells with his voice, wild while thinking, throbs with its speech, every change eases in. |
+| 2 | Pass. A bead buds out open with name, role, model, job and timer; shrinks after 4 s; hover opens and closes it (after the hover fix b922987); Jarvis names it when done; the thread fades; the bead sinks back after 8 s. |
+| 3 | Pass. "<Name> has a question", the Glass sound once, the bead nearest and red, bright thread, countdown, ring. |
+| 4 | Pass. Yes, No, a 60 s timeout (counted no) and Always each did what the HUD's keys do. |
+| 5 | Pass on the second run. A bare "yes" names both and answers neither; "Yes to Ember" answered Ember only. The first run missed: "yes to Finch" was heard "yes, Pinch." → shapes without "to" accepted, names whose b/v or p/f swap is a word removed (1a257ae); "whisp" for Wisp missed because the dictionary was too big → only the 10,000 most common English words are refused (4b96059, Febriel's choice). |
+| 6 | Pass. Stop on a bead: its thread snaps back, "stopped", gone after 8 s, nothing said. |
+| 7 | Pass. "stop, Dahlia." → "Stopped Dahlia." "stop Cedar" was heard "stop, Sadar" → names with a soft C removed (4b96059). |
+| 8 | Pass on the second run. A `Jarvis` bead asks; its Stop answered no. |
+| 9 | Pass after a fix. Seven asking workers: five beads and "+2 more need you"; five tall open questions overflowed the screen and piled up → the plume wraps into a second column (4e22d0f, Febriel's choice); the outer column hangs free with no thread (his choice after seeing threads pass under beads). |
+| 10 | Pass (as P2, on the same app): typing never interrupted, first-click buttons, clicks beside beads and in the circle's corners pass through, every Space and full screen. |
+| 11 | Pass. Dragging follows, stays on screen at every corner, stays where dropped; after a restart the circle is where he left it. |
+| 12 | Pass. `kickstart -k` jarvisd with two beads: they vanish at once, grey NO DAEMON, back by itself once jarvisd has loaded (~20 s). |
+| 13 | Pass. The face killed while a worker asked: launchd brought it back with the bead and its countdown. |
+| 14 | Seen in passing: a 14:45 reachability blip turned the circle grey with OFFLINE (Wi-Fi was not toggled). |
+| 15 | Mostly pass. Locked, the face costs 1.8 % of one core (idle unlocked ~7 %): Python 1.1 %, WebKit 0.7 %. It moves again after unlocking. |
+| 16 | Pass against the new budgets: idle 7.2 %, working with five beads ~22 %, a long spoken answer 16.1 %, memory 159–177 MB. Febriel kept 30 fps and set idle ≤ 8 %, working/talking ≤ 25 %. |
+| 17 | Pass. `<b>"hi"</b>` showed as those characters in the question and the doing-line. |
+| 18 | Pass. The terminal HUD is red with no gold and lists agents by name. |
+| 19 | Pass. A phone-route question: "No in 10 min", nothing spoken, no sound; No worked. |
+| 20 | Pass (as P3): glass right in light, dark and Reduce Transparency, with a soft shadow. |
+| 21 | Pass. Reduce Motion and Increase Contrast as specified. |
+| 22 | Pass (demo face): a name's mark is the same when it comes back, different from the others'. |
+| 23 | Pass. Febriel: "it's the one" he chose. |
+
+**Bugs found live and fixed** (each with a failing test first where one could be written): a bead stuck open after the pointer left (b922987); voice names (1a257ae, 4b96059, and a name phrase at the end of a sentence); **a pre-Plan-4 race in jarvisd**, where a worker dispatched in a turn of its own after background triage was refused "Call triage before dispatching a worker" (35b8232, 8166e71); an answer recorded only when the waiting call resumed (38a4f0b); the plume overflow (4e22d0f).
+
+**New from the live run (Febriel):** Ctrl-Option-J hides and shows the face; a question while hidden brings it back (e588d47).
+
+**Still open:**
+- "Yeah", "yep" and "mm-hmm" do not answer a question (Plan 3's strict yes/no list); his "Yeah." at 16:48 went to the front door. His call whether to widen it.
+- Locked, the face is not at zero (1.8 %).
+- The second column has no room on a 1280×775 screen with the circle mid-screen; the old best effort applies there.

@@ -94,6 +94,7 @@ Pure arithmetic, no window involved, so it is unit-tested.
 - A bead whose height overlaps the circle keeps clear of a ring 88 points from the centre. One wholly past the circle starts 28 points inside the circle's centre line and each further one steps 46 points outward, so every thread drops clear of the beads below it.
 - **The plume grows away from the nearest screen edges.** Circle in the right half: beads to its left. In the left half: to its right. In the lower half: upward. In the upper half: downward. Beads never leave the screen.
 - The `+2 more working` chip is the last row of the plume and has no thread.
+- *(amended 2026-11-23, live run)* When the beads do not fit in one column (several open questions on a short screen), the plume wraps into a second column further out from the circle. Every question stays open. Beads in the outer column hang free with no thread, like the chip (Febriel, after seeing threads pass under the inner beads).
 - He drags the circle and everything follows; on release the plume re-forms, flipping if he crossed a midline.
 
 ## 7. Motion

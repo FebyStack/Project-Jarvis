@@ -147,7 +147,7 @@ Reading of Febriel's answer **(Claude's call)**: Sonnet decides what counts as s
 | "stop Nova" *(amended 2026-11-23, Plan 4)* | Stops that one agent and says "Stopped Nova." |
 | "yes to Nova", "no to Nova", "yes always to Nova" *(amended 2026-11-23, Plan 4)* | Answers that agent's open question. |
 
-*(amended 2026-11-23, Plan 4)* A heard word matches a running agent's name only if it is that name or a close mis-hearing: the same first letter (b and v count as one, p and f as one), a length within one letter, and not a dictionary word. A word that matches no running name is not an instant phrase.
+*(amended 2026-11-23, Plan 4)* A heard word matches a running agent's name only if it is that name or a close mis-hearing: the same first letter (b and v count as one, p and f as one), a length within one letter, and not one of the 10,000 most common English words (`jarvis/daemon/common-words.txt`; Febriel chose this list over the full dictionary after "whisp" missed Wisp live) unless it is exactly a running name. The phrase may stand at the end of a sentence ("I meant no to Slate"), and "to" is optional. Names whose b/v or p/f twin is a common word, and names with a soft C, are not used. A word that matches no running name is not an instant phrase.
 
 The list is fixed in code for v1. Jev, the router model the reference uses for this sorting, is not used: it is a separate provider's model, and here the sorting is done by this list, then Sonnet, then Opus 5.5.
 
