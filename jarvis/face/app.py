@@ -68,6 +68,10 @@ def _rect(r: tether.Rect):
     return NSMakeRect(r.x, r.y, r.w, r.h)
 
 
+def _box(f) -> tether.Rect:
+    return tether.Rect(f.origin.x, f.origin.y, f.size.width, f.size.height)
+
+
 def _union(a: tether.Rect, b: tether.Rect) -> tether.Rect:
     x, y = min(a.x, b.x), min(a.y, b.y)
     return tether.Rect(x, y, max(a.x + a.w, b.x + b.w) - x, max(a.y + a.h, b.y + b.h) - y)
@@ -85,6 +89,7 @@ class App:
         self.hub.app, self.press.act = self, self.act
         self.sound = NSSound.alloc().initWithContentsOfFile_byReference_("/System/Library/Sounds/Glass.aiff", True)
         self.beads, self.chip, self.cards, self.more, self.payload, self.off, self.gen = {}, None, (), "", None, False, 0
+        self.inside = set()   # the beads the pointer went into whose hover-off is not sent yet
         self.held = {"lock"} if (CGSessionCopyCurrentDictionary() or {}).get("CGSSessionScreenIsLocked") else set()
         self.circle = panel(NSMakeRect(0, 0, SIZE, SIZE))
         view = NSView.alloc().initWithFrame_(NSMakeRect(0, 0, SIZE, SIZE))
@@ -127,8 +132,7 @@ class App:
         await asyncio.gather(self.ctl.run(), tick())
 
     def _screen(self) -> tether.Rect:
-        f = (self.circle.screen() or NSScreen.mainScreen()).visibleFrame()
-        return tether.Rect(f.origin.x, f.origin.y, f.size.width, f.size.height)
+        return _box((self.circle.screen() or NSScreen.mainScreen()).visibleFrame())
 
     def _keep(self, x, y):
         s = self._screen()
@@ -154,12 +158,23 @@ class App:
         self.sound.play()
 
     def act(self, what, agent) -> None:
-        if what in ("in", "out"):
-            self.loop.call_soon_threadsafe(self.ctl.hover, agent, what == "in")
+        if what == "in":
+            self.inside.add(agent)
+            self.loop.call_soon_threadsafe(self.ctl.hover, agent, True)
+        elif what == "left":
+            self.left(NSEvent.mouseLocation())
         elif what == "stop":
             asyncio.run_coroutine_threadsafe(self.ctl.stop(agent), self.loop)
         elif agent in self.beads:
             asyncio.run_coroutine_threadsafe(self.ctl.answer(what, self.beads[agent].card.ask_id), self.loop)
+
+    def left(self, p) -> None:
+        """Hover-off for each bead the pointer has left (place.left): asked on AppKit's exit, and with the pointer for
+        the exits AppKit never sends, so a bead that moved, resized, was covered or closed under it does not stay open."""
+        rects = {a: (_box(b.win.frame()), _box(b.holder.zone)) for a, b in self.beads.items()}
+        for agent in place.left(p.x, p.y, self.inside, rects):
+            self.inside.discard(agent)
+            self.loop.call_soon_threadsafe(self.ctl.hover, agent, False)
 
     def note(self, name) -> None:
         if name in HOLDS:
@@ -175,11 +190,13 @@ class App:
     def follow(self) -> None:
         """The square panel takes clicks only over the round circle: in its corners it ignores the mouse, so a click
         there reaches the app beneath (the final review's M11). Asked 60 times a second near the circle, 10 elsewhere,
-        and not at all while the face is held."""
+        and not at all while the face is held. Each time, a bead the pointer has left gets its hover-off."""
         p, o = NSEvent.mouseLocation(), self.circle.frame().origin
         through = not place.takes_click(p.x, p.y, o.x, o.y, SIZE)
         if through != self.circle.ignoresMouseEvents():
             self.circle.setIgnoresMouseEvents_(through)
+        if self.inside:
+            self.left(p)
         self.pointer = None
         if not self.held:
             every = place.follow_every(p.x, p.y, o.x, o.y, SIZE)

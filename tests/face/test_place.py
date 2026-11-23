@@ -1,4 +1,5 @@
 from jarvis.face import place
+from jarvis.face.tether import Rect
 
 
 def test_place_round_trips_and_survives_a_broken_file(tmp_path):
@@ -45,3 +46,13 @@ def test_the_pointer_is_followed_fast_only_near_the_circle():   # re-review N2
     assert place.follow_every(80, 80, 0, 0, 160) == place.follow_every(2, 2, 0, 0, 160) == 1 / 60
     assert place.follow_every(80, 80 + 80 + place.NEAR, 0, 0, 160) == 1 / 60
     assert place.follow_every(80, 80 + 80 + place.NEAR + 1, 0, 0, 160) == 0.1 == place.follow_every(900, 900, 0, 0, 160)
+
+
+def test_a_bead_is_left_once_the_pointer_is_off_it_and_off_where_it_came_in():   # live, 2026-11-23: stuck open
+    bead, came_in = Rect(40, 0, 100, 98), Rect(0, 0, 60, 36)   # it opened and moved: the pointer came in at the left
+    rects = {"t1": (bead, came_in)}
+    assert place.left(100, 50, {"t1"}, rects) == []            # on the bead
+    assert place.left(20, 20, {"t1"}, rects) == []             # where it came in: still the hover (M6)
+    assert place.left(20, 60, {"t1"}, rects) == ["t1"]         # off both, whatever moved under a still pointer
+    assert place.left(100, 50, {"t1"}, {}) == ["t1"]           # its bead is gone: closed, or behind "+N more"
+    assert place.left(20, 60, set(), rects) == []              # only a bead the pointer went into

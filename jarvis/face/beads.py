@@ -8,7 +8,7 @@ import weakref
 
 import objc
 from AppKit import (
-    NSBackingStoreBuffered, NSBezelStyleCircular, NSBezelStylePush, NSButton, NSColor, NSControlSizeLarge, NSEvent,
+    NSBackingStoreBuffered, NSBezelStyleCircular, NSBezelStylePush, NSButton, NSColor, NSControlSizeLarge,
     NSFloatingWindowLevel, NSFont, NSFontDescriptorSystemDesignRounded, NSFontWeightRegular, NSFontWeightSemibold,
     NSImage, NSImageSymbolConfiguration, NSImageView, NSLineBreakByTruncatingTail, NSMakeRect, NSPanel,
     NSTextAlignmentLeft, NSTextAlignmentRight, NSTextField, NSTrackingActiveAlways, NSTrackingArea,
@@ -17,7 +17,7 @@ from AppKit import (
     NSWindowCollectionBehaviorFullScreenAuxiliary, NSWindowCollectionBehaviorIgnoresCycle,
     NSWindowCollectionBehaviorStationary, NSWindowStyleMaskBorderless, NSWindowStyleMaskNonactivatingPanel,
 )
-from Foundation import NSObject, NSPointInRect
+from Foundation import NSObject
 from Quartz import (
     CABasicAnimation, CALayer, CAMediaTimingFunction, CAShapeLayer, CATransaction, CGPathAddLineToPoint,
     CGPathCloseSubpath, CGPathCreateMutable, CGPathMoveToPoint, kCAMediaTimingFunctionEaseInEaseOut,
@@ -67,21 +67,7 @@ class Pane(NSView):
         self.press.act("in", self.identifier())
 
     def mouseExited_(self, event):
-        NSObject.cancelPreviousPerformRequestsWithTarget_selector_object_(self, "pointerLeft:", None)
-        self.pointerLeft_(None)
-
-    def pointerLeft_(self, _):
-        """Out only once the pointer has left both the bead and where it came in, so a bead that moved while it
-        opened does not shut, move back under the pointer and open again (the final review's M6)."""
-        if self.window() is None:
-            return
-        p = NSEvent.mouseLocation()
-        if NSPointInRect(p, self.window().frame()):
-            return   # still on the bead: its next mouseExited_ decides
-        if NSPointInRect(p, self.zone):
-            self.performSelector_withObject_afterDelay_("pointerLeft:", None, 0.15)
-        else:
-            self.press.act("out", self.identifier())
+        self.press.act("left", self.identifier())   # the face asks the pointer which beads it has left (place.left)
 
     def viewDidChangeEffectiveAppearance(self):
         """Light, dark or Increase Contrast: the layers' resolved system red is resolved again (M16)."""
@@ -164,7 +150,6 @@ class _Piece:
         self.holder.layer().setSpeed_(0.0 if on else 1.0)
 
     def close(self):
-        NSObject.cancelPreviousPerformRequestsWithTarget_(self.holder)
         if self.win.parentWindow():
             self.win.parentWindow().removeChildWindow_(self.win)
         self.win.close()

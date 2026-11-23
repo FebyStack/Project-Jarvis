@@ -49,6 +49,14 @@ def follow_every(px, py, x, y, size) -> float:
     return 1 / 60 if math.hypot(px - x - size / 2, py - y - size / 2) <= size / 2 + NEAR else 0.1
 
 
+def left(px, py, inside, rects) -> list[str]:
+    """The beads the pointer went into (`inside`) that it is now over neither the bead nor where it came in (M6), or
+    whose bead is gone. `rects`: agent -> (its frame, where the pointer came in), each with x, y, w, h. Asked with the
+    pointer, not only on AppKit's exit, which never comes when a bead moves, resizes, is covered or closes under a
+    still pointer."""
+    return [a for a in inside if not any(r.x <= px <= r.x + r.w and r.y <= py <= r.y + r.h for r in rects.get(a, ()))]
+
+
 def single(home: Path, wait: bool = False):
     """The one-face lock, held while the returned file stays open; None while another face holds it, unless it waits
     until that face lets go."""
