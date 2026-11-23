@@ -1,11 +1,13 @@
 import asyncio
 from unittest.mock import ANY
 
+import pytest
+
 from jarvis.daemon.core import Reply
 from jarvis.daemon.instant import say_time
 from jarvis.daemon.state import State
 from tests.conftest import NOW, FakeBridge, day_log, until
-from tests.daemon.events import GOOD_VERDICT, agent_done, agent_start, tool, tool_result, turn
+from tests.daemon.events import GOOD_VERDICT, agent_call, agent_done, agent_start, rows, tool, tool_result, turn
 
 
 def outside_write(bridge, tmp_path):
@@ -172,6 +174,49 @@ async def test_a_background_triage_lets_the_front_door_dispatch_later(jarvis, br
     assert [r["channel"] for r in replies] == ["phone", "phone"]
     text = next(vault.raw.glob("*-fix-export-bug.md")).read_text()
     assert "coder (" in text and "Wrote the poem." in text and "[[poetry]]" in text
+
+
+@pytest.mark.parametrize("verdict_in_its_turn", [True, False])
+async def test_a_worker_dispatched_in_a_turn_of_its_own_after_triage_belongs_to_its_request(jarvis, bridge, vault,
+                                                                                             verdict_in_its_turn):
+    """Febriel's 16:04 run: triage's verdict came back while the turn that called it still ran; Claude Code then
+    announced it in a turn of its own, where the front door dispatched the researcher."""
+    (vault.root / "wiki").mkdir(); (vault.root / "wiki" / "population.md").write_text("x")
+    t = asyncio.create_task(jarvis.submit("largest Mindanao cities", "phone")); await bridge.got("largest Mindanao cities")
+    for e in (tool("Agent", {"subagent_type": "triage"}, id="tuT"), agent_start("t0", "triage", background=True, tool_use_id="tuT"),
+              tool("Read", {"file_path": str(vault.root / "wiki" / "population.md")}, id="r1"), tool_result("x", tool_use_id="r1")):
+        bridge.emit(e)
+    verdict = agent_done("t0", "completed", GOOD_VERDICT, tool_use_id="tuT")
+    if verdict_in_its_turn:
+        bridge.emit(verdict)
+    bridge.emit(turn("Checking first. I'm waiting on triage.")); await t
+    if not verdict_in_its_turn:
+        bridge.emit(verdict)
+    bridge.emit({"kind": "turn_start"})                                    # triage's notification, a turn of its own
+    assert (await jarvis.hook(agent_call("researcher", "tuR", "Mindanao cities", "Find them.")))["verdict"] == "allow"
+    bridge.emit(agent_start("t1", "researcher", background=True, tool_use_id="tuR"))
+    assert {k: rows(jarvis)["t1"][k] for k in ("title", "channel")} == {"title": "Fix export bug", "channel": "phone"}
+    for e in (turn("A researcher is on it."), agent_done("t1", "completed", "Davao City is first.", tool_use_id="tuR"),
+              {"kind": "turn_start"}, turn("Davao City is first.")):
+        bridge.emit(e)
+    note = next(vault.raw.glob("*-fix-export-bug.md")).read_text()
+    assert "researcher" in note and "Davao City is first." in note
+
+
+async def test_a_verdict_that_lands_in_the_next_requests_turn_still_lets_its_request_dispatch(jarvis, bridge, vault):
+    """Febriel's 14:45 run: he asked again while triage ran, and its verdict came back during that second turn."""
+    t = asyncio.create_task(jarvis.submit("push to main", "mac")); await bridge.got("push to main")
+    for e in (tool("Agent", {"subagent_type": "triage"}, id="tuT"), agent_start("t0", "triage", background=True, tool_use_id="tuT"),
+              turn("Checking first.")):
+        bridge.emit(e)
+    await t
+    t2 = asyncio.create_task(jarvis.submit("push to main again", "mac")); await bridge.got("push to main again")
+    bridge.emit(agent_done("t0", "completed", GOOD_VERDICT, tool_use_id="tuT"))
+    bridge.emit(turn("Still checking.")); await t2
+    bridge.emit({"kind": "turn_start"})                                    # triage's notification, a turn of its own
+    assert (await jarvis.hook(agent_call("coder", "tuC", "Push", "Push it.")))["verdict"] == "allow"
+    bridge.emit(agent_start("t1", "coder", background=True, tool_use_id="tuC"))
+    assert rows(jarvis)["t1"]["title"] == "Fix export bug"
 
 
 async def test_with_two_questions_open_a_bare_yes_is_not_guessed(jarvis, bridge, tmp_path):

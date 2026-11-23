@@ -432,8 +432,10 @@ class Jarvis:
         return Reply(text, loop)
 
     def _record_closed(self) -> None:
-        """Writes the vault record of every request whose turn and background workers are over."""
-        for req in [r for r in self._pending if r.tracker.closed]:
+        """Writes the vault record of every request whose turn and background workers are over and whose workers' news
+        has been announced; a stop's hushed turn adds nothing, so the note does not wait for it."""
+        news = {rid for rid, stop in self._causes if not stop}
+        for req in [r for r in self._pending if r.tracker.closed and r.id not in news]:
             self._pending.remove(req)
             path = req.tracker.finish(req.answer, self._confirmations(req))
             if req.tracker.is_task:
@@ -512,7 +514,7 @@ class Jarvis:
         ended = kind == "agent_done" and owner is not None and ev.get("task_id") in owner.tracker.open_agents
         if owner:
             owner.tracker.feed(ev)
-        if ended and not (owner is self._current and self._in_flight()):  # announced in a turn of its own
+        if ended:  # announced in a turn of its own, even one that ends during its request's turn (Febriel, 16:04)
             stop = ev.get("task_id") in self._stopped and not (self._in_flight() or self._turn_open)
             self._causes.append((owner.id, stop))
         if kind == "agent_start":
