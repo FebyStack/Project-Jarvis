@@ -6,8 +6,10 @@ from jarvis import config
 from jarvis.face.tether import Rect, plume, thread
 
 SCREEN = Rect(0, 0, 1440, 900)
-CORNERS = [(1300, 120), (140, 120), (1300, 780), (140, 780), (720, 450)]
-STACKS = [[(190, 36)], [(300, 150), (190, 36), (210, 36)], [(190, 36)] * 5 + [(120, 24)], [(300, 150)] * 2 + [(190, 36)] * 3]
+CORNERS = [(1300, 120), (140, 120), (1300, 780), (140, 780), (720, 450),
+           (1360, 80), (80, 80), (1360, 820), (80, 820), (1360, 450), (80, 450), (720, 80), (720, 820)]
+STACKS = [[(190, 36)], [(300, 150), (190, 36), (210, 36)], [(190, 36)] * 5 + [(120, 24)], [(300, 150)] * 2 + [(190, 36)] * 3,
+          [(300, 150)] * 5]
 
 
 def overlap(a, b):
@@ -53,7 +55,7 @@ def test_no_thread_crosses_another_bead(centre, sizes):
     p = plume(centre, SCREEN, sizes)
     for i, anchor in enumerate(p.anchors):
         for sway in (-6, 0, 6):
-            (sx, sy), (mx, my), (ex, ey) = thread(anchor, centre, sway)
+            (sx, sy), (mx, my), (ex, ey) = thread(anchor, centre, sway, p.side)
             for t in (k / 19 for k in range(20)):
                 q = 1 - t
                 point = (q * q * sx + 2 * q * t * mx + t * t * ex, q * q * sy + 2 * q * t * my + t * t * ey)
@@ -100,3 +102,12 @@ def test_a_thread_ends_on_the_rim_and_sways_only_its_control():
     assert math.dist(anchor, start) + math.dist(start, end) + math.dist(end, centre) == pytest.approx(math.dist(anchor, centre))
     s, c, e = thread(anchor, centre, sway=6)
     assert (s, e) == (start, end) and c != control
+
+
+def test_a_threads_bow_mirrors_with_the_plume():
+    anchor, centre = (1000, 400), (1300, 120)
+    across, over = (lambda p: (1440 - p[0], p[1])), (lambda p: (p[0], 900 - p[1]))
+    for sway in (-6, 0, 6):
+        drawn = thread(anchor, centre, sway, "left")
+        assert thread(across(anchor), across(centre), sway, "right") == tuple(pytest.approx(across(p)) for p in drawn)
+        assert thread(over(anchor), over(centre), sway, "left") == tuple(pytest.approx(over(p)) for p in drawn)
