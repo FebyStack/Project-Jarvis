@@ -117,9 +117,10 @@ class Jarvis:
         self._limits = {"status": "ok", "weekly": None, "resets_at": None}
         self._offline = self._turn_open = self._cancelling = False
         self._unprompted_owner: str | None = None  # the request an unprompted turn belongs to, by id
-        # (request, stop) per background worker that ended and awaits its announcement, one turn each; stop: a stopped
-        # worker that ended while no turn ran, whose turn is hushed
-        self._causes: deque[tuple[str, bool]] = deque()
+        # (request, stop, due) per background worker that ended and awaits its announcement, one turn each; stop: a stopped
+        # worker that ended while no turn ran, whose turn is hushed; due: when that turn of its own may start, None while
+        # the turn it ended in runs. The stream names a turn's news only in its result (origin.runId), after the gate.
+        self._causes: deque[tuple[str, bool, float | None]] = deque()
         self._hush = False  # the open turn of its own announces a stopped worker: neither shown nor spoken
         self._stopped: set[str] = set()  # agent ids the gate refuses
         self._sweep: tuple[Path, object] | None = None  # (day log, scribe process) of a running idle sweep
@@ -188,6 +189,9 @@ class Jarvis:
             self._reset_done = True
             await self.bridge.reset()
             log.info("conversation reset after %.0f s idle", now - self._last_activity)
+        if not (self._in_flight() or self._turn_open) and self._drop_old_news():  # their notes wait no longer
+            self._record_closed()
+            self._publish_queue()
         self._sweep_step(now, quiet)
         if self._waiting:  # e.g. the child came back after dying: nothing else would wake the queue
             self._wake.set()
@@ -434,7 +438,7 @@ class Jarvis:
     def _record_closed(self) -> None:
         """Writes the vault record of every request whose turn and background workers are over and whose workers' news
         has been announced; a stop's hushed turn adds nothing, so the note does not wait for it."""
-        news = {rid for rid, stop in self._causes if not stop}
+        news = {c[0] for c in self._causes if not c[1]}
         for req in [r for r in self._pending if r.tracker.closed and r.id not in news]:
             self._pending.remove(req)
             path = req.tracker.finish(req.answer, self._confirmations(req))
@@ -498,6 +502,7 @@ class Jarvis:
         elif kind == "turn":
             if self._in_flight():
                 self._causes = deque(c for c in self._causes if not c[1])
+                self._news_due()
                 self._current.turn = ev
                 self._current.done.set()
             else:
@@ -515,8 +520,11 @@ class Jarvis:
         if owner:
             owner.tracker.feed(ev)
         if ended:  # announced in a turn of its own, even one that ends during its request's turn (Febriel, 16:04)
-            stop = ev.get("task_id") in self._stopped and not (self._in_flight() or self._turn_open)
-            self._causes.append((owner.id, stop))
+            running = self._in_flight() or self._turn_open
+            stop = ev.get("task_id") in self._stopped and not running
+            self._causes.append((owner.id, stop, None if running else self.clock()))
+        if kind == "tool_result" and not ev.get("parent"):  # this turn's next API call carries the news of its ended workers
+            self._causes = deque(c for c in self._causes if c[2] is not None)
         if kind == "agent_start":
             call, desc = "", ev.get("description") or ""
             if ev["agent"] not in FREE_AGENTS:
@@ -557,14 +565,28 @@ class Jarvis:
         if that worker was stopped."""
         if self._turn_open:
             return
-        rid, self._hush = self._causes.popleft() if self._causes else (None, False)
+        self._drop_old_news()
+        rid, self._hush, _ = self._causes.popleft() if self._causes else (None, False, None)
         self._turn_open, self._unprompted_owner = True, rid if self._find(rid) else None
+
+    def _news_due(self) -> None:
+        """A turn is over: the news of workers that ended during it is due now, each in a turn of its own."""
+        now = self.clock()
+        self._causes = deque((rid, stop, now if due is None else due) for rid, stop, due in self._causes)
+
+    def _drop_old_news(self) -> bool:
+        """News whose turn of its own has not started within NEWS_SECONDS of being due never gets one: it lends its
+        request to no later turn. True if any was dropped."""
+        now, n = self.clock(), len(self._causes)
+        self._causes = deque(c for c in self._causes if c[2] is None or now - c[2] < config.NEWS_SECONDS)
+        return len(self._causes) < n
 
     def _close_unprompted(self, text: str) -> None:
         """The front door's own turn ended, announcing a worker that finished (a stopped one: said nowhere)."""
         self._open_unprompted()
         req = self._find(self._unprompted_owner) if self._unprompted_owner else None
         hush, self._turn_open, self._unprompted_owner, self._hush = self._hush, False, None, False
+        self._news_due()
         channel = req.channel if req else "mac"
         if req and not hush:
             req.answer += "\n\n" + text
@@ -572,7 +594,7 @@ class Jarvis:
         if text.strip() and not hush:  # an empty turn (e.g. right after a restart) has nothing to say or log
             self._reply(channel, text, text.rstrip().endswith("?"))
             self.vault.log_exchange(Exchange(self.now(), channel, "(worker finished)", text))
-        if not (hush and any(not stop for _, stop in self._causes)):  # news still to come after a stop: its note waits
+        if not (hush and any(not c[1] for c in self._causes)):  # news still to come after a stop: its note waits
             self._record_closed()
         self._publish_queue()
         self._wake.set()

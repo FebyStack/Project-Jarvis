@@ -219,6 +219,25 @@ async def test_a_verdict_that_lands_in_the_next_requests_turn_still_lets_its_req
     assert rows(jarvis)["t1"]["title"] == "Fix export bug"
 
 
+@pytest.mark.parametrize("how", ["folded", "late"])
+async def test_news_already_given_lends_no_triage_to_a_later_turn_of_its_own(jarvis, bridge, clock, how):
+    """Security review of 35b8232: news that a running turn already carried (a tool round followed it), or whose turn
+    of its own never came, must not make a later turn of its own belong to that request."""
+    t = asyncio.create_task(jarvis.submit("fix the export bug", "mac")); await bridge.got("fix the export bug")
+    for e in (tool("Agent", {"subagent_type": "triage"}, id="tuT"), agent_start("t0", "triage", background=True, tool_use_id="tuT")):
+        bridge.emit(e)
+    if how == "folded":     # the verdict lands mid-turn; the next API call, after this tool round, carries it
+        for e in (agent_done("t0", "completed", GOOD_VERDICT, tool_use_id="tuT"), tool("Read", {"file_path": "/tmp/x"}, id="r1"),
+                  tool_result("x", tool_use_id="r1")):
+            bridge.emit(e)
+    bridge.emit(turn("Done.")); await t
+    if how == "late":
+        bridge.emit(agent_done("t0", "completed", GOOD_VERDICT, tool_use_id="tuT")); clock.advance(6)
+    bridge.emit({"kind": "turn_start"})                                    # a turn of its own about something else
+    d = await jarvis.hook(agent_call("coder", "tuC", "Untriaged", "Do it."))
+    assert d == {"verdict": "deny", "reason": "Call triage before dispatching a worker."}
+
+
 async def test_with_two_questions_open_a_bare_yes_is_not_guessed(jarvis, bridge, tmp_path):
     t = asyncio.create_task(jarvis.submit("make two files", "mac")); await bridge.got("make two files")
     for e in (agent_start("t1", "coder", tool_use_id="tu1"), agent_start("t2", "coder", tool_use_id="tu2")):
