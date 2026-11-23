@@ -693,7 +693,27 @@ jarvisd ran the fixed code from 2026-11-22 23:30:17. `jarvisd.log` now has only 
 | "Jarvis", tone, cough, "capital of Chile" | Pass: "Santiago." 6.7 s after the tone. The logs can't show whether the cough reached the new keep-listening path, because a wordless sound leaves no line. |
 | Tap near the end of a reading, then "what time is it" | Pass: the tap cut the reading at 11.8 s and the request was answered. Before the fix, this tap was lost. |
 
-**Seen:** the first reply after an hour idle, the instant time answer, took **11.5 s** from reply to sound. Earlier first replies after idle took 3–7 s: 5.7 s, 4.0 s, 4.3 s, 5.4 s, 3.1 s and 7.4 s. The next replies started in 0.2–0.3 s. This looks like a cold first synthesis, which is older than the fix pass. Parked.
+**Seen:** the first reply after an hour idle, the instant time answer, took **11.5 s** from reply to sound. Earlier first replies after idle took 3–7 s: 5.7 s, 4.0 s, 4.3 s, 5.4 s, 3.1 s and 7.4 s. The next replies started in 0.2–0.3 s. This looks like a cold first synthesis, which is older than the fix pass. Found and fixed below.
+
+### The slow first reply after idle (2026-11-23)
+
+**Cause: macOS swaps the unused voice out.**
+- jarvisd's footprint was 6.1 GB, 5.6 GB of it MLX's GPU buffers, but only 61–90 MB was in RAM. Swap was at 8.9 of 10 GB, on 16 GB of RAM.
+- Reproduced at 00:55, after 20 min idle: reply to sound took 5.0 s.
+- A thread sample from that request showed about 3.5 s in the GPU driver's command submit (`IOGPUCommandQueueSubmitCommandBuffers`) while it paged the voice's buffers back in. Transcription (0.18 s) and the speaker stream were quick.
+- The listener stays warm because any talk in the room runs it. The voice runs only for replies.
+
+**Ruled out:** wiring only the voice's GPU buffers (`mx.set_wired_limit`, Kokoro is 312 MB). Two Kokoro copies sat idle 25 min side by side:
+
+| Copy | First sentence after 25 min idle |
+|---|---|
+| Not wired | 2.87 s |
+| Wired | 2.18 s |
+| Either, warm | about 0.22 s |
+
+Both copies' ordinary memory dropped to 23 MB resident, so the CPU side of synthesis is swapped out too.
+
+**Fix (2d4025b):** if the voice has made no speech for `WARM_SECONDS = 120`, it makes "Ready.", which is never played. That costs about 0.3 s of work every 2 minutes and nothing while Jarvis talks. A keep-warm probe at 2 and 5 minutes was cut short by a restart at about 01:35, so the 2 minutes is not measured yet. **Live check pending:** after jarvisd restarts with Plan 4, one request after 25 min idle should start speaking in under 1 s.
 
 ### Holding line and model routing (2026-11-22)
 
