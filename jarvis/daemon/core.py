@@ -475,7 +475,11 @@ class Jarvis:
         elif kind == "agent_progress" and ev.get("task_id") in self._agents:
             self._agents[ev["task_id"]]["doing"] = ev.get("description") or ""
         elif kind == "agent_done" and ev.get("task_id") in self._agents:
-            self._agents[ev["task_id"]]["_ended"] = self.clock()
+            a = self._agents[ev["task_id"]]
+            req = self._find(a["_req"]) if a["_req"] else None
+            a["_ended"] = self.clock()
+            a["_frozen"] = (req.tracker.verdict.title if req and req.tracker.verdict else a["_desc"],
+                            req.channel if req else "mac")
             self._agents[ev["task_id"]]["_state"] = {"completed": "done", "stopped": "stopped"}.get(ev.get("status"), "failed")
         elif kind == "tool" and ev.get("parent"):
             for a in self._agents.values():
@@ -743,10 +747,11 @@ class Jarvis:
         out = [row("jarvis", **front)]
         for id, a in self._agents.items():
             req = self._find(a["_req"]) if a["_req"] else None
-            verdict = req.tracker.verdict if req else None
+            title, channel = a.get("_frozen") or (
+                req.tracker.verdict.title if req and req.tracker.verdict else a["_desc"], req.channel if req else "mac")
             out.append(row(id, name=a["name"], call=a["call"], model=a["model"], doing=a["doing"],
-                           since=a["since"], background=a["background"], title=verdict.title if verdict else a["_desc"],
-                           state=a.get("_state", "working"), channel=req.channel if req else "mac"))
+                           since=a["since"], background=a["background"], title=title,
+                           state=a.get("_state", "working"), channel=channel))
         return out
 
     def _publish_agents(self) -> None:

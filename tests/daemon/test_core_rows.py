@@ -91,3 +91,11 @@ async def test_triage_and_scribe_have_no_name(jarvis, bridge):
 async def test_a_phone_request_marks_its_rows(jarvis, bridge):
     await start_worker(jarvis, bridge, channel="phone")
     assert rows(jarvis)["t1"]["channel"] == "phone"
+
+
+async def test_an_ended_row_keeps_its_title_and_channel_after_its_request_is_gone(jarvis, bridge):
+    await start_worker(jarvis, bridge, channel="phone")
+    bridge.emit(agent_done("t1", "completed", "ok", tool_use_id="tu9")); bridge.emit(turn("Fixed."))
+    await until(lambda: jarvis._find("1") is None)
+    row = rows(jarvis)["t1"]
+    assert row["state"] == "done" and row["channel"] == "phone" and row["title"] == "Fix export bug"
