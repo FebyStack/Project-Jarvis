@@ -235,3 +235,18 @@ async def test_a_hushed_turn_does_not_swallow_another_workers_result(make, bridg
     b.emit({"kind": "turn_start"}); b.emit({"kind": "delta", "text": "Orin fixed it."}); b.emit(turn("Orin fixed it."))
     assert ("feed", "Orin fixed it.") in sp.calls and ("say", "Orin fixed it.") in sp.calls
     assert "Orin fixed it." in next(vault.raw.glob("*-fix-export-bug.md")).read_text()
+
+
+async def test_a_stop_announced_first_is_hushed_and_the_next_result_is_heard(make, bridge_of, vault):   # re-review N1
+    j = await make(speaker=(sp := FakeSpeaker())); b = bridge_of(j)
+    await workers(j, b, "t1", "t2")
+    await j.stop_agent("t1")
+    b.emit(agent_done("t1", "stopped", "stopped", tool_use_id="tu-t1"))
+    b.emit(agent_done("t2", "completed", "Fixed.", tool_use_id="tu-t2"))
+    seen, said = published(j), len(sp.calls)
+    b.emit({"kind": "turn_start"}); b.emit({"kind": "delta", "text": "Nova was stopped."}); b.emit(turn("Nova was stopped."))
+    b.emit({"kind": "turn_start"}); b.emit({"kind": "delta", "text": "Orin fixed it."}); b.emit(turn("Orin fixed it."))
+    assert [c for c in sp.calls[said:] if c[0] in ("say", "feed")] == [("feed", "Orin fixed it."), ("say", "Orin fixed it.")]
+    assert [e["text"] for e in seen() if e["type"] in ("reply", "reply_delta")] == ["Orin fixed it."] * 2
+    note = next(vault.raw.glob("*-fix-export-bug.md")).read_text()
+    assert "Orin fixed it." in note and "Nova was stopped." not in note

@@ -56,6 +56,13 @@ def test_a_close_mishearing_still_names_the_agent():
     assert match_named("yes to orin", run) == ("yes", "Orin")
 
 
+def test_b_and_v_p_and_f_count_as_one_first_letter():   # Febriel's ruling: his Bisaya accent
+    assert match_named("stop besper", {"Vesper", "Nova"}) == ("stop", "Vesper")
+    assert match_named("yes to pable", {"Fable", "Nova"}) == ("yes", "Fable")
+    assert match_named("stop vasil", {"Basil", "Nova"}) == ("stop", "Basil")
+    assert match_named("stop pinch", {"Finch", "Nova"}) is None and match_named("stop pern", {"Fern", "Nova"}) is None
+
+
 COMMON = ("it that this now there here please all both everything everyone none one each either her him them ours "
           "working talking listening playing recording reading running waiting typing music timer alarm alarms "
           "down done most when were same safe save keep kept pick great always clear close cover even only game gave "
