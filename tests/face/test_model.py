@@ -74,6 +74,11 @@ def test_an_ended_card_is_one_line_even_hovered():
     assert not c.open and not c.stop
 
 
+@pytest.mark.parametrize("ended", ["done", "stopped", "failed"])
+def test_an_ended_card_has_no_stop_even_with_a_question_left_on_it(ended):
+    assert not cards(view(agents(asking() | {"state": ended})), 1001.0)[0].stop
+
+
 def test_hover_for_a_card_that_is_gone_is_forgotten():
     v = view(agents(worker(id="t1")), hover("t9"), agents(worker(id="t9", since=1.0)))
     assert not cards(v, 1000.0)[0].open

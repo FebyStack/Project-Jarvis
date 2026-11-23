@@ -194,3 +194,12 @@ async def test_nothing_on_a_hidden_face_can_be_clicked(rig):
     await rig.push(face(False))
     await rig.ctl.answer("yes", "kt1")
     assert rig.fake.answers == [("yes", "kt1")]
+
+
+async def test_stop_on_a_bead_whose_worker_was_refused_and_ended_is_dropped(rig):   # Febriel's live run
+    await rig.push(snapshot(asking()))
+    assert rig.stacks[-1][0].cards[0].stop
+    await rig.push(snapshot(worker()), snapshot(worker("done")))
+    assert not rig.stacks[-1][0].cards[0].stop
+    await rig.ctl.stop("t1")
+    assert rig.fake.stops == [] and rig.fake.answers == []
