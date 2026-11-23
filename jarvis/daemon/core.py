@@ -115,7 +115,8 @@ class Jarvis:
         self._limits = {"status": "ok", "weekly": None, "resets_at": None}
         self._offline = self._turn_open = self._cancelling = False
         self._unprompted_owner: str | None = None  # the request an unprompted turn belongs to, by id
-        self._causes: deque[tuple[str, bool]] = deque()  # (request, its worker was stopped) per ended background worker
+        self._causes: deque[str] = deque()  # requests whose background worker ended and await their announcement
+        self._hush_next = False  # a stopped worker ended while no turn ran: the next turn, if one of its own, is hushed
         self._hush = False  # the open turn of its own announces a stopped worker: neither shown nor spoken
         self._stopped: set[str] = set()  # agent ids the gate refuses
         self._sweep: tuple[Path, object] | None = None  # (day log, scribe process) of a running idle sweep
@@ -246,6 +247,7 @@ class Jarvis:
         fut = asyncio.get_running_loop().create_future()
         req.waiters.append(fut)
         self._waiting.append(req)
+        self._hush_next = False  # the next turn is his
         self._last_activity, self._reset_done = self.clock(), False
         self._wake.set()
         self._publish_queue()
@@ -324,9 +326,9 @@ class Jarvis:
 
     async def stop_agent(self, agent_id: str) -> bool:
         """That agent does nothing more: the gate refuses its calls, its question is a no, and its worker is ended.
-        Nothing is said (a card's Stop). False if no such agent is running."""
+        Nothing is said (a card's Stop). False if no such worker is running."""
         a = self._agents.get(agent_id)
-        if a is None or "_ended" in a:
+        if a is None or "_ended" in a or a["name"] in FREE_AGENTS:
             return False
         self._stopped.add(agent_id)
         for q in self.asks.pending():
@@ -487,6 +489,7 @@ class Jarvis:
                     self.speaker.feed(ev["text"])
         elif kind == "turn":
             if self._in_flight():
+                self._hush_next = False
                 self._current.turn = ev
                 self._current.done.set()
             else:
@@ -504,7 +507,9 @@ class Jarvis:
         if owner:
             owner.tracker.feed(ev)
         if ended and owner is not self._current:  # the front door will announce it in a turn of its own
-            self._causes.append((owner.id, ev["task_id"] in self._stopped))
+            self._causes.append(owner.id)
+        if kind == "agent_done" and ev.get("task_id") in self._stopped and not (self._in_flight() or self._turn_open):
+            self._hush_next = True
         if kind == "agent_start":
             call, desc = "", ev.get("description") or ""
             if ev["agent"] not in FREE_AGENTS:
@@ -544,11 +549,11 @@ class Jarvis:
         """A turn nobody asked for has started: it belongs to the oldest request whose worker ended unannounced."""
         if self._turn_open:
             return
-        self._turn_open, self._unprompted_owner, self._hush = True, None, False
+        self._turn_open, self._unprompted_owner, self._hush, self._hush_next = True, None, self._hush_next, False
         while self._causes:
-            rid, hush = self._causes.popleft()
+            rid = self._causes.popleft()
             if self._find(rid):
-                self._unprompted_owner, self._hush = rid, hush
+                self._unprompted_owner = rid
                 break
 
     def _close_unprompted(self, text: str) -> None:
@@ -578,7 +583,8 @@ class Jarvis:
             cur.done.set()
         for req in self._pending:
             req.tracker.abandon(why)
-        self._turn_open, self._unprompted_owner, self._cancelling, self._hush = False, None, False, False
+        self._turn_open, self._unprompted_owner, self._cancelling = False, None, False
+        self._hush = self._hush_next = False
         self._causes.clear()
         self._agents = {}
         self._record_closed()

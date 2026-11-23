@@ -186,3 +186,41 @@ async def test_a_second_answer_to_the_same_question_changes_nothing(jarvis, brid
     assert not jarvis.answer("no", ask_id=aid)
     assert await say(jarvis, "no to Nova") == "Nova has no question open."
     assert (await h)["verdict"] == "allow"
+
+
+async def test_a_stop_that_ends_mid_turn_hushes_no_later_turn(make, bridge_of):
+    j = await make(speaker=(sp := FakeSpeaker())); b = bridge_of(j)
+    await workers(j, b, "t1", "t2")
+    t = asyncio.create_task(j.submit("capital of Peru", "mac")); await b.got("capital of Peru")
+    await j.stop_agent("t1")
+    b.emit(agent_done("t1", "stopped", "stopped", tool_use_id="tu-t1"))
+    b.emit(turn("Lima.")); assert (await t).say == "Lima."
+    seen = published(j)
+    b.emit(agent_done("t2", "completed", "Fixed.", tool_use_id="tu-t2"))
+    b.emit({"kind": "turn_start"}); b.emit({"kind": "delta", "text": "Orin fixed it."}); b.emit(turn("Orin fixed it."))
+    assert ("feed", "Orin fixed it.") in sp.calls and ("say", "Orin fixed it.") in sp.calls
+    assert [e["text"] for e in seen() if e["type"] == "reply"] == ["Orin fixed it."]
+
+
+async def test_his_request_after_a_stop_is_heard_and_so_is_what_follows(make, bridge_of):
+    j = await make(speaker=(sp := FakeSpeaker())); b = bridge_of(j)
+    await workers(j, b, "t1", "t2")
+    await j.stop_agent("t1")
+    b.emit(agent_done("t1", "stopped", "stopped", tool_use_id="tu-t1"))
+    seen = published(j)
+    t = asyncio.create_task(j.submit("capital of Peru", "mac")); await b.got("capital of Peru")
+    b.emit({"kind": "delta", "text": "Lima."}); b.emit(turn("Lima.")); assert (await t).say == "Lima."
+    b.emit(agent_done("t2", "completed", "Fixed.", tool_use_id="tu-t2"))
+    b.emit({"kind": "turn_start"}); b.emit({"kind": "delta", "text": "Orin fixed it."}); b.emit(turn("Orin fixed it."))
+    assert {("feed", "Lima."), ("say", "Lima."), ("feed", "Orin fixed it."), ("say", "Orin fixed it.")} <= set(sp.calls)
+    assert [e["text"] for e in seen() if e["type"] == "reply"] == ["Lima.", "Orin fixed it."]
+
+
+async def test_only_a_worker_can_be_stopped(jarvis, bridge):
+    t = asyncio.create_task(jarvis.submit("fix the export bug", "mac")); await bridge.got("fix the export bug")
+    bridge.emit(agent_start("t0", "triage", tool_use_id="tu0")); bridge.emit(agent_start("t5", "scribe", tool_use_id="tu5"))
+    for i in ("t0", "t5", "jarvis"):
+        assert not await jarvis.stop_agent(i)
+    assert bridge.stopped_tasks == [] and rows(jarvis)["t0"]["state"] == "working"
+    assert (await jarvis.hook(call_from("t0", "Bash", {"command": "ls"})))["verdict"] == "allow"
+    bridge.emit(turn("ok")); await t
