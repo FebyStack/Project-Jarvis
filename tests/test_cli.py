@@ -222,3 +222,24 @@ async def test_a_voice_that_fails_to_start_does_not_stop_the_daemon(monkeypatch,
     os.kill(os.getpid(), signal.SIGTERM)
     await asyncio.wait_for(run, 10)
     assert stopped == [1]
+
+
+def test_face_is_a_command(monkeypatch):
+    import sys, types
+    calls = []
+    monkeypatch.setitem(sys.modules, "jarvis.face.app", types.SimpleNamespace(run=lambda: calls.append(1)))
+    assert main(["face"]) == 0 and calls == [1]
+
+
+def test_the_face_plist_runs_face_with_no_secrets():
+    p = plistlib.loads((ROOT / "launchd" / "com.febriel.jarvis-face.plist").read_bytes())
+    assert p["ProgramArguments"] == ["/Users/febrielotud/Developer/Project Jarvis/.venv/bin/jarvis", "face"]
+    assert p["RunAtLoad"] is True and p["KeepAlive"] is True and p["LimitLoadToSessionType"] == "Aqua"
+    assert "EnvironmentVariables" not in p
+
+
+def test_importing_the_cli_or_the_daemon_never_loads_appkit():
+    import subprocess, sys
+    code = "import sys, jarvis.cli, jarvis.daemon.core; print([m for m in ('AppKit', 'WebKit') if m in sys.modules])"
+    out = subprocess.run([sys.executable, "-c", code], cwd=ROOT, capture_output=True, text=True, check=True)
+    assert out.stdout.strip() == "[]"

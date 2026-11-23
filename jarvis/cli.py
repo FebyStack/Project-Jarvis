@@ -1,4 +1,4 @@
-"""`jarvis daemon | hud | ask | doctor | shortlist | models` (plan 2, Task 12; plan 3, Task 12)."""
+"""`jarvis daemon | hud | face | ask | doctor | shortlist | models` (plan 2, Task 12; plan 3, Task 12; plan 4, Task 10)."""
 import argparse
 import json
 import os
@@ -225,6 +225,7 @@ def main(argv: list[str] | None = None) -> int:
     sub = p.add_subparsers(dest="cmd", required=True)
     sub.add_parser("daemon", help="run jarvisd")
     sub.add_parser("hud", help="the gold terminal HUD")
+    sub.add_parser("face", help="the circle on screen, with an agent bead for each worker")
     sub.add_parser("ask", help="ask jarvisd once").add_argument("text")
     sub.add_parser("doctor", help="what is still missing")
     sub.add_parser("shortlist", help="repeat tasks from your last 30 days")
@@ -234,6 +235,10 @@ def main(argv: list[str] | None = None) -> int:
         return daemon()
     if args.cmd == "hud":
         from jarvis.tui.app import run
+        run()
+        return 0
+    if args.cmd == "face":
+        from jarvis.face.app import run
         run()
         return 0
     if args.cmd == "ask":

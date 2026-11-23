@@ -34,3 +34,21 @@ Then check with `jarvis doctor`. A Python upgrade (uv-managed CPython, or Homebr
 ## Speech models and offline use
 
 `jarvis models` downloads the speech models once. jarvisd never downloads: it starts with `HF_HUB_OFFLINE=1` and loads them from the cache, so the voice works with no network. The login agent runs `.venv/bin/jarvis` directly and is unaffected by `uv`. By hand with no network, run `.venv/bin/jarvis …` or `uv run --frozen --no-sync jarvis …`: plain `uv run` tries to fetch the `en_core_web_sm` wheel again and fails.
+
+## The face login agent
+
+`com.febriel.jarvis-face.plist` starts `jarvis face` (the red circle and its agent beads) when you log in, and starts it again if it stops. It runs only in your desktop session, sets no environment variables, and needs no permission: no microphone, no Input Monitoring, no Accessibility. It is a client of jarvisd like the terminal HUD; when jarvisd restarts or is not running yet, the circle goes grey with `NO DAEMON` and reconnects by itself every 2 seconds.
+
+Load it:
+
+```bash
+cp "/Users/febrielotud/Developer/Project Jarvis/launchd/com.febriel.jarvis-face.plist" ~/Library/LaunchAgents/ && launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.febriel.jarvis-face.plist
+```
+
+Unload it (the circle goes away and does not come back at login):
+
+```bash
+launchctl bootout gui/$(id -u)/com.febriel.jarvis-face && rm ~/Library/LaunchAgents/com.febriel.jarvis-face.plist
+```
+
+Quit any `jarvis face` you started by hand first, or two circles show. Because the agent keeps it alive, quitting the face's process brings it straight back; unload the agent to put it away.
