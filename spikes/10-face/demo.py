@@ -108,6 +108,9 @@ class Demo:
             yield await self.q.get()
 
 
+import os
+if os.environ.get("FACE_PAGE"):   # try a variant of the page
+    app.PAGE = Path(os.environ["FACE_PAGE"])
 app.Client = Demo
 app.load_token = lambda home: ""
 app.run()

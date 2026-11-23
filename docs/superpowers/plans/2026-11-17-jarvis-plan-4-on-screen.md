@@ -58,6 +58,9 @@ Probe results are in `docs/spikes/findings.md`, "Plan 4 probes". Where this tabl
 | P1a | App Nap freezes an accessory app's timers after ~90 s | Task 10 holds an `NSProcessInfo` activity (user-initiated, idle sleep allowed) |
 | P7 | `callAsyncJavaScript` with arguments is exact | Task 10 pushes the payload that way |
 | — | A page cannot move its own window | Dragging the circle is native (Task 10); the page posts no messages at all; the shell hands `{"type": "moved", x, y}` to `Controller.on_message` |
+| P2, P3, P8 (live, on the built face) | One panel per bead passes every click, typing, full-screen and Spaces check; the system glass is right in light, dark and Reduce Transparency; the 0.45 s animation group is smooth with threads attached | Decision 10 and Task 10's motion stand; no timer spring |
+| P1 (live, on the built face) | Idle 7.2 %, working/talking ~22 % at 30 fps; the circle's web view is ~19 % of it | Febriel kept 30 fps: budgets are now working/talking ≤ 25 %, idle ≤ 8 %, memory ≤ 200 MB |
+| Live, Febriel | A working bead sometimes stays open after the pointer leaves; he wants a shortcut to hide the face | Fixed after Task 12 Step 1: hover reconciled with the real pointer; Ctrl-Option-J (detected in jarvisd's key tap) hides and shows the face; a question while hidden brings it back |
 
 ## File structure
 
