@@ -119,7 +119,7 @@ class App:
             centre.addObserver_selector_name_object_(self.hub, "note:", name, sender)
         main = lambda fn: lambda *a: AppHelper.callAfter(fn, *a)
         self.ctl = Controller(Client(load_token(config.HOME_DIR)), main(self.show_circle), main(self.show_stack),
-                              main(self.play), config.HOME_DIR)
+                              main(self.play), config.HOME_DIR, show_hidden=main(self.show_hidden))
         self.loop = asyncio.new_event_loop()
         threading.Thread(target=self.loop.run_forever, daemon=True).start()
         asyncio.run_coroutine_threadsafe(self._work(), self.loop).add_done_callback(_died)
@@ -152,6 +152,17 @@ class App:
             self.show_circle(self.payload)
         if self.held:
             self._js("window.face.pause(p)", {"p": True})
+
+    def show_hidden(self, hidden) -> None:
+        """Ctrl-Option-J: the circle goes, its beads and threads with it (child panels follow their parent), and all is
+        held as while the screen is locked; back, they come where they were and the plume is laid again."""
+        if hidden:
+            self.circle.orderOut_(None)
+        else:
+            self.circle.orderFrontRegardless()
+        self.hold("hidden", hidden)
+        if not hidden:
+            self.lay()
 
     def play(self) -> None:
         self.sound.stop()

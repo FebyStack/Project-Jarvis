@@ -1,4 +1,5 @@
-"""The face's controller: events in; the circle's payload, the bead stack and the alert sound out. No AppKit."""
+"""The face's controller: events in; the circle's payload, the bead stack, the alert sound and hidden or shown out.
+No AppKit."""
 
 import json
 import math
@@ -13,8 +14,10 @@ from jarvis.face.model import FaceView, Stack, circle, more_text, new_alerts, re
 
 class Controller:
     def __init__(self, client, show_circle: Callable[[str], None], show_stack: Callable[[Stack, str], None],
-                 play: Callable[[], None], home: Path, now: Callable[[], float] = time.time):
+                 play: Callable[[], None], home: Path, now: Callable[[], float] = time.time,
+                 show_hidden: Callable[[bool], None] = lambda hidden: None):
         self.client, self.show_circle, self.show_stack, self.play, self.home, self.now = client, show_circle, show_stack, play, home, now
+        self.show_hidden = show_hidden
         self.view = FaceView.empty()
         self._key = self._level = self._stack = None
         self._level_at = 0.0
@@ -25,6 +28,8 @@ class Controller:
 
     def _apply(self, event: dict) -> None:
         before, self.view = self.view, reduce(self.view, event)
+        if self.view.hidden != before.hidden:
+            self.show_hidden(self.view.hidden)
         self._show_circle()
         if event.get("type") != "level":
             self._show_stack()
@@ -46,7 +51,8 @@ class Controller:
         return s
 
     def _cards(self):
-        return stack(self.view, self.now()).cards
+        """The cards a click or a hover can act on: none while the face is hidden."""
+        return () if self.view.hidden else stack(self.view, self.now()).cards
 
     async def answer(self, reply: str, ask_id: str) -> None:
         if reply in ("yes", "no", "always") and any(c.ask_id == ask_id and c.question for c in self._cards()):

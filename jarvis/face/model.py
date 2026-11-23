@@ -54,10 +54,11 @@ class FaceView:
     hovered: frozenset[str]
     mic: float
     speech: float
+    hidden: bool   # Ctrl-Option-J: the circle, its beads and threads are gone
 
     @classmethod
     def empty(cls) -> "FaceView":
-        return cls("connecting", "IDLE", False, "online", (), frozenset(), 0.0, 0.0)
+        return cls("connecting", "IDLE", False, "online", (), frozenset(), 0.0, 0.0, False)
 
 
 def _rows(view: FaceView, items) -> dict:
@@ -78,16 +79,19 @@ def _reduce(view: FaceView, event: dict) -> FaceView:
     match event.get("type"):
         case "link":
             ch = {"link": event["state"]}
-            if event["state"] == "no daemon":
-                ch |= {"rows": (), "hovered": frozenset()}
+            if event["state"] == "no daemon":   # shown: the hide key lives in jarvisd, which starts with the face shown
+                ch |= {"rows": (), "hovered": frozenset(), "hidden": False}
         case "snapshot":
             st = event.get("state") or {}
             ch = {"link": "online", "voice": st.get("voice", "IDLE"), "muted": bool(st.get("muted")),
-                  "brain": (event.get("health") or {}).get("brain", "online")} | _rows(view, event.get("agents") or ())
+                  "brain": (event.get("health") or {}).get("brain", "online"),
+                  "hidden": bool(event.get("face_hidden"))} | _rows(view, event.get("agents") or ())
         case "state":
             ch = {"voice": event.get("voice", view.voice), "muted": bool(event.get("muted", view.muted))}
         case "health":
             ch = {"brain": event.get("brain", view.brain)}
+        case "face":
+            ch = {"hidden": bool(event.get("hidden", view.hidden))}
         case "level":
             rms = min(1.0, max(0.0, float(event.get("rms", 0.0))))
             ch = {"speech": rms} if event.get("source") == "voice" else {"mic": rms}

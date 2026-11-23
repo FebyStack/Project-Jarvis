@@ -2,7 +2,7 @@ import pytest
 
 from jarvis import config
 from jarvis.face.model import Card, Circle, FaceView, Stack, circle, more_text, new_alerts, reduce, stack
-from tests.face.events import agents, asking, front, health, hover, level, link, snapshot, state, worker
+from tests.face.events import agents, asking, face, front, health, hover, level, link, snapshot, state, worker
 
 
 def view(*events):
@@ -186,3 +186,10 @@ def test_an_event_with_missing_or_broken_fields_never_breaks_it(event):   # M9: 
 def test_a_snapshot_with_missing_fields_is_read_with_defaults():   # M9
     v = view({"type": "snapshot", "state": {}, "agents": [worker()]})
     assert (v.link, v.voice, v.brain, [c.id for c in cards(v)]) == ("online", "IDLE", "online", ["t1"])
+
+
+def test_the_face_is_hidden_as_jarvisd_says():   # Ctrl-Option-J, Febriel 2026-11-23
+    assert view(snapshot(hidden=True)).hidden and not view(snapshot(hidden=True), face(False)).hidden
+    assert view(snapshot(), face(True)).hidden and not view(snapshot()).hidden
+    assert not view({"type": "snapshot"}).hidden   # a jarvisd without the key: shown
+    assert not view(snapshot(hidden=True), link("no daemon")).hidden   # the key lives in jarvisd, which starts shown

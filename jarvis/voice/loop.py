@@ -39,7 +39,8 @@ class Voice:
         self.jarvis.set_mic("loading")
         if reason := await self.engines.load():
             return self.jarvis.set_mic(reason)
-        self._stop_keys = self._listen(lambda kind: self._loop.call_soon_threadsafe(self.key, kind))
+        self._stop_keys = self._listen(lambda kind: self._loop.call_soon_threadsafe(self.key, kind),
+                                       lambda: self._loop.call_soon_threadsafe(self.jarvis.toggle_face))
         self._sync()
         self._warm = asyncio.create_task(self.jarvis.warm_hints())  # kept, so it is not collected
         self._task = asyncio.create_task(self._follow())

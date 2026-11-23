@@ -5,6 +5,7 @@ Commands, one per line (the file is read and emptied every 0.2 s):
   add N            N more working workers          ask ID | work ID | done ID | stopped ID | failed ID
   clear            every worker gone               mode idle|listen|work|talk|muted    level X (0–1)
   nodaemon | back  jarvisd gone / back             cycle on|off   every 2 s one bead asks or stops asking (P8)
+  hide | show      Ctrl-Option-J, as jarvisd says it (a question does not bring the face back here)
 Clicks on Yes / No / Always / Stop are printed and acted on, as jarvisd would.
 """
 
@@ -80,6 +81,8 @@ class Demo:
         elif c[0] == "back":
             self.q.put_nowait({"type": "link", "state": "online"})
             self.push()
+        elif c[0] in ("hide", "show"):
+            self.q.put_nowait({"type": "face", "hidden": c[0] == "hide"})
         elif c[0] == "cycle":
             self.cycling = c[1] == "on"
 

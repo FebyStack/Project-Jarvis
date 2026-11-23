@@ -7,9 +7,10 @@ def state(voice, muted=False): return {"type": "state", "voice": voice, "muted":
 def level(rms, source="mic"): return {"type": "level", "rms": rms, "source": source}
 def agents(*rows): return {"type": "agents", "items": list(rows)}
 def hover(agent, on=True): return {"type": "hover", "agent": agent, "on": on}
-def snapshot(*rows, voice="IDLE", muted=False, **h):
+def face(hidden): return {"type": "face", "hidden": hidden}
+def snapshot(*rows, voice="IDLE", muted=False, hidden=False, **h):
     return {"type": "snapshot", "state": {"voice": voice, "muted": muted}, "agents": list(rows), "queue": [], "memory": [],
-            "limits": {}, "health": health(**h) | {"type": None}, "last_heard": ""}
+            "limits": {}, "health": health(**h) | {"type": None}, "last_heard": "", "face_hidden": hidden}
 
 
 def worker(state="working", id="t1", call="Nova", name="coder", since=1000.0, **kw):

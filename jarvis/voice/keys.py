@@ -1,5 +1,6 @@
-"""The talk key: a listen-only Quartz event tap that reads Right Option and nothing else. Any other key pressed, a
-click or a scroll counts only as "another key"; which key it was, or what was clicked, is never read."""
+"""The talk key: a listen-only Quartz event tap that reads Right Option, and of any other key pressed only whether it
+is Control-Option-J (the face's hide key); otherwise a key, a click or a scroll counts only as "another key". Nothing
+typed is kept, and what was clicked is never read."""
 import threading
 import time
 from typing import Callable
@@ -8,6 +9,13 @@ from jarvis import config
 from jarvis.voice.gesture import Gesture, Kind
 
 RIGHT_OPTION = 0x40  # device bit in the flags: set while Right Option is down (probe P6)
+SHIFT, CONTROL, OPTION, COMMAND = 0x20000, 0x40000, 0x80000, 0x100000  # kCGEventFlagMask*
+FACE_KEY = 38  # J
+
+
+def face_key(keycode: int, flags: int) -> bool:
+    """Control-Option-J, with neither Command nor Shift: the face hides or shows (Febriel, 2026-11-23)."""
+    return keycode == FACE_KEY and flags & (SHIFT | CONTROL | OPTION | COMMAND) == CONTROL | OPTION
 
 
 def allowed() -> bool:
@@ -16,9 +24,10 @@ def allowed() -> bool:
     return bool(Quartz.CGPreflightListenEventAccess())
 
 
-def listen(on_kind: Callable[[Kind], None], keycode: int = config.TALK_KEYCODE) -> Callable[[], None] | None:
-    """Starts a listen-only tap on its own thread; `on_kind` is called on that thread. Returns a stop function,
-    or None when the tap cannot be made (no permission)."""
+def listen(on_kind: Callable[[Kind], None], on_face: Callable[[], None],
+           keycode: int = config.TALK_KEYCODE) -> Callable[[], None] | None:
+    """Starts a listen-only tap on its own thread; `on_kind` and `on_face` (Control-Option-J, not its key repeat) are
+    called on that thread. Returns a stop function, or None when the tap cannot be made (no permission)."""
     if not allowed():
         return None
     import Quartz as Q
@@ -33,7 +42,11 @@ def listen(on_kind: Callable[[Kind], None], keycode: int = config.TALK_KEYCODE) 
                 on_kind(kind)
             return event
         now = time.monotonic()
-        if etype in others:
+        if etype == Q.kCGEventKeyDown and face_key(Q.CGEventGetIntegerValueField(event, Q.kCGKeyboardEventKeycode),
+                                                   Q.CGEventGetFlags(event)):
+            if not Q.CGEventGetIntegerValueField(event, Q.kCGKeyboardEventAutorepeat):
+                on_face()
+        if etype in others:  # the face key too: with Right Option held, it ends the press as typing does, no talk
             kind = gesture.other_key(now)
         elif Q.CGEventGetIntegerValueField(event, Q.kCGKeyboardEventKeycode) != keycode:
             kind = None  # another modifier alone is not typing

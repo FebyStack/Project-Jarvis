@@ -6,7 +6,7 @@ import pytest
 from jarvis import config
 from jarvis.face import place
 from jarvis.face.controller import Controller
-from tests.face.events import agents, asking, front, hover, level, snapshot, state, worker
+from tests.face.events import agents, asking, face, front, hover, level, snapshot, state, worker
 
 
 class FakeClient:
@@ -25,9 +25,10 @@ class FakeClient:
 
 class Rig:
     def __init__(self, tmp_path):
-        self.fake, self.clock, self.shown, self.stacks, self.played = FakeClient(), [1001.0], [], [], []
+        self.fake, self.clock, self.shown, self.stacks, self.played, self.hidden = FakeClient(), [1001.0], [], [], [], []
         self.ctl = Controller(self.fake, self.shown.append, lambda s, m: self.stacks.append((s, m)),
-                              lambda: self.played.append(1), tmp_path, now=lambda: self.clock[0])
+                              lambda: self.played.append(1), tmp_path, now=lambda: self.clock[0],
+                              show_hidden=self.hidden.append)
 
     async def push(self, *events):
         for e in events:
@@ -175,3 +176,21 @@ async def test_leaving_a_bead_is_heard_even_while_its_card_is_hidden(rig):   # t
     rig.ctl.hover("t1", False)
     await rig.push(agents(worker(since=1.0)))
     assert not rig.stacks[-1][0].cards[0].open
+
+
+async def test_the_face_hides_and_shows_only_on_a_change(rig):   # Ctrl-Option-J
+    await rig.push(snapshot(worker(), hidden=True), face(True), agents(worker()), face(False), face(False),
+                   snapshot(worker()), face(True))
+    assert rig.hidden == [True, False, True]
+
+
+async def test_nothing_on_a_hidden_face_can_be_clicked(rig):
+    await rig.push(snapshot(asking(), worker(id="t2", since=1.0), hidden=True))
+    await rig.ctl.answer("yes", "kt1")
+    await rig.ctl.stop("t1")
+    await rig.ctl.stop("t2")
+    rig.ctl.hover("t2", True)
+    assert rig.fake.answers == rig.fake.stops == [] and not rig.stacks[-1][0].cards[1].open
+    await rig.push(face(False))
+    await rig.ctl.answer("yes", "kt1")
+    assert rig.fake.answers == [("yes", "kt1")]

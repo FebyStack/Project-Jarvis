@@ -100,10 +100,11 @@ def mic():
 class FakeKeys:
     """`listen` for Voice: keeps the callback; never a real key listener."""
     def __init__(self):
-        self.on_kind, self.stopped = None, False
+        self.on_kind = self.on_face = None
+        self.stopped = False
 
-    def __call__(self, on_kind):
-        self.on_kind = on_kind
+    def __call__(self, on_kind, on_face):
+        self.on_kind, self.on_face = on_kind, on_face
         return lambda: setattr(self, "stopped", True)
 
 
@@ -430,7 +431,7 @@ async def test_holding_with_nothing_said_gives_up(voice, jarvis, engines, bridge
 
 
 async def test_without_a_listener_the_footer_says_so(jarvis, engines, mic):
-    v = Voice(jarvis, engines, mic, Segmenter(lambda f: 0.0), listen=lambda on_kind: None)
+    v = Voice(jarvis, engines, mic, Segmenter(lambda f: 0.0), listen=lambda on_kind, on_face: None)
     await v.start(); await asyncio.sleep(0.01)
     assert jarvis.health()["mic"] == "on, no key"
     await v.stop()
@@ -440,6 +441,11 @@ async def test_a_key_gesture_hops_to_the_loop_and_stop_ends_the_listener(voice, 
     await asyncio.to_thread(keys.on_kind, "down")  # the listener calls back on its own thread
     await until(lambda: voice.seg.held)
     await voice.stop(); assert keys.stopped
+
+
+async def test_the_face_key_hops_to_the_loop_and_hides_the_face(voice, jarvis, keys):
+    await asyncio.to_thread(keys.on_face)   # Ctrl-Option-J, on the listener's thread
+    await until(lambda: jarvis.face_hidden)
 
 
 async def test_the_key_holds_speech_from_the_moment_it_goes_down(voice, jarvis, speaker):
@@ -452,7 +458,7 @@ async def test_stop_closes_the_engines(voice, engines):
 
 
 async def test_start_makes_the_holding_lines_ahead(jarvis, engines, mic, speaker):
-    v = Voice(jarvis, engines, mic, Segmenter(lambda f: 0.0), listen=lambda on_kind: None)
+    v = Voice(jarvis, engines, mic, Segmenter(lambda f: 0.0), listen=lambda on_kind, on_face: None)
     await v.start(); await asyncio.sleep(0.01)
     assert ("warm", ("Looking that up.", "On it.", "One moment.")) in speaker.calls
     await v.stop()

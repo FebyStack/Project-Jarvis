@@ -198,3 +198,40 @@ async def test_a_dispatch_that_never_starts_frees_its_name_when_the_child_goes(j
     bridge.emit({"kind": "exited"})
     assert not jarvis._named
     await t
+
+
+async def drained(events) -> list[dict]:
+    out = []
+    try:
+        while True:
+            out.append(await asyncio.wait_for(anext(events), 0.05))
+    except TimeoutError:
+        return out
+
+
+async def test_the_face_key_hides_and_shows_the_face_and_says_so(jarvis):   # Ctrl-Option-J, Febriel 2026-11-23
+    events = jarvis.subscribe()
+    assert (await anext(events))["face_hidden"] is False   # jarvisd starts with the face shown
+    jarvis.toggle_face()
+    assert [(e["type"], e["hidden"]) for e in await drained(events)] == [("face", True)]
+    assert jarvis.face_hidden and (await anext(jarvis.subscribe()))["face_hidden"] is True
+    events = jarvis.subscribe(); await anext(events)
+    jarvis.toggle_face()
+    assert [(e["type"], e["hidden"]) for e in await drained(events)] == [("face", False)]
+
+
+async def test_a_question_brings_the_hidden_face_back_before_its_bead(jarvis, bridge, tmp_path):
+    await start_worker(jarvis, bridge, workers=(("t1", "coder", "tu1"), ("t2", "researcher", "tu2")))
+    jarvis.toggle_face()
+    events = jarvis.subscribe(); await anext(events)
+    h1 = asyncio.create_task(jarvis.hook(call_from("t1", "Write", outside_write(tmp_path))))
+    await until(lambda: jarvis.asks.pending())
+    h2 = asyncio.create_task(jarvis.hook(call_from("t2", "Write", outside_write(tmp_path))))   # while shown: no news
+    await until(lambda: len(jarvis.asks.pending()) == 2)
+    seen = await drained(events)
+    faces = [i for i, e in enumerate(seen) if e["type"] == "face"]
+    asked = next(i for i, e in enumerate(seen) if e["type"] == "agents" and any(r["question"] for r in e["items"]))
+    assert len(faces) == 1 and seen[faces[0]]["hidden"] is False and faces[0] < asked and not jarvis.face_hidden
+    for a in jarvis.asks.pending():
+        jarvis.answer("no", ask_id=a.id)
+    await h1; await h2

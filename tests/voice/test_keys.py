@@ -10,7 +10,7 @@ from jarvis.voice import keys
 
 def test_no_permission_means_no_listener(monkeypatch):
     monkeypatch.setattr(keys, "allowed", lambda: False)
-    assert keys.listen(lambda kind: None) is None
+    assert keys.listen(lambda kind: None, lambda: None) is None
 
 
 def test_importing_the_key_listener_and_the_loop_loads_no_quartz():
@@ -25,7 +25,7 @@ class FakeQuartz:
     kCGEventTapDisabledByTimeout, kCGEventTapDisabledByUserInput = 0xFFFFFFFE, 0xFFFFFFFF
     kCGEventLeftMouseDown, kCGEventRightMouseDown, kCGEventKeyDown = 1, 3, 10
     kCGEventFlagsChanged, kCGEventScrollWheel, kCGEventOtherMouseDown = 12, 22, 25
-    kCGKeyboardEventKeycode = 9
+    kCGKeyboardEventKeycode, kCGKeyboardEventAutorepeat = 9, 8
     kCGSessionEventTap = kCGHeadInsertEventTap = kCGEventTapOptionListenOnly = kCFRunLoopCommonModes = 0
 
     def __init__(self):
@@ -43,7 +43,8 @@ class FakeQuartz:
     def CFRunLoopRun(self): self.stopped.wait(2)
     def CFRunLoopStop(self, loop): self.stopped.set()
     def CFMachPortInvalidate(self, tap): pass
-    def CGEventGetIntegerValueField(self, event, field): return event["keycode"]
+    def CGEventGetIntegerValueField(self, event, field):
+        return event["keycode"] if field == self.kCGKeyboardEventKeycode else event.get("repeat", 0)
     def CGEventGetFlags(self, event): return event["flags"]
 
 
@@ -51,10 +52,10 @@ class FakeQuartz:
 def tap(monkeypatch):
     q = FakeQuartz()
     monkeypatch.setitem(sys.modules, "Quartz", q)
-    kinds = []
-    stop = keys.listen(kinds.append)
+    kinds, faces = [], []
+    stop = keys.listen(kinds.append, lambda: faces.append(1))
     send = lambda etype, event=None: q.callback(None, etype, event, None)
-    t = SimpleNamespace(q=q, kinds=kinds, send=send,
+    t = SimpleNamespace(q=q, kinds=kinds, faces=faces, send=send,
                         down=lambda: send(q.kCGEventFlagsChanged, {"keycode": 61, "flags": keys.RIGHT_OPTION}),
                         up=lambda: send(q.kCGEventFlagsChanged, {"keycode": 61, "flags": 0}))
     yield t
@@ -80,3 +81,25 @@ def test_a_press_under_way_when_macos_switches_the_tap_off_ends_as_a_chord(tap, 
 def test_the_tap_switched_off_with_the_key_up_says_nothing(tap):
     tap.send(tap.q.kCGEventTapDisabledByTimeout)
     assert tap.kinds == []
+
+
+FACE = keys.CONTROL | keys.OPTION
+
+
+def test_control_option_j_and_nothing_more_is_the_face_key():
+    assert keys.face_key(38, FACE) and keys.face_key(38, FACE | keys.RIGHT_OPTION | 0x100)   # device bits don't count
+    assert not any(keys.face_key(38, f) for f in (keys.CONTROL, keys.OPTION, FACE | keys.SHIFT, FACE | keys.COMMAND))
+    assert not keys.face_key(37, FACE)
+
+
+def test_the_face_key_toggles_the_face_and_starts_no_talk(tap):
+    tap.send(tap.q.kCGEventKeyDown, {"keycode": 38, "flags": FACE})
+    tap.send(tap.q.kCGEventKeyDown, {"keycode": 38, "flags": FACE, "repeat": 1})   # held: the key repeats
+    tap.send(tap.q.kCGEventKeyDown, {"keycode": 38, "flags": FACE | keys.SHIFT})
+    tap.send(tap.q.kCGEventKeyDown, {"keycode": 4, "flags": FACE})
+    assert tap.faces == [1] and tap.kinds == []
+
+
+def test_with_right_option_as_its_option_the_press_ends_as_typing_does(tap):
+    tap.down(); tap.send(tap.q.kCGEventKeyDown, {"keycode": 38, "flags": FACE | keys.RIGHT_OPTION}); tap.up()
+    assert tap.faces == [1] and tap.kinds == ["down", "chord"]   # a chord: nothing starts, nothing shows

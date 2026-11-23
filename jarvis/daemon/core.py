@@ -135,6 +135,7 @@ class Jarvis:
         self._tasks: list[asyncio.Task] = []
         self._sent_at = 0.0
         self._first_token = False
+        self.face_hidden = False  # Ctrl-Option-J; not kept across restarts (Febriel, 2026-11-23)
 
     # ---- lifecycle -------------------------------------------------------------------------------------------
 
@@ -648,6 +649,8 @@ class Jarvis:
         self._publish("memory", op=op, path=rel)
 
     def _asks_changed(self) -> None:
+        if any(a.id not in self._announced for a in self.asks.pending()):
+            self._hide_face(False)  # a question brings the face back, before its bead comes
         self._publish_agents()
         for a in self.asks.pending():
             if a.id in self._announced:
@@ -660,6 +663,15 @@ class Jarvis:
             else:
                 self._reply(a.channel, text, True)
         self._publish_queue()
+
+    def toggle_face(self) -> None:
+        """Ctrl-Option-J: the face hides, or shows again."""
+        self._hide_face(not self.face_hidden)
+
+    def _hide_face(self, hidden: bool) -> None:
+        if hidden != self.face_hidden:
+            self.face_hidden = hidden
+            self._publish("face", hidden=hidden)
 
     # ---- voice -----------------------------------------------------------------------------------------------
 
@@ -757,7 +769,7 @@ class Jarvis:
         try:
             yield self._event("snapshot", state=self._state_body(), agents=self._agent_rows(),
                               queue=self._queue_rows(), memory=list(self._memory), limits=dict(self._limits),
-                              health=self._health_body(), last_heard=self._last_heard)
+                              health=self._health_body(), last_heard=self._last_heard, face_hidden=self.face_hidden)
             while True:
                 yield await q.get()
         finally:
